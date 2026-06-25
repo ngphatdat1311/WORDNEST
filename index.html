@@ -66,6 +66,15 @@
     font-size: 0.82rem; color: var(--text2); font-weight: 500;
   }
   .streak-badge .fire { color: var(--gold); font-size: 1rem; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .fullscreen-btn {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 0.9rem; color: var(--text2);
+    transition: background .2s, border-color .2s, color .2s;
+  }
+  .fullscreen-btn:hover { background: var(--bg3); border-color: var(--accent); color: var(--accent); }
 
   /* ── NAV ── */
   nav {
@@ -208,10 +217,10 @@
 
   .flashcard-wrap {
     perspective: 1000px;
-    height: 320px;
+    height: 260px;
     cursor: pointer;
     user-select: none;
-    margin-bottom: 1.6rem;
+    margin-bottom: 1rem;
   }
   .flashcard-inner {
     width: 100%; height: 100%;
@@ -230,7 +239,7 @@
     box-shadow: var(--shadow2);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 2.5rem 2rem;
+    padding: 1.5rem 2rem;
   }
   .fc-back { transform: rotateY(180deg); }
   .fc-face .hint { font-size: 0.75rem; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem; }
@@ -274,6 +283,7 @@
 
   .fc-nav {
     display: flex; align-items: center; justify-content: center; gap: 14px;
+    margin-bottom: 0.8rem;
   }
   .fc-nav .nav-btn {
     background: var(--card); border: 1px solid var(--border);
@@ -286,7 +296,7 @@
   .fc-nav .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
   .fc-nav .nav-btn:disabled { opacity: .35; cursor: not-allowed; }
   .fc-know-btns {
-    display: flex; gap: 10px; margin-top: 1.4rem; justify-content: center;
+    display: flex; gap: 10px; margin-top: 0; justify-content: center;
   }
   .know-btn {
     flex: 1; max-width: 160px;
@@ -516,6 +526,19 @@
     background: var(--card); color: var(--text); outline: none; cursor: pointer;
   }
   .form-select:focus { border-color: var(--accent); }
+  .autofill-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #EFF7F2; border: 1px solid #B8D8C0;
+    border-radius: 6px; padding: 3px 10px;
+    font-size: 0.75rem; color: var(--green);
+    margin-left: 6px; font-weight: 500;
+    animation: fadein .3s;
+  }
+  .autofill-loading { color: var(--gold); background: #FDF8EE; border-color: #E8D89A; }
+  @keyframes fadein { from{opacity:0;transform:translateY(-3px)} to{opacity:1;transform:translateY(0)} }
+  .form-input.autofilled { border-color: var(--green); background: #F5FBF7; }
+  .aw-word-row { display: flex; align-items: flex-end; gap: 10px; }
+  .aw-word-row .form-group { flex:1; }
 
   /* ── TOAST ── */
   .toast {
@@ -549,9 +572,12 @@
 
 <header>
   <div class="logo">WordNest <span>Học Tiếng Anh</span></div>
-  <div class="streak-badge">
-    <span class="fire">🔥</span>
-    <span id="streak-count">0</span> ngày liên tiếp
+  <div class="header-right">
+    <div class="streak-badge">
+      <span class="fire">🔥</span>
+      <span id="streak-count">0</span> ngày liên tiếp
+    </div>
+    <button class="fullscreen-btn" onclick="toggleFullscreen()" id="fs-btn" title="Toàn màn hình">⛶</button>
   </div>
 </header>
 
@@ -648,14 +674,12 @@
   <div class="flashcard-wrap" id="flashcard" onclick="flipCard()">
     <div class="flashcard-inner" id="fc-inner">
       <div class="fc-face fc-front">
-        <div class="hint">Từ tiếng Anh</div>
         <div class="word" id="fc-word">—</div>
         <div class="phonetic" id="fc-phonetic"></div>
         <div class="type-tag" id="fc-type"></div>
         <div class="speak-btn" onclick="speakWord(event)" title="Phát âm">🔊</div>
       </div>
       <div class="fc-face fc-back">
-        <div class="hint">Nghĩa tiếng Việt</div>
         <div class="type-tag" id="fc-type-back"></div>
         <div class="meaning" id="fc-meaning">—</div>
         <div class="example" id="fc-example"></div>
@@ -836,18 +860,22 @@
     <div class="add-word-form">
       <div class="form-row">
         <div class="form-group">
-          <label>Từ tiếng Anh *</label>
-          <input class="form-input" type="text" id="aw-word" placeholder="e.g. serendipity">
+          <label>Từ tiếng Anh * <span id="aw-autofill-status"></span></label>
+          <input class="form-input" type="text" id="aw-word" placeholder="e.g. serendipity"
+            oninput="scheduleAutoLookup()"
+            onblur="doAutoLookup()">
         </div>
         <div class="form-group">
           <label>Phiên âm (tùy chọn)</label>
-          <input class="form-input" type="text" id="aw-phonetic" placeholder="e.g. /ˌser.ənˈdɪp.ɪ.ti/">
+          <input class="form-input" type="text" id="aw-phonetic" placeholder="e.g. /ˌser.ənˈdɪp.ɪ.ti/"
+            onfocus="clearAutoIfTyped('aw-phonetic')">
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>Nghĩa tiếng Việt *</label>
-          <input class="form-input" type="text" id="aw-meaning" placeholder="e.g. sự tình cờ may mắn">
+          <input class="form-input" type="text" id="aw-meaning" placeholder="e.g. sự tình cờ may mắn"
+            onfocus="clearAutoIfTyped('aw-meaning')">
         </div>
         <div class="form-group">
           <label>Loại từ</label>
@@ -863,7 +891,8 @@
       </div>
       <div class="form-group">
         <label>Ví dụ câu (tùy chọn)</label>
-        <input class="form-input" type="text" id="aw-example" placeholder="e.g. It was serendipity that we met.">
+        <input class="form-input" type="text" id="aw-example" placeholder="e.g. It was serendipity that we met."
+          onfocus="clearAutoIfTyped('aw-example')">
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -1068,7 +1097,11 @@ function markCard(known) {
   }
   showToast(known ? '✅ Đã đánh dấu biết!' : '❌ Sẽ ôn lại sau!');
   if(fcIndex<fcWords.length-1) { fcIndex++; renderFlashcard(); }
-  else showToast('🎉 Đã xem hết thẻ!','success');
+  else {
+    showToast('🎉 Đã xem hết tất cả thẻ!','success');
+    document.getElementById('fc-know-row').style.display='none';
+    document.getElementById('fc-next').disabled=true;
+  }
 }
 
 function typeLabel(t) {
@@ -1130,6 +1163,18 @@ function nextQuiz() {
   if(qzIndex<qzWords.length) renderQuizQ();
   else showQuizResult();
 }
+
+// ── QUIZ KEYBOARD SHORTCUT (Enter / Space) ───────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if(document.getElementById('section-quiz').classList.contains('active')) {
+    const nextBtn = document.getElementById('qz-next');
+    if((e.key==='Enter'||e.key===' ') && nextBtn && nextBtn.style.display!=='none') {
+      e.preventDefault();
+      nextQuiz();
+    }
+  }
+});
+
 function showQuizResult() {
   document.getElementById('quiz-area').style.display='none';
   document.getElementById('quiz-result').style.display='';
@@ -1143,7 +1188,7 @@ function showQuizResult() {
 }
 
 // ── SPELLING ─────────────────────────────────────────────────────────────
-let spWords=[], spIndex=0, spCorrect=0, spWrong=0, spStreak=0, spHintLevel=0;
+let spWords=[], spIndex=0, spCorrect=0, spWrong=0, spStreak=0, spHintLevel=0, spRevealed=false;
 function initSpelling() {
   spWords = shuffleArr(words);
   spIndex=0; spCorrect=0; spWrong=0; spStreak=0;
@@ -1155,8 +1200,16 @@ function updateSpScore() {
   document.getElementById('sp-streak').textContent=spStreak;
 }
 function nextSpelling(init=false) {
-  if(!init) spIndex=(spIndex+1)%spWords.length;
+  if(!init) {
+    spIndex++;
+    if(spIndex >= spWords.length) {
+      showToast('🎉 Đã luyện hết tất cả từ!', 'success');
+      spIndex = 0;
+      spWords = shuffleArr(words);
+    }
+  }
   spHintLevel=0;
+  spRevealed=false;
   const w = spWords[spIndex];
   document.getElementById('sp-meaning').textContent=w.meaning;
   document.getElementById('sp-phonetic').textContent=w.phonetic||'';
@@ -1191,9 +1244,23 @@ function revealWord() {
   const w = spWords[spIndex].word;
   document.getElementById('sp-input').value=w;
   updateBlanks();
+  if(!spRevealed) {
+    spRevealed=true;
+    spWrong++; spStreak=0;
+    updateSpScore();
+    const fb = document.getElementById('sp-feedback');
+    fb.className='quiz-feedback wrong show';
+    fb.innerHTML=`👁️ Đã hiện từ — tính là sai. Từ đúng: <strong>${w}</strong>`;
+    document.getElementById('sp-next').style.display='block';
+    document.getElementById('sp-input').className='spell-input wrong';
+    // Update mastery
+    const idx=words.findIndex(x=>x.word===w);
+    if(idx!==-1){words[idx].mastery=Math.max(0,words[idx].mastery-1);saveWords();}
+  }
 }
 function speakSpelling() { speak(spWords[spIndex]?.word||''); }
 function checkSpelling() {
+  if(spRevealed) { showToast('Đã hiện từ — ấn "Từ tiếp theo" để tiếp tục!'); return; }
   const typed = document.getElementById('sp-input').value.trim();
   const w = spWords[spIndex].word;
   const inp = document.getElementById('sp-input');
@@ -1363,6 +1430,126 @@ document.addEventListener('DOMContentLoaded', () => {
   const greet = h<12?'Chào buổi sáng':h<18?'Chào buổi chiều':'Chào buổi tối';
   document.querySelector('#section-home .section-title').textContent = greet+' ! 👋';
 });
+
+// ── FULLSCREEN ────────────────────────────────────────────────────────────
+function toggleFullscreen() {
+  const btn = document.getElementById('fs-btn');
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().then(()=>{
+      btn.textContent='⛶'; btn.title='Thoát toàn màn hình';
+      btn.style.background='var(--bg3)';
+    }).catch(()=>{});
+  } else {
+    document.exitFullscreen().then(()=>{
+      btn.textContent='⛶'; btn.title='Toàn màn hình';
+      btn.style.background='';
+    }).catch(()=>{});
+  }
+}
+document.addEventListener('fullscreenchange', ()=>{
+  const btn = document.getElementById('fs-btn');
+  if(!btn) return;
+  if(document.fullscreenElement) {
+    btn.title='Thoát toàn màn hình'; btn.style.background='var(--bg3)';
+  } else {
+    btn.title='Toàn màn hình'; btn.style.background='';
+  }
+});
+
+// ── AUTO-LOOKUP (Add Word) ─────────────────────────────────────────────────
+let autoLookupTimer=null;
+let awAutoFilledFields={}; // track which fields were auto-filled
+
+function scheduleAutoLookup() {
+  clearTimeout(autoLookupTimer);
+  const word = document.getElementById('aw-word').value.trim();
+  if(word.length<2) return;
+  autoLookupTimer = setTimeout(doAutoLookup, 900);
+}
+
+async function doAutoLookup() {
+  clearTimeout(autoLookupTimer);
+  const word = document.getElementById('aw-word').value.trim();
+  if(word.length<2) return;
+
+  const statusEl = document.getElementById('aw-autofill-status');
+  statusEl.innerHTML='<span class="autofill-badge autofill-loading">⏳ Đang tra...</span>';
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:400,
+        messages:[{
+          role:'user',
+          content:`Tra từ tiếng Anh: "${word}". Trả lời JSON duy nhất (không markdown, không giải thích):
+{"phonetic":"IPA phonetic","meaning":"nghĩa tiếng Việt ngắn gọn","example":"1 câu ví dụ ngắn bằng tiếng Anh","type":"noun|verb|adj|adv|phrase|other","level":"easy|medium|hard"}
+Nếu từ không tồn tại, trả về {"error":"not_found"}`
+        }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content?.[0]?.text||'';
+    const clean = text.replace(/```json|```/g,'').trim();
+    const info = JSON.parse(clean);
+
+    if(info.error) {
+      statusEl.innerHTML='<span class="autofill-badge" style="background:#FDF2F2;border-color:#E8C0C0;color:var(--red)">❌ Không tìm thấy</span>';
+      return;
+    }
+
+    awAutoFilledFields={};
+    const fields=[
+      {id:'aw-phonetic',  val:info.phonetic},
+      {id:'aw-meaning',   val:info.meaning},
+      {id:'aw-example',   val:info.example},
+    ];
+    fields.forEach(({id,val})=>{
+      const el=document.getElementById(id);
+      if(el && !el.dataset.userEdited && val) {
+        el.value=val;
+        el.classList.add('autofilled');
+        awAutoFilledFields[id]=true;
+      }
+    });
+    // set type select
+    const typeEl=document.getElementById('aw-type');
+    if(info.type && ['noun','verb','adj','adv','phrase','other'].includes(info.type)) typeEl.value=info.type;
+    // set level select
+    const levelEl=document.getElementById('aw-level');
+    if(info.level && ['easy','medium','hard'].includes(info.level)) levelEl.value=info.level;
+
+    statusEl.innerHTML='<span class="autofill-badge">✨ Đã tự điền</span>';
+  } catch(e) {
+    statusEl.innerHTML='<span class="autofill-badge" style="background:#FDF2F2;border-color:#E8C0C0;color:var(--red)">⚠️ Lỗi tra từ</span>';
+  }
+}
+
+function clearAutoIfTyped(fieldId) {
+  // When user focuses a field and starts typing, mark as user-edited
+  const el=document.getElementById(fieldId);
+  if(!el) return;
+  el.addEventListener('input', function onInput(){
+    el.dataset.userEdited='1';
+    el.classList.remove('autofilled');
+    el.removeEventListener('input',onInput);
+  },{once:true});
+}
+
+// Reset user-edited flags when word changes
+document.addEventListener('DOMContentLoaded',()=>{
+  const wEl=document.getElementById('aw-word');
+  if(wEl) wEl.addEventListener('input',()=>{
+    ['aw-phonetic','aw-meaning','aw-example'].forEach(id=>{
+      const f=document.getElementById(id);
+      if(f){delete f.dataset.userEdited; f.classList.remove('autofilled');}
+    });
+    document.getElementById('aw-autofill-status').innerHTML='';
+  });
+});
+
 </script>
 </body>
 </html>
