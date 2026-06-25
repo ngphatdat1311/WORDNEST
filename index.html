@@ -452,6 +452,36 @@
   .wl-speak:hover { color: var(--accent); }
   .wl-delete { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--text3); padding: 2px; transition: color .15s; }
   .wl-delete:hover { color: var(--red); }
+  .wl-edit { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--text3); padding: 2px; transition: color .15s; }
+  .wl-edit:hover { color: var(--blue); }
+
+  /* ── EDIT MODAL ── */
+  .edit-overlay {
+    position: fixed; inset: 0; background: rgba(58,50,40,.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200; padding: 1rem;
+  }
+  .edit-box {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--r2); padding: 1.8rem;
+    max-width: 520px; width: 100%; box-shadow: var(--shadow2);
+    max-height: 90vh; overflow-y: auto;
+  }
+  .edit-box .eb-title {
+    font-family: 'Lora',serif; font-size: 1.15rem;
+    color: var(--text); margin-bottom: 1.4rem;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .edit-box .eb-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 1.2rem; color: var(--text3); line-height: 1;
+  }
+  .edit-box .eb-close:hover { color: var(--text); }
+  .edit-form-grid { display: grid; gap: 12px; }
+  .edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .edit-group label { display: block; font-size: 0.78rem; color: var(--text3); margin-bottom: 4px; }
+  .edit-btns { display: flex; gap: 10px; margin-top: 1.2rem; }
+  .edit-btns .btn { flex: 1; padding: 11px; }
   .confirm-overlay {
     position: fixed; inset: 0; background: rgba(58,50,40,.45);
     display: flex; align-items: center; justify-content: center;
@@ -798,6 +828,7 @@
           <th>Chủ đề</th>
           <th>Thuộc</th>
           <th>🔊</th>
+          <th>✏️</th>
           <th></th>
         </tr>
       </thead>
@@ -1299,7 +1330,7 @@ function renderWordList() {
     return matchSearch && matchCat;
   });
   const tbody = document.getElementById('wl-body');
-  if(!list.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text3)">Không tìm thấy từ nào</td></tr>';return;}
+  if(!list.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text3)">Không tìm thấy từ nào</td></tr>';return;}
   tbody.innerHTML = list.map(w=>{
     const dots = [0,1,2,3].map(i=>`<div class="wl-dot${i<w.mastery?' filled':''}"></div>`).join('');
     const esc = w.word.replace(/'/g,"\\'");
@@ -1309,6 +1340,7 @@ function renderWordList() {
       <td><span class="wl-type">${w.category||'Khác'}</span></td>
       <td><div class="wl-mastery">${dots}</div></td>
       <td><button class="wl-speak" onclick="speak('${esc}')">🔊</button></td>
+      <td><button class="wl-edit" onclick="openEditModal('${esc}')" title="Sửa từ này">✏️</button></td>
       <td><button class="wl-delete" onclick="confirmDelete('${esc}')" title="Xóa từ này">🗑️</button></td>
     </tr>`;
   }).join('');
@@ -1420,6 +1452,103 @@ function deleteWord(word) {
   renderHome();
 }
 
+// ── EDIT WORD ─────────────────────────────────────────────────────────────
+function openEditModal(word) {
+  const w = words.find(x=>x.word===word);
+  if(!w) return;
+  // Remove old if exists
+  const old = document.getElementById('edit-overlay');
+  if(old) old.remove();
+
+  const typeOptions = ['noun','verb','adj','adv','phrase','other'];
+  const typeLabels = {noun:'Danh từ (noun)',verb:'Động từ (verb)',adj:'Tính từ (adj)',adv:'Trạng từ (adv)',phrase:'Cụm từ (phrase)',other:'Khác'};
+  const typeSel = typeOptions.map(t=>`<option value="${t}"${w.type===t?' selected':''}>${typeLabels[t]}</option>`).join('');
+  const levelSel = ['easy','medium','hard'].map(l=>`<option value="${l}"${w.level===l?' selected':''}>${l==='easy'?'Dễ (A1–A2)':l==='medium'?'Trung bình (B1–B2)':'Khó (C1–C2)'}</option>`).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'edit-overlay';
+  overlay.id = 'edit-overlay';
+  overlay.innerHTML = `
+    <div class="edit-box">
+      <div class="eb-title">
+        <span>✏️ Sửa từ: <em>${w.word}</em></span>
+        <button class="eb-close" onclick="closeEditModal()">✕</button>
+      </div>
+      <div class="edit-form-grid">
+        <div class="edit-row">
+          <div class="edit-group">
+            <label>Từ tiếng Anh</label>
+            <input class="form-input" id="ew-word" value="${w.word}">
+          </div>
+          <div class="edit-group">
+            <label>Phiên âm</label>
+            <input class="form-input" id="ew-phonetic" value="${w.phonetic||''}">
+          </div>
+        </div>
+        <div class="edit-group">
+          <label>Nghĩa tiếng Việt *</label>
+          <input class="form-input" id="ew-meaning" value="${w.meaning}">
+        </div>
+        <div class="edit-group">
+          <label>Ví dụ câu</label>
+          <input class="form-input" id="ew-example" value="${w.example||''}">
+        </div>
+        <div class="edit-row">
+          <div class="edit-group">
+            <label>Chủ đề / Bộ từ</label>
+            <input class="form-input" id="ew-category" value="${w.category||''}">
+          </div>
+          <div class="edit-group">
+            <label>Loại từ</label>
+            <select class="form-select" id="ew-type">${typeSel}</select>
+          </div>
+        </div>
+        <div class="edit-group">
+          <label>Mức độ khó</label>
+          <select class="form-select" id="ew-level">${levelSel}</select>
+        </div>
+      </div>
+      <div class="edit-btns">
+        <button class="btn btn-outline" onclick="closeEditModal()">Hủy</button>
+        <button class="btn" onclick="saveEditWord('${word.replace(/'/g,"\\'")}')">💾 Lưu thay đổi</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if(e.target===overlay) closeEditModal(); });
+}
+
+function closeEditModal() {
+  const el = document.getElementById('edit-overlay');
+  if(el) el.remove();
+}
+
+function saveEditWord(originalWord) {
+  const idx = words.findIndex(x=>x.word===originalWord);
+  if(idx===-1) return;
+  const newWord = document.getElementById('ew-word').value.trim();
+  const newMeaning = document.getElementById('ew-meaning').value.trim();
+  if(!newWord||!newMeaning){showToast('Cần có từ và nghĩa!','error');return;}
+  // Check duplicate (if word changed)
+  if(newWord.toLowerCase()!==originalWord.toLowerCase() && words.find(w=>w.word.toLowerCase()===newWord.toLowerCase())) {
+    showToast('Từ "'+newWord+'" đã tồn tại!','error'); return;
+  }
+  words[idx] = {
+    ...words[idx],
+    word: newWord,
+    phonetic: document.getElementById('ew-phonetic').value.trim(),
+    meaning: newMeaning,
+    example: document.getElementById('ew-example').value.trim(),
+    category: document.getElementById('ew-category').value.trim()||'Chung',
+    type: document.getElementById('ew-type').value,
+    level: document.getElementById('ew-level').value,
+  };
+  saveWords();
+  closeEditModal();
+  showToast('✅ Đã cập nhật "'+newWord+'"!','success');
+  renderWordList();
+  renderHome();
+}
+
 
 document.addEventListener('DOMContentLoaded', () => {
   words = loadWords();
@@ -1478,15 +1607,24 @@ async function doAutoLookup() {
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': '',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model:'claude-sonnet-4-6',
         max_tokens:400,
+        system:'Bạn là từ điển Anh-Việt. Chỉ trả về JSON, không có markdown hay text khác.',
         messages:[{
           role:'user',
-          content:`Tra từ tiếng Anh: "${word}". Trả lời JSON duy nhất (không markdown, không giải thích):
-{"phonetic":"IPA phonetic","meaning":"nghĩa tiếng Việt ngắn gọn","example":"1 câu ví dụ ngắn bằng tiếng Anh","type":"noun|verb|adj|adv|phrase|other","level":"easy|medium|hard"}
-Nếu từ không tồn tại, trả về {"error":"not_found"}`
+          content:`Tra từ tiếng Anh: "${word}". Trả về JSON (không markdown, không giải thích):
+{"phonetic":"/IPA/","meaning":"nghĩa tiếng Việt ngắn gọn","example":"1 câu ví dụ tiếng Anh","type":"noun","level":"medium","category":"chủ đề phù hợp tiếng Việt"}
+- type: chỉ 1 trong [noun, verb, adj, adv, phrase, other]
+- level: chỉ 1 trong [easy, medium, hard]
+- category: 1-3 từ tiếng Việt, ví dụ: Tính cách, Công việc, Thiên nhiên, Cảm xúc, Giao tiếp, Triết học, Cuộc sống...
+Nếu không phải từ tiếng Anh hợp lệ, trả về {"error":"not_found"}`
         }]
       })
     });
@@ -1505,6 +1643,7 @@ Nếu từ không tồn tại, trả về {"error":"not_found"}`
       {id:'aw-phonetic',  val:info.phonetic},
       {id:'aw-meaning',   val:info.meaning},
       {id:'aw-example',   val:info.example},
+      {id:'aw-category',  val:info.category},
     ];
     fields.forEach(({id,val})=>{
       const el=document.getElementById(id);
@@ -1542,7 +1681,7 @@ function clearAutoIfTyped(fieldId) {
 document.addEventListener('DOMContentLoaded',()=>{
   const wEl=document.getElementById('aw-word');
   if(wEl) wEl.addEventListener('input',()=>{
-    ['aw-phonetic','aw-meaning','aw-example'].forEach(id=>{
+    ['aw-phonetic','aw-meaning','aw-example','aw-category'].forEach(id=>{
       const f=document.getElementById(id);
       if(f){delete f.dataset.userEdited; f.classList.remove('autofilled');}
     });
