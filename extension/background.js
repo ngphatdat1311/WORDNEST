@@ -24,6 +24,9 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (msg && msg.type === 'CAPTURE_WORD' && msg.word) {
     captureWord(msg.word, msg.pageUrl || '');
   }
+  if (msg && msg.type === 'FLUSH_QUEUE') {
+    flushPendingToDesktopApp();
+  }
 });
 
 function sanitizeWord(raw) {
@@ -38,15 +41,37 @@ async function captureWord(rawWord, pageUrl) {
   // hộp thư trên app, không cần qua hàng đợi/mở tab nào cả.
   const sentToDesktopApp = await sendToDesktopApp(word, pageUrl);
 
-  // Luôn lưu thêm vào hàng đợi (chrome.storage) để dùng cho bản web (content-bridge.js)
-  // và để không mất từ nếu lúc bôi đen app desktop chưa mở.
-  const { pendingWords = [] } = await chrome.storage.local.get('pendingWords');
-  const exists = pendingWords.some(w => w.word.toLowerCase() === word.toLowerCase());
-  if (!exists) {
-    pendingWords.push({ word, pageUrl, ts: Date.now() });
-    await chrome.storage.local.set({ pendingWords });
+  if (sentToDesktopApp) {
+    // App đang mở và đã nhận — không cần xếp hàng đợi cho từ này.
+    // Nhân lúc app đang mở, đẩy luôn các từ cũ còn kẹt từ trước (nếu có).
+    flushPendingToDesktopApp();
+  } else {
+    // App chưa mở — lưu vào hàng đợi để dùng cho bản web (content-bridge.js)
+    // và để không mất từ, sẽ tự đẩy vào app ngay khi mở lại (xem flushPendingToDesktopApp).
+    const { pendingWords = [] } = await chrome.storage.local.get('pendingWords');
+    const exists = pendingWords.some(w => w.word.toLowerCase() === word.toLowerCase());
+    if (!exists) {
+      pendingWords.push({ word, pageUrl, ts: Date.now() });
+      await chrome.storage.local.set({ pendingWords });
+    }
   }
-  notifyCaptured(word, exists, sentToDesktopApp);
+  notifyCaptured(word, sentToDesktopApp);
+}
+
+// Gọi khi: vừa capture 1 từ mới mà app đang mở (rất có thể các từ cũ trước đó
+// app cũng đang chạy), hoặc khi người dùng mở popup tiện ích (lúc đó nhiều khả
+// năng họ vừa mở app lên để xem). Mỗi từ gửi thành công sẽ bị xóa khỏi hàng đợi.
+async function flushPendingToDesktopApp() {
+  const { pendingWords = [] } = await chrome.storage.local.get('pendingWords');
+  if (!pendingWords.length) return;
+  const remaining = [];
+  for (const item of pendingWords) {
+    const ok = await sendToDesktopApp(item.word, item.pageUrl);
+    if (!ok) remaining.push(item);
+  }
+  if (remaining.length !== pendingWords.length) {
+    await chrome.storage.local.set({ pendingWords: remaining });
+  }
 }
 
 async function sendToDesktopApp(word, pageUrl) {
@@ -62,17 +87,15 @@ async function sendToDesktopApp(word, pageUrl) {
   }
 }
 
-function notifyCaptured(word, alreadyExists, sentToDesktopApp) {
+function notifyCaptured(word, sentToDesktopApp) {
   if (!chrome.notifications) return;
-  let message;
-  if (sentToDesktopApp) message = `"${word}" — đã gửi vào app WordNest đang mở.`;
-  else if (alreadyExists) message = `"${word}" đã ở trong hàng đợi rồi.`;
-  else message = `"${word}" — mở WordNest để tra nghĩa & thêm vào kho.`;
   chrome.notifications.create({
     type: 'basic',
     iconUrl: 'icons/icon128.png',
-    title: sentToDesktopApp ? 'Đã gửi vào WordNest' : (alreadyExists ? 'Đã có trong hộp thư' : 'Đã lưu vào WordNest'),
-    message,
+    title: sentToDesktopApp ? 'Đã gửi vào WordNest' : 'Đã lưu vào hàng đợi',
+    message: sentToDesktopApp
+      ? `"${word}" — đã vào app WordNest đang mở.`
+      : `"${word}" — mở app WordNest lên, từ sẽ tự vào ngay.`,
   });
 }
 

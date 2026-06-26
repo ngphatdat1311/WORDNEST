@@ -1,4 +1,11 @@
 function render() {
+  // Mở popup là lúc người dùng có thể vừa mở app desktop lên — thử đẩy lại
+  // các từ còn kẹt trong hàng đợi, rồi đợi 1 nhịp ngắn để storage cập nhật.
+  chrome.runtime.sendMessage({ type: 'FLUSH_QUEUE' });
+  setTimeout(renderList, 300);
+}
+
+function renderList() {
   chrome.storage.local.get('pendingWords', ({ pendingWords = [] }) => {
     const listEl = document.getElementById('list');
     if (!pendingWords.length) {
@@ -27,7 +34,7 @@ function render() {
 function removeAt(index) {
   chrome.storage.local.get('pendingWords', ({ pendingWords = [] }) => {
     pendingWords.splice(index, 1);
-    chrome.storage.local.set({ pendingWords }, render);
+    chrome.storage.local.set({ pendingWords }, renderList);
   });
 }
 
