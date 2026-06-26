@@ -14,6 +14,19 @@ window.addEventListener('message', (event) => {
   renderExtensionInbox();
 });
 
+// Bản desktop (Electron) không có content script chui vào trang được — tiện ích
+// gửi từ trực tiếp đến app qua HTTP cục bộ, main process chuyển tiếp qua IPC.
+if (window.electronAPI && window.electronAPI.onCaptureWord) {
+  window.electronAPI.onCaptureWord((item) => {
+    const exists = extensionInboxWords.some(w => w.word.toLowerCase() === item.word.toLowerCase());
+    if (!exists) {
+      extensionInboxWords.push(item);
+      renderExtensionInbox();
+      showToast('📥 Đã nhận từ "' + item.word + '" từ tiện ích Chrome', 'success');
+    }
+  });
+}
+
 function renderExtensionInbox() {
   const panel = document.getElementById('inbox-panel');
   const chipsEl = document.getElementById('inbox-chips');

@@ -2,6 +2,9 @@
 // và đồng bộ số huy hiệu trên icon tiện ích.
 
 const MENU_ID = 'wordnest-capture-selection';
+// App desktop (Electron) mở 1 server cục bộ ở cổng này khi đang chạy — nếu gửi
+// được nghĩa là app đang mở, từ sẽ vào thẳng app, không cần xếp hàng đợi.
+const DESKTOP_APP_URL = 'http://127.0.0.1:51789';
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -30,24 +33,46 @@ function sanitizeWord(raw) {
 async function captureWord(rawWord, pageUrl) {
   const word = sanitizeWord(rawWord);
   if (!word) return;
+
+  // Thử gửi trực tiếp cho app desktop trước — nếu app đang mở, từ vào ngay
+  // hộp thư trên app, không cần qua hàng đợi/mở tab nào cả.
+  const sentToDesktopApp = await sendToDesktopApp(word, pageUrl);
+
+  // Luôn lưu thêm vào hàng đợi (chrome.storage) để dùng cho bản web (content-bridge.js)
+  // và để không mất từ nếu lúc bôi đen app desktop chưa mở.
   const { pendingWords = [] } = await chrome.storage.local.get('pendingWords');
   const exists = pendingWords.some(w => w.word.toLowerCase() === word.toLowerCase());
   if (!exists) {
     pendingWords.push({ word, pageUrl, ts: Date.now() });
     await chrome.storage.local.set({ pendingWords });
   }
-  notifyCaptured(word, exists);
+  notifyCaptured(word, exists, sentToDesktopApp);
 }
 
-function notifyCaptured(word, alreadyExists) {
+async function sendToDesktopApp(word, pageUrl) {
+  try {
+    const resp = await fetch(`${DESKTOP_APP_URL}/capture`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word, pageUrl }),
+    });
+    return resp.ok;
+  } catch (e) {
+    return false; // app desktop không chạy — đây là tình huống bình thường, không phải lỗi
+  }
+}
+
+function notifyCaptured(word, alreadyExists, sentToDesktopApp) {
   if (!chrome.notifications) return;
+  let message;
+  if (sentToDesktopApp) message = `"${word}" — đã gửi vào app WordNest đang mở.`;
+  else if (alreadyExists) message = `"${word}" đã ở trong hàng đợi rồi.`;
+  else message = `"${word}" — mở WordNest để tra nghĩa & thêm vào kho.`;
   chrome.notifications.create({
     type: 'basic',
     iconUrl: 'icons/icon128.png',
-    title: alreadyExists ? 'Đã có trong hộp thư' : 'Đã lưu vào WordNest',
-    message: alreadyExists
-      ? `"${word}" đã ở trong hàng đợi rồi.`
-      : `"${word}" — mở WordNest để tra nghĩa & thêm vào kho.`,
+    title: sentToDesktopApp ? 'Đã gửi vào WordNest' : (alreadyExists ? 'Đã có trong hộp thư' : 'Đã lưu vào WordNest'),
+    message,
   });
 }
 

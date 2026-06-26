@@ -1,0 +1,38 @@
+{
+  "name": "wordnest",
+  "version": "1.0.0",
+  "description": "WordNest – ứng dụng học từ vựng tiếng Anh cá nhân (Flashcard SRS, Quiz, Chính tả, Từ điển).",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "dist:dir": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "^32.3.3",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.wordnest.app",
+    "productName": "WordNest",
+    "files": [
+      "index.html",
+      "css/**",
+      "js/**",
+      "assets/**",
+      "electron/**",
+      "!extension/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
