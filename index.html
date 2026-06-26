@@ -2833,5 +2833,31 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+ 
+<script>
+// Thêm đoạn này để bắt từ vựng từ Extension truyền sang
+document.addEventListener('DOMContentLoaded', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const wordToAdd = urlParams.get('add'); // Tìm chữ sau biến ?add=
+  
+  if (wordToAdd) {
+    // 1. Chuyển thẳng sang tab "Thêm từ"
+    showSection('add');
+    
+    // 2. Điền từ đó vào ô input
+    const wordInput = document.getElementById('aw-word');
+    if (wordInput) {
+      wordInput.value = wordToAdd;
+      // 3. Tự động gọi hàm tra từ (Auto-lookup) mà bạn đã viết sẵn!
+      scheduleAutoLookup();
+    }
+    
+    // 4. Xóa chữ "?add=..." trên thanh địa chỉ để bạn F5 không bị lỗi
+    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+    window.history.pushState({path:newUrl}, '', newUrl);
+  }
+});
+</script>
+ 
 </body>
 </html>
