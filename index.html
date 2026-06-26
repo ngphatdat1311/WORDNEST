@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WordNest – Học Tiếng Anh</title>
+<meta name="wordnest-app" content="1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">WordNest <span>Học Tiếng Anh</span></div>
+  <div class="header-right">
+    <div class="streak-badge">
+      <span class="fire">🔥</span>
+      <span id="streak-count">0</span> ngày liên tiếp
+    </div>
+    <!-- DARK MODE TOGGLE -->
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Chuyển chế độ sáng/tối" aria-label="Toggle dark mode">
+      <span class="tt-icon tt-sun">☀️</span>
+      <span class="tt-icon tt-moon">🌙</span>
+    </button>
+    <button class="icon-btn" onclick="toggleFullscreen()" id="fs-btn" title="Toàn màn hình">⛶</button>
+  </div>
+</header>
+
+<nav>
+  <button class="active" onclick="showSection('home')" id="nav-home">🏠 Trang chủ</button>
+  <button onclick="showSection('flashcard')" id="nav-flashcard">🃏 Flashcard</button>
+  <button onclick="showSection('quiz')" id="nav-quiz">🧠 Quiz</button>
+  <button onclick="showSection('spelling')" id="nav-spelling">✍️ Chính tả</button>
+  <button onclick="showSection('wordlist')" id="nav-wordlist">📖 Từ điển</button>
+  <button onclick="showSection('progress')" id="nav-progress">📊 Tiến độ</button>
+  <button onclick="showSection('add')" id="nav-add">➕ Thêm từ<span class="nav-badge-dot" id="nav-add-dot" style="display:none"></span></button>
+</nav>
+
+<div class="backup-banner" id="backup-banner">
+  <span class="bb-icon">💾</span>
+  <span class="bb-text">Bạn chưa sao lưu dữ liệu gần đây. Xuất file JSON để không mất công sức học nếu lỡ xóa cache trình duyệt nhé!</span>
+  <button class="btn" style="padding:6px 14px;font-size:0.82rem;flex-shrink:0;" onclick="doBackupFromBanner()">📤 Sao lưu ngay</button>
+  <button class="bb-close" onclick="dismissBackupBanner()" aria-label="Đóng">✕</button>
+</div>
+
+<main>
+
+<!-- HOME -->
+<div class="section active" id="section-home">
+  <div class="section-title">Chào buổi sáng! 👋</div>
+  <div class="section-sub">Hôm nay bạn muốn luyện gì?</div>
+
+  <div class="home-grid">
+    <div class="home-stat">
+      <div class="label">Từ đã học</div>
+      <div class="val" id="home-total">0</div>
+      <div class="sub">trong kho của bạn</div>
+    </div>
+    <div class="home-stat">
+      <div class="label">Đã thuộc</div>
+      <div class="val" id="home-mastered">0</div>
+      <div class="sub">từ thành thạo</div>
+    </div>
+    <div class="home-stat">
+      <div class="label">Quiz hôm nay</div>
+      <div class="val" id="home-quiz-score">—</div>
+      <div class="sub">điểm cao nhất</div>
+    </div>
+    <div class="home-stat">
+      <div class="label">Chuỗi ngày</div>
+      <div class="val" id="home-streak">0</div>
+      <div class="sub">ngày liên tiếp 🔥</div>
+    </div>
+    <div class="home-stat" onclick="showSection('flashcard')" style="cursor:pointer">
+      <div class="label">Cần ôn hôm nay</div>
+      <div class="val" id="home-srs-due" style="color:var(--gold)">0</div>
+      <div class="sub">từ đến hạn SRS 📅</div>
+    </div>
+  </div>
+
+  <div class="home-actions">
+    <div class="action-btn" onclick="showSection('flashcard')">
+      <div class="ab-icon">🃏</div>
+      <div class="ab-title">Flashcard</div>
+      <div class="ab-desc">Lật thẻ, ghi nhớ từ vựng</div>
+    </div>
+    <div class="action-btn" onclick="showSection('quiz')">
+      <div class="ab-icon">🧠</div>
+      <div class="ab-title">Quiz trắc nghiệm</div>
+      <div class="ab-desc">4 lựa chọn, thử thách bản thân</div>
+    </div>
+    <div class="action-btn" onclick="showSection('spelling')">
+      <div class="ab-icon">✍️</div>
+      <div class="ab-title">Luyện chính tả</div>
+      <div class="ab-desc">Nghe gợi ý, điền từ đúng</div>
+    </div>
+    <div class="action-btn" onclick="showSection('wordlist')">
+      <div class="ab-icon">📖</div>
+      <div class="ab-title">Từ điển cá nhân</div>
+      <div class="ab-desc">Xem và quản lý từ vựng</div>
+    </div>
+  </div>
+
+  <div class="recent-words" id="recent-section" style="display:none">
+    <h3>Từ gần đây</h3>
+    <div class="word-chips" id="recent-chips"></div>
+  </div>
+</div>
+
+<!-- FLASHCARD -->
+<div class="section" id="section-flashcard">
+  <div class="section-title">Flashcard</div>
+  <div class="section-sub">Nhấn vào thẻ để xem nghĩa. Đánh dấu từ bạn đã biết.</div>
+
+  <div class="fc-controls">
+    <select id="fc-category" onchange="initFlashcard()">
+      <option value="all">Tất cả từ</option>
+      <option value="new">Chưa thuộc</option>
+      <option value="review">Cần ôn tập</option>
+      <option value="srs">📅 Đến hạn ôn (SRS)</option>
+    </select>
+    <select id="fc-tag" onchange="initFlashcard()">
+      <option value="all">Tất cả chủ đề</option>
+    </select>
+    <div class="spacer"></div>
+    <button class="btn btn-outline" onclick="shuffleFlashcard()">🔀 Xáo trộn</button>
+    <button class="btn" onclick="initFlashcard(false)">🔄 Làm lại</button>
+  </div>
+
+  <div class="fc-progress">
+    <div class="prog-bar"><div class="prog-fill" id="fc-prog-fill" style="width:0%"></div></div>
+    <div class="prog-text" id="fc-prog-text">0 / 0</div>
+  </div>
+
+  <div class="flashcard-wrap" id="flashcard" onclick="flipCard()">
+    <div class="flashcard-inner" id="fc-inner">
+      <div class="fc-face fc-front">
+        <div class="hint">Nhấn để xem nghĩa</div>
+        <div class="word" id="fc-word">—</div>
+        <div class="phonetic" id="fc-phonetic"></div>
+        <div class="type-tag" id="fc-type"></div>
+        <div class="speak-btn" onclick="speakWord(event)" title="Phát âm">🔊</div>
+      </div>
+      <div class="fc-face fc-back">
+        <div class="type-tag" id="fc-type-back"></div>
+        <div class="meaning" id="fc-meaning">—</div>
+        <div class="example" id="fc-example"></div>
+        <div id="fc-srs-info" style="font-size:0.72rem;color:var(--text3);margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="fc-tap-hint">👆 Nhấn thẻ để lật • Phím ← → để chuyển</div>
+
+  <div class="fc-nav">
+    <button class="nav-btn" onclick="prevCard()" id="fc-prev">◀</button>
+    <button class="nav-btn" onclick="nextCard()" id="fc-next">▶</button>
+  </div>
+
+  <div class="fc-know-btns" id="fc-know-row" style="display:none">
+    <button class="know-btn no" onclick="markCard(false)">❌ Chưa biết</button>
+    <button class="know-btn yes" onclick="markCard(true)">✅ Đã biết</button>
+  </div>
+</div>
+
+<!-- QUIZ -->
+<div class="section" id="section-quiz">
+  <div class="section-title">Quiz Trắc Nghiệm</div>
+  <div class="section-sub">Chọn nghĩa đúng cho từ được hỏi.</div>
+
+  <div id="quiz-settings" style="margin-bottom:1.2rem; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <label style="font-size:0.85rem; color:var(--text2); font-weight:500;">Số câu:</label>
+    <select id="qz-count-sel" class="fc-controls select" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-family:'Inter',sans-serif;font-size:0.85rem;color:var(--text);cursor:pointer;outline:none;">
+      <option value="5">5 câu</option>
+      <option value="10" selected>10 câu</option>
+      <option value="20">20 câu</option>
+      <option value="all">Tất cả</option>
+    </select>
+    <label style="font-size:0.85rem; color:var(--text2); font-weight:500;">Lọc:</label>
+    <select id="qz-level-sel" class="fc-controls select" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-family:'Inter',sans-serif;font-size:0.85rem;color:var(--text);cursor:pointer;outline:none;">
+      <option value="all">Tất cả mức độ</option>
+      <option value="easy">Dễ (A1–A2)</option>
+      <option value="medium">Trung bình (B1–B2)</option>
+      <option value="hard">Khó (C1–C2)</option>
+      <option value="weak">Từ chưa thuộc</option>
+    </select>
+    <label style="font-size:0.85rem; color:var(--text2); font-weight:500;">Chủ đề:</label>
+    <select id="qz-tag-sel" class="fc-controls select" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-family:'Inter',sans-serif;font-size:0.85rem;color:var(--text);cursor:pointer;outline:none;">
+      <option value="all">Tất cả chủ đề</option>
+    </select>
+    <button class="btn" onclick="startQuiz()" style="padding:7px 18px;">🔄 Bắt đầu lại</button>
+  </div>
+
+  <div id="quiz-area">
+    <div class="card" style="padding: 2rem;" id="quiz-card">
+      <div class="fc-progress" style="margin-bottom:1.8rem">
+        <div class="prog-bar"><div class="prog-fill" id="qz-prog-fill" style="width:0%"></div></div>
+        <div class="prog-text" id="qz-prog-text">0 / 0</div>
+      </div>
+      <div class="quiz-question-num" id="qz-num">Câu 1</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <div class="quiz-q" id="qz-word" style="margin-bottom:0"></div>
+        <button class="speak-btn" onclick="speak(document.getElementById('qz-word').textContent)" title="Phát âm" style="flex-shrink:0">🔊</button>
+      </div>
+      <div class="quiz-q-sub" id="qz-phonetic"></div>
+      <div class="quiz-options" id="qz-options"></div>
+      <div class="quiz-feedback" id="qz-feedback"></div>
+      <button class="btn quiz-next-btn" id="qz-next" onclick="nextQuiz()" style="display:none">Câu tiếp theo →</button>
+    </div>
+  </div>
+
+  <div id="quiz-result" style="display:none">
+    <div class="card quiz-result">
+      <div class="big-score" id="qz-final-score"></div>
+      <div class="score-label">điểm số</div>
+      <div class="result-msg" id="qz-result-msg"></div>
+      <button class="btn" onclick="startQuiz()" style="margin-right:10px">🔄 Chơi lại</button>
+      <button class="btn btn-outline" onclick="showSection('progress')">📊 Xem tiến độ</button>
+      <div id="qz-wrong-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SPELLING -->
+<div class="section" id="section-spelling">
+  <div class="section-title">Luyện Chính Tả</div>
+  <div class="section-sub">Đọc gợi ý và điền từ đúng.</div>
+
+  <div class="spell-score-row">
+    <div class="spell-score-item">
+      <div class="ss-val" id="sp-correct">0</div>
+      <div class="ss-label">Đúng ✅</div>
+    </div>
+    <div class="spell-score-item">
+      <div class="ss-val" id="sp-wrong">0</div>
+      <div class="ss-label">Sai ❌</div>
+    </div>
+    <div class="spell-score-item">
+      <div class="ss-val" id="sp-streak">0</div>
+      <div class="ss-label">Chuỗi 🔥</div>
+    </div>
+    <div class="spell-score-item" style="cursor:pointer;" onclick="restartSpelling()" title="Bắt đầu lại từ đầu">
+      <div class="ss-val" style="font-size:1.1rem;">🔄</div>
+      <div class="ss-label">Bắt đầu lại</div>
+    </div>
+  </div>
+
+  <div class="card" style="padding: 2rem;" id="spell-card">
+    <div class="spell-word-display">
+      <div class="sp-meaning" id="sp-meaning">—</div>
+      <div class="sp-phonetic" id="sp-phonetic"></div>
+      <div class="sp-example" id="sp-example"></div>
+    </div>
+    <div class="spell-blanks" id="sp-blanks"></div>
+    <div style="position:relative; margin-bottom: 1rem;">
+      <input class="spell-input" type="text" id="sp-input"
+        placeholder="Gõ từ tiếng Anh..."
+        oninput="updateBlanks()">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-bottom:1rem;flex-wrap:wrap;">
+      <button class="btn btn-outline" onclick="giveHint()" style="flex:1;min-width:100px;max-width:130px">💡 Gợi ý</button>
+      <button class="btn btn-outline" onclick="speakSpelling()" style="flex:1;min-width:100px;max-width:130px">🔊 Phát âm</button>
+      <button class="btn btn-outline" onclick="revealWord()" style="flex:1;min-width:100px;max-width:130px">👁️ Hiện từ</button>
+      <button class="btn" onclick="checkSpelling()" id="sp-check-btn" style="flex:1;min-width:100px;max-width:130px">✓ Kiểm tra</button>
+    </div>
+    <div class="quiz-feedback" id="sp-feedback"></div>
+    <button class="btn" onclick="nextSpelling()" id="sp-next" style="width:100%;margin-top:1rem;display:none">Từ tiếp theo →</button>
+  </div>
+</div>
+
+<!-- WORD LIST -->
+<div class="section" id="section-wordlist">
+  <div class="section-title">Từ Điển Cá Nhân</div>
+  <div class="section-sub">Tất cả từ vựng của bạn.</div>
+
+  <div class="wl-search-bar">
+    <input class="wl-search" type="text" placeholder="🔍 Tìm từ..." id="wl-search" oninput="debouncedRenderWordList()">
+    <button class="btn" onclick="showSection('add')">+ Thêm từ</button>
+  </div>
+
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+    <label style="font-size:0.8rem;color:var(--text3);">Sắp xếp:</label>
+    <select id="wl-sort" onchange="wlPage=1;renderWordList(true)" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-family:'Inter',sans-serif;font-size:0.82rem;color:var(--text);cursor:pointer;outline:none;">
+      <option value="default">Mặc định</option>
+      <option value="az">A → Z</option>
+      <option value="za">Z → A</option>
+      <option value="mastery_desc">Thuộc nhiều nhất</option>
+      <option value="mastery_asc">Chưa thuộc</option>
+      <option value="seen_desc">Xem gần đây</option>
+    </select>
+    <div style="flex:1"></div>
+    <button class="btn btn-outline" onclick="exportWords()" style="padding:6px 14px;font-size:0.82rem;">📤 Xuất JSON</button>
+    <label class="btn btn-outline" style="padding:6px 14px;font-size:0.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+      📥 Nhập JSON <input type="file" accept=".json" id="import-file" onchange="importWords(event)" style="display:none">
+    </label>
+  </div>
+
+  <div class="wl-filter-row" id="wl-filters"></div>
+
+  <div class="card" style="overflow:hidden;">
+    <table class="wl-table" id="wl-table">
+      <thead>
+        <tr>
+          <th>Từ</th>
+          <th>Nghĩa</th>
+          <th>Chủ đề</th>
+          <th>Thuộc</th>
+          <th>📌</th>
+          <th>🔊</th>
+          <th>✏️</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="wl-body"></tbody>
+    </table>
+  </div>
+  <div id="wl-pagination" style="display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
+</div>
+
+<!-- PROGRESS -->
+<div class="section" id="section-progress">
+  <div class="section-title">Tiến Độ Học Tập</div>
+  <div class="section-sub">Theo dõi hành trình học của bạn.</div>
+
+  <div class="prog-grid">
+    <div class="prog-card">
+      <div class="pc-icon">📚</div>
+      <div class="pc-val" id="pg-total">0</div>
+      <div class="pc-label">Tổng từ vựng</div>
+    </div>
+    <div class="prog-card">
+      <div class="pc-icon">⭐</div>
+      <div class="pc-val" id="pg-mastered">0</div>
+      <div class="pc-label">Từ thành thạo</div>
+    </div>
+    <div class="prog-card">
+      <div class="pc-icon">🎯</div>
+      <div class="pc-val" id="pg-accuracy">—</div>
+      <div class="pc-label">Độ chính xác Quiz</div>
+    </div>
+    <div class="prog-card">
+      <div class="pc-icon">🔥</div>
+      <div class="pc-val" id="pg-streak">0</div>
+      <div class="pc-label">Chuỗi ngày</div>
+    </div>
+  </div>
+
+  <div class="prog-section">
+    <h3>Mức độ thuộc từ</h3>
+    <div id="mastery-bars"></div>
+  </div>
+
+  <div class="prog-section">
+    <h3>Ôn tập thông minh (SRS)</h3>
+    <div id="srs-info" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:1rem;"></div>
+    <p style="font-size:0.82rem;color:var(--text3);">Thuật toán SM-2 tự động tính ngày ôn tập tối ưu. Đánh dấu "Đã biết" hoặc "Chưa biết" trong Flashcard để cập nhật lịch.</p>
+  </div>
+
+  <div class="prog-section">
+    <h3>Hoạt động trong năm</h3>
+    <div class="activity-heatmap" id="activity-grid"></div>
+    <div class="activity-legend">
+      <span><div class="activity-day" style="display:inline-block;width:14px;height:14px;border-radius:2px;"></div> Không có</span>
+      <span><div class="activity-day l1" style="display:inline-block;width:14px;height:14px;border-radius:2px;"></div> Ít</span>
+      <span><div class="activity-day l2" style="display:inline-block;width:14px;height:14px;border-radius:2px;"></div> Trung bình</span>
+      <span><div class="activity-day l3" style="display:inline-block;width:14px;height:14px;border-radius:2px;"></div> Nhiều</span>
+    </div>
+  </div>
+</div>
+
+<!-- ADD WORD -->
+<div class="section" id="section-add">
+  <div class="section-title">Thêm Từ Mới</div>
+  <div class="section-sub">Mở rộng kho từ vựng của bạn.</div>
+
+  <div class="inbox-panel" id="inbox-panel" style="display:none;">
+    <div class="inbox-head">
+      <span>📥 Từ vừa bôi đen (Tiện ích Chrome)</span>
+      <button class="inbox-clear" onclick="clearExtensionInbox()">Xóa hết</button>
+    </div>
+    <div class="inbox-chips" id="inbox-chips"></div>
+  </div>
+
+  <div class="card" style="padding: 2rem;">
+    <div class="add-word-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Từ tiếng Anh * <span id="aw-autofill-status"></span></label>
+          <input class="form-input" type="text" id="aw-word" placeholder="e.g. serendipity"
+            oninput="scheduleAutoLookup()" maxlength="60">
+        </div>
+        <div class="form-group">
+          <label>Phiên âm (tùy chọn)</label>
+          <div class="aw-phonetic-row">
+            <input class="form-input" type="text" id="aw-phonetic" placeholder="e.g. /ˌser.ənˈdɪp.ɪ.ti/" maxlength="80">
+            <button type="button" class="aw-speak-btn" id="aw-speak-btn" onclick="playPronunciation()" title="Nghe phát âm" style="display:none;">🔊</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nghĩa tiếng Việt *</label>
+          <input class="form-input" type="text" id="aw-meaning" placeholder="e.g. sự tình cờ may mắn" maxlength="200">
+          <div class="alt-meaning-hint" id="aw-alt-meaning"></div>
+        </div>
+        <div class="form-group">
+          <label>Loại từ</label>
+          <select class="form-select" id="aw-type">
+            <option value="noun">Danh từ (noun)</option>
+            <option value="verb">Động từ (verb)</option>
+            <option value="adj">Tính từ (adj)</option>
+            <option value="adv">Trạng từ (adv)</option>
+            <option value="phrase">Cụm từ (phrase)</option>
+            <option value="other">Khác</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Ví dụ câu (tùy chọn)</label>
+        <input class="form-input" type="text" id="aw-example" placeholder="e.g. It was serendipity that we met." maxlength="300">
+        <div class="example-vi-hint" id="aw-example-vi"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Chủ đề / Bộ từ</label>
+          <input class="form-input" type="text" id="aw-category" placeholder="e.g. Du lịch, Công việc..." maxlength="50">
+        </div>
+        <div class="form-group">
+          <label>Mức độ khó</label>
+          <select class="form-select" id="aw-level">
+            <option value="easy">Dễ (A1–A2)</option>
+            <option value="medium" selected>Trung bình (B1–B2)</option>
+            <option value="hard">Khó (C1–C2)</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn" onclick="addWord()" style="padding:13px; font-size:0.95rem;">✓ Thêm từ vào kho</button>
+    </div>
+  </div>
+
+  <div style="margin-top: 2rem;">
+    <h3 style="font-family:'Lora',serif; font-size:1.05rem; color:var(--text); margin-bottom:1rem;">Thêm nhanh nhiều từ (mỗi dòng một từ)</h3>
+    <div class="card" style="padding:1.5rem;">
+      <div class="form-group" style="margin-bottom:12px">
+        <label>Định dạng: từ | nghĩa | ví dụ (tùy chọn)</label>
+        <textarea class="form-input" id="aw-bulk" rows="6"
+          placeholder="apple | quả táo | I eat an apple every day.&#10;book | quyển sách | She reads a book every night.&#10;run | chạy"
+          style="resize:vertical; line-height:1.7;"></textarea>
+      </div>
+      <button class="btn btn-outline" onclick="bulkAdd()">📥 Thêm hàng loạt</button>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/storage.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/streak.js"></script>
+<script src="js/navigation.js"></script>
+<script src="js/flashcard.js"></script>
+<script src="js/quiz.js"></script>
+<script src="js/spelling.js"></script>
+<script src="js/wordlist.js"></script>
+<script src="js/export-import.js"></script>
+<script src="js/progress.js"></script>
+<script src="js/word-crud.js"></script>
+<script src="js/lookup.js"></script>
+<script src="js/backup.js"></script>
+<script src="js/extension-inbox.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
