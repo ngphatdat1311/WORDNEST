@@ -8,6 +8,32 @@ const BRIDGE_PORT = 51789;
 
 let mainWindow = null;
 
+// Chặn mở 2 instance cùng lúc: nếu app đã chạy mà người dùng mở thêm 1 lần nữa
+// (vd double-click nhầm icon lần 2, hoặc app cũ chưa thoát hết), bản mới sẽ
+// không giành được cổng cầu nối ở trên — lỗi đó âm thầm, người dùng chỉ thấy
+// "tiện ích Chrome không hoạt động" mà không hiểu vì sao. Single-instance lock
+// đảm bảo luôn chỉ có 1 app + 1 server cầu nối tồn tại.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+
+  app.whenReady().then(() => {
+    createWindow();
+    startBridgeServer();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -78,18 +104,9 @@ function startBridgeServer() {
 
   // Chỉ lắng nghe trên 127.0.0.1 — không mở ra ngoài mạng LAN/internet.
   server.listen(BRIDGE_PORT, '127.0.0.1');
-  server.on('error', () => { /* cổng đang bị chiếm — bỏ qua, app vẫn dùng được bình thường, chỉ là không nhận được từ từ tiện ích */ });
+  server.on('error', () => { /* cổng đang bị chiếm bởi tiến trình khác (hiếm, vì đã chặn 2 instance) — app vẫn dùng được bình thường, chỉ là không nhận được từ từ tiện ích */ });
   return server;
 }
-
-app.whenReady().then(() => {
-  createWindow();
-  startBridgeServer();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
-});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
