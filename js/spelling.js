@@ -145,6 +145,7 @@ function revealWord() {
     document.getElementById('sp-input').className = 'spell-input wrong';
     const idx = words.findIndex(x => x.word === w);
     if (idx !== -1) { words[idx].mastery = Math.max(0, words[idx].mastery - 1); saveWords(); }
+    recordLearningActivity();
   }
 }
 
@@ -179,6 +180,9 @@ function checkSpelling() {
     // Giảm mastery khi sai — nhất quán với revealWord()
     const idxW = words.findIndex(x => x.word === w);
     if (idxW !== -1) { words[idxW].mastery = Math.max(0, words[idxW].mastery - 1); saveWords(); }
+    // Ghi nhận hoạt động học bất kể đúng hay sai — học từ sai cũng là học
+    // (trước đây chỉ ghi nhận khi đúng, khiến người mới học sai nhiều bị mất hẳn streak/heatmap dù đã học thật)
+    recordLearningActivity();
   }
   updateSpScore();
   document.getElementById('sp-next').style.display = 'block';
