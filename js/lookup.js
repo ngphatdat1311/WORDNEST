@@ -90,6 +90,7 @@ function applyLookupResult(word, r) {
   lastLookupAllExamples = lastLookupEntry ? getAllExamples(lastLookupEntry) : [];
   const rerollBtn = document.getElementById('aw-reroll-example-btn');
   if (rerollBtn) rerollBtn.style.display = lastLookupAllExamples.length >= 2 ? 'flex' : 'none';
+  if (lastLookupAllExamples.length >= 2) updateRerollButtonLabel();
 }
 
 function resetAwExtras() {
@@ -491,18 +492,32 @@ async function doAutoLookup(word) {
 
 // "Đổi ví dụ khác" — chọn 1 câu khác trong CÙNG dữ liệu từ điển đã tải (không
 // tra lại từ đầu), chỉ cần dịch câu mới -> nhanh hơn nhiều so với tra lại.
+// Cập nhật chữ trên nút theo số ví dụ CHƯA xem — báo trước rõ ràng còn bao
+// nhiêu, và tự khoá nút lại khi đã xem hết để KHÔNG BAO GIỜ lặp lại ví dụ cũ
+// (trước đây hết ví dụ mới vẫn cho bấm, quay lại ví dụ đã xem, trông như lỗi).
+function updateRerollButtonLabel() {
+  const btn = document.getElementById('aw-reroll-example-btn');
+  if (!btn) return;
+  const remaining = lastLookupAllExamples.length - lastLookupUsedExamples.size;
+  if (remaining > 0) {
+    btn.disabled = false;
+    btn.textContent = `🔄 Đổi ví dụ khác (còn ${remaining})`;
+  } else {
+    btn.disabled = true;
+    btn.textContent = '✓ Đã xem hết ví dụ';
+  }
+}
+
 async function rerollExample() {
   if (lastLookupAllExamples.length < 2) { showToast('Từ này chỉ có 1 ví dụ trong từ điển'); return; }
+
+  const unseen = lastLookupAllExamples.filter(ex => !lastLookupUsedExamples.has(ex));
+  if (!unseen.length) { showToast('Đã xem hết tất cả ví dụ có sẵn cho từ này'); updateRerollButtonLabel(); return; }
 
   const btn = document.getElementById('aw-reroll-example-btn');
   if (btn) btn.disabled = true;
 
-  // Ưu tiên ví dụ chưa từng hiện; lỡ đã xem hết thì mới cho lặp lại (vẫn còn
-  // hơn là không bấm được gì) — lấy trên TOÀN BỘ nghĩa, không chỉ từ loại chính,
-  // để đa dạng tối đa.
-  const unseen = lastLookupAllExamples.filter(ex => !lastLookupUsedExamples.has(ex));
-  const pool = unseen.length ? unseen : lastLookupAllExamples;
-  const picked = pool[Math.floor(Math.random() * pool.length)];
+  const picked = unseen[Math.floor(Math.random() * unseen.length)];
   lastLookupUsedExamples.add(picked);
 
   const exampleEl = document.getElementById('aw-example');
@@ -518,5 +533,5 @@ async function rerollExample() {
   } catch (e) {
     if (exViEl) exViEl.innerHTML = '';
   }
-  if (btn) btn.disabled = false;
+  updateRerollButtonLabel();
 }
