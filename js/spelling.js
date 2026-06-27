@@ -108,6 +108,10 @@ function renderBlanks(typed) {
   const w = spWords[spIndex].word;
   let html = '';
   for (let i = 0; i < w.length; i++) {
+    // Cụm từ (vd "give up", "be fond of ...") có khoảng trắng giữa các tiếng —
+    // hiện khoảng cách trực quan thay vì 1 ô trống trống trơn gây nhầm là thiếu ký tự.
+    // Dấu "..." không phải khoảng trắng nên vẫn là ô riêng, vẫn phải gõ đủ 3 dấu chấm.
+    if (w[i] === ' ') { html += '<div class="spell-gap"></div>'; continue; }
     const ch = typed[i] || '';
     const cls = ch ? (ch.toLowerCase() === w[i].toLowerCase() ? 'filled' : 'wrong') : '';
     html += `<div class="spell-blank ${cls}">${escHtml(ch)}</div>`;

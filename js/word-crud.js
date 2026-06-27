@@ -39,10 +39,22 @@ function bulkAdd() {
   let added = 0;
   lines.forEach(line => {
     const parts = line.split('|').map(s => s.trim());
-    const word = clampStr(parts[0], 60); const meaning = clampStr(parts[1], 200); const example = clampStr(parts[2] || '', 300);
+    // Hỗ trợ cả định dạng mới "từ | phiên âm | nghĩa | ví dụ" và định dạng cũ
+    // "từ | nghĩa | ví dụ" (không phiên âm) — nhận diện qua số lượng phần tách được.
+    let word, phonetic, meaning, example;
+    if (parts.length >= 4) {
+      [word, phonetic, meaning, example] = parts;
+    } else {
+      word = parts[0]; phonetic = ''; meaning = parts[1]; example = parts[2] || '';
+    }
+    word = clampStr(word, 60); phonetic = clampStr(phonetic, 80); meaning = clampStr(meaning, 200); example = clampStr(example, 300);
     if (!word || !meaning) return;
     if (words.find(w => w.word.toLowerCase() === word.toLowerCase())) return;
-    words.push(srsInit({ word, phonetic:'', meaning, example, type:'other', category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0 }));
+    // Có khoảng trắng (vd "give up", "be fond of ...") -> tự nhận là cụm từ,
+    // khác với từ đơn (vd "apple") — trước đây mọi từ thêm hàng loạt đều bị gán
+    // cứng "other", mất luôn ý nghĩa phân loại cụm từ/từ đơn.
+    const type = /\s/.test(word) ? 'phrase' : 'other';
+    words.push(srsInit({ word, phonetic, meaning, example, type, category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0 }));
     added++;
   });
   if (!saveWords()) { showToast('⚠️ Không lưu được — bộ nhớ đầy!', 'error'); renderHome(); renderWordList(); return; }

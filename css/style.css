@@ -471,6 +471,8 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .spell-blank.filled { border-color: var(--accent); }
 .spell-blank.correct { border-color: var(--green); color: var(--green); }
 .spell-blank.wrong { border-color: var(--red); color: var(--red); }
+/* Khoảng cách giữa các tiếng trong cụm từ — không phải ô nhập, chỉ tạo khoảng trống trực quan */
+.spell-gap { width: 14px; flex-shrink: 0; }
 .spell-input {
   border: 1.5px solid var(--border);
   border-radius: 10px; padding: 12px 18px;

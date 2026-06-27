@@ -448,10 +448,11 @@
     <h3 style="font-family:'Lora',serif; font-size:1.05rem; color:var(--text); margin-bottom:1rem;">Thêm nhanh nhiều từ (mỗi dòng một từ)</h3>
     <div class="card" style="padding:1.5rem;">
       <div class="form-group" style="margin-bottom:12px">
-        <label>Định dạng: từ | nghĩa | ví dụ (tùy chọn)</label>
+        <label>Định dạng: từ | phiên âm (tùy chọn) | nghĩa | ví dụ (tùy chọn)</label>
         <textarea class="form-input" id="aw-bulk" rows="6"
-          placeholder="apple | quả táo | I eat an apple every day.&#10;book | quyển sách | She reads a book every night.&#10;run | chạy"
+          placeholder="apple | /ˈæp.əl/ | quả táo | I eat an apple every day.&#10;book | /bʊk/ | quyển sách | She reads a book every night.&#10;run | | chạy"
           style="resize:vertical; line-height:1.7;"></textarea>
+        <div class="example-vi-hint">Vẫn dùng được định dạng cũ "từ | nghĩa | ví dụ" (không có phiên âm) — app tự nhận diện.</div>
       </div>
       <button class="btn btn-outline" onclick="bulkAdd()">📥 Thêm hàng loạt</button>
     </div>
