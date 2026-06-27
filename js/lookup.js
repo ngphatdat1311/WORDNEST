@@ -344,7 +344,7 @@ async function doAutoLookup(word) {
   const cached = getCachedLookup(word);
   if (cached) {
     applyLookupResult(word, cached);
-    setStatus(statusBadge('✨ Đã tra xong (từ bộ nhớ đệm)', 'success'));
+    setStatus(statusBadge('✨ Đã tra xong', 'success'));
     return;
   }
 
@@ -406,7 +406,7 @@ async function doAutoLookup(word) {
   if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
 
   if (!meaningVI) {
-    setStatus(statusBadge('❌ Không tìm thấy nghĩa cho từ "<b>' + escHtml(word) + '</b>"', 'error'));
+    setStatus(statusBadge('❌ Không tìm thấy nghĩa — nhập tay nhé', 'error'));
     return;
   }
 
@@ -432,5 +432,5 @@ async function doAutoLookup(word) {
   const result = { phonetic, exampleEn, meaningVI, finalPos, category, audioUrl: awAudioUrl, altHtml, exampleVi };
   setCachedLookup(word, result);
   applyLookupResult(word, result);
-  setStatus(statusBadge('✨ Đã tra xong — bạn có thể chỉnh sửa nếu cần', 'success'));
+  setStatus(statusBadge('✨ Đã tra xong', 'success'));
 }
