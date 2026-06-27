@@ -45,14 +45,17 @@ function createWindow() {
     icon: path.join(__dirname, '..', 'assets', 'icons', 'icon-512.png'),
     backgroundColor: '#F5F0E8',
     autoHideMenuBar: true,
+    show: false, // chỉ hiện cửa sổ khi trang đã render xong — tránh nhấp nháy/khung trắng lúc mở app
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: true, // giảm CPU khi thu nhỏ/không active
     },
   });
 
+  mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.loadFile(path.join(__dirname, '..', 'index.html'));
 
   mainWindow.on('closed', () => { mainWindow = null; });
@@ -143,7 +146,11 @@ function setupAutoUpdater() {
     console.error('[auto-update] lỗi:', err == null ? 'unknown' : err.message);
   });
 
-  autoUpdater.checkForUpdates().catch(() => { /* không có mạng, hoặc nền tảng chưa hỗ trợ (vd Mac chưa ký) — bỏ qua, app vẫn chạy bình thường */ });
+  // Hoãn vài giây để không cạnh tranh CPU/băng thông với lúc app vừa mở/render —
+  // người dùng cũng không cần biết kết quả ngay tức khắc trong vài giây đầu.
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(() => { /* không có mạng, hoặc nền tảng chưa hỗ trợ (vd Mac chưa ký) — bỏ qua, app vẫn chạy bình thường */ });
+  }, 4000);
 }
 
 // Người dùng bấm "Cập nhật ngay" trên banner trong app -> mới thật sự tải về
