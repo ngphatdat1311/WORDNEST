@@ -102,14 +102,16 @@ header {
   transition: background .25s, border-color .25s;
   backdrop-filter: blur(8px);
 }
-.logo {
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 34px; height: 34px; flex-shrink: 0; border-radius: 9px; box-shadow: 0 1px 3px rgba(90,70,40,.25); }
+.logo-text {
   font-family: 'Lora', serif;
   font-size: 1.4rem;
   font-weight: 600;
   color: var(--accent);
   letter-spacing: -.5px;
 }
-.logo span { color: var(--text3); font-weight: 400; font-size: 0.85rem; margin-left: 6px; font-family: 'Inter', sans-serif; }
+.logo-text span { color: var(--text3); font-weight: 400; font-size: 0.85rem; margin-left: 6px; font-family: 'Inter', sans-serif; }
 .streak-badge {
   display: flex; align-items: center; gap: 6px;
   background: var(--bg2); border: 1px solid var(--border);
@@ -793,7 +795,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   .fc-face .word { font-size: 2rem; }
   nav button { padding: 12px 12px; font-size: 0.8rem; }
   .edit-row { grid-template-columns: 1fr; }
-  .logo span { display: none; }
+  .logo-text span { display: none; }
 }
 
 /* ── MOTION ── */
