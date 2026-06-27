@@ -10,6 +10,9 @@
     "dist": "electron-builder",
     "dist:dir": "electron-builder --dir"
   },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
   "devDependencies": {
     "electron": "^32.3.3",
     "electron-builder": "^25.1.8"
@@ -23,7 +26,16 @@
       "js/**",
       "assets/**",
       "electron/**",
+      "node_modules/**",
+      "package.json",
       "!extension/**"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ngphatdat1311",
+        "repo": "WORDNEST"
+      }
     ],
     "win": {
       "target": "nsis",
@@ -33,17 +45,33 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "mac": {
-      "target": [{ "target": "dmg", "arch": ["universal"] }],
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
       "icon": "assets/icons/icon-512.png",
       "category": "public.app-category.education"
     },
     "dmg": {
       "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     }
   }

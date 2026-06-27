@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const http = require('http');
 
@@ -27,6 +28,7 @@ if (!gotLock) {
   app.whenReady().then(() => {
     createWindow();
     startBridgeServer();
+    setupAutoUpdater();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -113,3 +115,40 @@ app.on('window-all-closed', () => {
 });
 
 ipcMain.handle('get-app-version', () => app.getVersion());
+
+// ════════════════════════════════════════════════════════
+// AUTO-UPDATE — chỉ KIỂM TRA và BÁO khi mở app, không tự tải gì cả nếu người
+// dùng chưa đồng ý. Bấm "Cập nhật ngay" mới thật sự tải, rồi tự khởi động lại
+// để áp dụng — không cần gỡ cài đặt rồi tải file mới như cách thủ công.
+// LƯU Ý: macOS yêu cầu app được ký bằng chứng chỉ Apple (trả phí) mới auto-update
+// được; chưa có chứng chỉ thì bước này sẽ lỗi êm và người dùng Mac vẫn phải tải
+// bản .dmg mới thủ công như trước. Windows không cần ký vẫn auto-update được.
+// ════════════════════════════════════════════════════════
+function setupAutoUpdater() {
+  if (!app.isPackaged) return; // chạy bằng `electron .` lúc dev thì không có gì để kiểm tra
+
+  autoUpdater.autoDownload = false;       // CHỈ kiểm tra, không tự tải
+  autoUpdater.autoInstallOnAppQuit = false;
+
+  autoUpdater.on('update-available', (info) => {
+    if (mainWindow) mainWindow.webContents.send('update-available', { version: info.version });
+  });
+  autoUpdater.on('update-downloaded', () => {
+    // Người dùng đã bấm "Cập nhật ngay" trước đó và tải xong -> tự khởi động lại luôn,
+    // không bắt bấm thêm lần nữa.
+    autoUpdater.quitAndInstall();
+  });
+  autoUpdater.on('error', (err) => {
+    if (mainWindow) mainWindow.webContents.send('update-error');
+    console.error('[auto-update] lỗi:', err == null ? 'unknown' : err.message);
+  });
+
+  autoUpdater.checkForUpdates().catch(() => { /* không có mạng, hoặc nền tảng chưa hỗ trợ (vd Mac chưa ký) — bỏ qua, app vẫn chạy bình thường */ });
+}
+
+// Người dùng bấm "Cập nhật ngay" trên banner trong app -> mới thật sự tải về
+ipcMain.on('download-update', () => {
+  autoUpdater.downloadUpdate().catch(() => {
+    if (mainWindow) mainWindow.webContents.send('update-error');
+  });
+});

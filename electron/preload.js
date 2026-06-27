@@ -9,4 +9,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('capture-word', (_event, data) => callback(data));
   },
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  // Luồng cập nhật: 'update-available' (có bản mới, chưa tải gì) -> người dùng
+  // bấm nút trong app gọi downloadUpdate() -> 'update-downloaded' nghĩa là main
+  // process đã tự khởi động lại để cài, không cần renderer làm gì thêm.
+  onUpdateAvailable: (callback) => {
+    ipcRenderer.on('update-available', (_event, data) => callback(data));
+  },
+  onUpdateError: (callback) => {
+    ipcRenderer.on('update-error', () => callback());
+  },
+  downloadUpdate: () => ipcRenderer.send('download-update'),
 });

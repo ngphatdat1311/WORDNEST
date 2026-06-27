@@ -49,6 +49,13 @@
   <button class="bb-close" onclick="dismissBackupBanner()" aria-label="Đóng">✕</button>
 </div>
 
+<div class="update-banner" id="app-update-banner">
+  <span class="bb-icon">✨</span>
+  <span class="bb-text" id="app-update-text">Đã có bản cập nhật mới.</span>
+  <button class="btn" id="app-update-btn" style="padding:6px 14px;font-size:0.82rem;flex-shrink:0;" onclick="downloadAppUpdate()">⬇️ Cập nhật ngay</button>
+  <button class="bb-close" onclick="dismissAppUpdateBanner()" aria-label="Đóng">✕</button>
+</div>
+
 <main>
 
 <!-- HOME -->
@@ -479,5 +486,6 @@
 <script src="js/backup.js"></script>
 <script src="js/extension-inbox.js"></script>
 <script src="js/app.js"></script>
+<script src="js/auto-update.js"></script>
 </body>
 </html>
