@@ -71,3 +71,27 @@ function speakWord(e) {
   e && e.stopPropagation();
   speak(fcWords[fcIndex]?.word || '');
 }
+
+// ════════════════════════════════════════════════════════
+// CONFETTI — hiệu ứng ăn mừng nhẹ (Quiz điểm cao, học hết bộ Flashcard).
+// Tự vẽ bằng DOM + CSS animation, không cần thư viện ngoài. Tôn trọng
+// prefers-reduced-motion qua rule chung đã có trong CSS (animation rút ngắn
+// gần như tức khắc cho người dùng nhạy cảm với hiệu ứng).
+// ════════════════════════════════════════════════════════
+function triggerConfetti(count = 36) {
+  const colors = ['#C9993A', '#8B6F47', '#4A7C59', '#4A6FA5', '#B85450'];
+  const container = document.createElement('div');
+  container.className = 'confetti-container';
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = Math.random() * 100 + '%';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDelay = (Math.random() * 0.25).toFixed(2) + 's';
+    piece.style.setProperty('--rot', (Math.random() * 360 - 180).toFixed(0) + 'deg');
+    piece.style.setProperty('--drift', (Math.random() * 120 - 60).toFixed(0) + 'px');
+    container.appendChild(piece);
+  }
+  document.body.appendChild(container);
+  setTimeout(() => container.remove(), 2200);
+}

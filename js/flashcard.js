@@ -103,6 +103,7 @@ function markCard(known) {
   if (fcIndex < fcWords.length - 1) { fcIndex++; renderFlashcard(); }
   else {
     showToast('🎉 Đã xem hết tất cả thẻ!', 'success');
+    triggerConfetti(24);
     document.getElementById('fc-know-row').style.display = 'none';
     document.getElementById('fc-next').disabled = true;
   }

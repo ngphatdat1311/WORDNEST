@@ -159,6 +159,7 @@ function showQuizResult() {
   const msgs = ['Cần cố gắng thêm! 💪','Khá tốt! Tiếp tục nhé 👍','Tuyệt vời! Bạn giỏi lắm 🌟','Xuất sắc! Bậc thầy từ vựng 🏆'];
   const mi = pct < 50 ? 0 : pct < 70 ? 1 : pct < 90 ? 2 : 3;
   document.getElementById('qz-result-msg').textContent = `${qzScore}/${qzWords.length} câu đúng. ${msgs[mi]}`;
+  if (mi >= 2) triggerConfetti(); // Tuyệt vời/Xuất sắc (≥70%) -> ăn mừng nhẹ
   const best = parseInt(localStorage.getItem('qs_best_score') || 0);
   if (pct > best) localStorage.setItem('qs_best_score', pct);
 
