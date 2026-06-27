@@ -6,8 +6,8 @@ App học từ vựng tiếng Anh cá nhân: Flashcard (SRS kiểu SM-2), Quiz t
 
 | Hệ điều hành | Tải về |
 |---|---|
-| Windows | [WordNest-Setup-1.0.3.exe](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.3/WordNest-Setup-1.0.3.exe) |
-| macOS (Intel & Apple Silicon) | [WordNest-1.0.3-universal.dmg](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.3/WordNest-1.0.3-universal.dmg) |
+| Windows | [WordNest-Setup-1.0.4.exe](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.4/WordNest-Setup-1.0.4.exe) |
+| macOS (Intel & Apple Silicon) | [WordNest-1.0.4-universal.dmg](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.4/WordNest-1.0.4-universal.dmg) |
 
 Xem tất cả bản phát hành tại [Releases](https://github.com/ngphatdat1311/WORDNEST/releases).
 
