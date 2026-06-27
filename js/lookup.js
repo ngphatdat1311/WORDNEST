@@ -10,6 +10,13 @@ let awCurrentAudio = null;
 let awAbortController = null;
 let lookupGen = 0; // generation counter để loại bỏ hoàn toàn race condition
 
+// Lưu lại kết quả tra từ điển gần nhất để nút "Đổi ví dụ khác" có thể chọn 1
+// ví dụ khác trong CÙNG dữ liệu đã tải, khỏi phải tra lại từ đầu (nhanh hơn
+// nhiều — chỉ cần dịch câu mới, không cần gọi lại dictionaryapi.dev).
+let lastLookupEntry = null;
+let lastLookupDominantPos = '';
+let lastLookupUsedExamples = new Set();
+
 const VI_HINTS = {
   happy:'vui vẻ, hạnh phúc', sad:'buồn bã', angry:'tức giận', fear:'sợ hãi',
   love:'tình yêu, yêu thương', hate:'ghét', joy:'niềm vui', grief:'đau buồn',
@@ -75,6 +82,10 @@ function applyLookupResult(word, r) {
   if (altEl) altEl.innerHTML = r.altHtml || '';
   const exViEl = document.getElementById('aw-example-vi');
   if (exViEl) exViEl.innerHTML = r.exampleVi ? '→ ' + escHtml(r.exampleVi) : '';
+  // Chỉ cho đổi ví dụ khi vừa tra mới (có lastLookupEntry) — kết quả từ cache
+  // không giữ lại dữ liệu từ điển gốc nên không có gì để chọn ví dụ khác.
+  const rerollBtn = document.getElementById('aw-reroll-example-btn');
+  if (rerollBtn) rerollBtn.style.display = (lastLookupEntry && r.exampleEn) ? 'flex' : 'none';
 }
 
 function resetAwExtras() {
@@ -89,6 +100,11 @@ function scheduleAutoLookup() {
   const word = document.getElementById('aw-word').value.trim();
   awAutoFilledValues = {};
   awAudioUrl = '';
+  lastLookupEntry = null;
+  lastLookupDominantPos = '';
+  lastLookupUsedExamples = new Set();
+  const rerollBtn = document.getElementById('aw-reroll-example-btn');
+  if (rerollBtn) rerollBtn.style.display = 'none';
   ['aw-phonetic','aw-meaning','aw-example','aw-category'].forEach(id => {
     const f = document.getElementById(id);
     if (f) { f.value = ''; f.classList.remove('autofilled'); }
@@ -226,31 +242,41 @@ function guessCategory(definition, partOfSpeech, meaningVI) {
   return 'Cuộc sống';
 }
 
+// Gọi SONG SONG cả Google Translate (unofficial) và MyMemory, lấy kết quả của
+// bất kỳ nguồn nào trả về thành công trước — nhanh hơn cách nối tiếp cũ (phải
+// đợi Google lỗi/timeout hẳn rồi mới thử MyMemory, có thể tốn gấp đôi thời gian
+// khi Google chậm/bị chặn).
 async function translateText(text, signal) {
   if (!text || !text.trim()) return '';
-  // Thử Google Translate unofficial API trước
-  try {
+
+  const tryGoogle = async () => {
     const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=' + encodeURIComponent(text);
     const resp = await fetch(url, { signal });
-    if (resp.ok) {
-      const data = await resp.json();
-      const result = (data[0] || []).map(seg => (seg && seg[0]) || '').join('').trim().normalize('NFC');
-      if (result) return result;
-    }
-  } catch(e) { if (e.name === 'AbortError') throw e; }
+    if (!resp.ok) throw new Error('Google HTTP ' + resp.status);
+    const data = await resp.json();
+    const result = (data[0] || []).map(seg => (seg && seg[0]) || '').join('').trim().normalize('NFC');
+    if (!result) throw new Error('Google: kết quả rỗng');
+    return result;
+  };
 
-  // Fallback sang MyMemory API (official free tier)
-  try {
+  const tryMyMemory = async () => {
     const url2 = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|vi`;
     const resp2 = await fetch(url2, { signal });
-    if (resp2.ok) {
-      const data2 = await resp2.json();
-      const result2 = (data2.responseData?.translatedText || '').trim().normalize('NFC');
-      if (result2 && result2 !== text) return result2;
-    }
-  } catch(e) { if (e.name === 'AbortError') throw e; }
+    if (!resp2.ok) throw new Error('MyMemory HTTP ' + resp2.status);
+    const data2 = await resp2.json();
+    const result2 = (data2.responseData?.translatedText || '').trim().normalize('NFC');
+    if (!result2 || result2 === text) throw new Error('MyMemory: kết quả rỗng/không dịch được');
+    return result2;
+  };
 
-  throw new Error('Tất cả API dịch đều không khả dụng');
+  try {
+    return await Promise.any([tryGoogle(), tryMyMemory()]);
+  } catch (e) {
+    if (signal?.aborted) {
+      const err = new Error('aborted'); err.name = 'AbortError'; throw err;
+    }
+    throw new Error('Tất cả API dịch đều không khả dụng');
+  }
 }
 
 async function translateWordLikeGoogle(word, signal) {
@@ -314,7 +340,7 @@ function pickDominantPos(entry) {
   return sorted[0]?.[0] || '';
 }
 
-function pickRandomExample(entry, dominantPos) {
+function pickRandomExample(entry, dominantPos, excludeExamples) {
   if (!entry) return { example: '', definition: '', pos: '' };
   const pool = [], fallback = [];
   for (const m of (entry.meanings || [])) {
@@ -327,7 +353,12 @@ function pickRandomExample(entry, dominantPos) {
     }
   }
   const source = pool.length ? pool : fallback;
-  const withEx = source.filter(x => x.example);
+  let withEx = source.filter(x => x.example);
+  // Đang đổi ví dụ khác -> ưu tiên ví dụ chưa từng hiện; hết ví dụ mới thì mới cho lặp lại.
+  if (excludeExamples && excludeExamples.size) {
+    const unseen = withEx.filter(x => !excludeExamples.has(x.example));
+    if (unseen.length) withEx = unseen;
+  }
   return withEx.length
     ? withEx[Math.floor(Math.random() * withEx.length)]
     : (source[Math.floor(Math.random() * source.length)] || { example:'', definition:'', pos:'' });
@@ -364,6 +395,9 @@ async function doAutoLookup(word) {
 
   const entry = (Array.isArray(entries) && entries.length) ? entries[0] : null;
   const dominantPos = pickDominantPos(entry);
+  lastLookupEntry = entry;
+  lastLookupDominantPos = dominantPos;
+  lastLookupUsedExamples = new Set();
 
   let phonetic = '';
   if (entry) {
@@ -375,6 +409,7 @@ async function doAutoLookup(word) {
   const picked = pickRandomExample(entry, dominantPos);
   const exampleEn = picked.example || '';
   const enDefinition = picked.definition || '';
+  if (exampleEn) lastLookupUsedExamples.add(exampleEn);
 
   let meaningVI = '', primaryPos = '', dictEntries = [];
   if (gTrans) {
@@ -433,4 +468,37 @@ async function doAutoLookup(word) {
   setCachedLookup(word, result);
   applyLookupResult(word, result);
   setStatus(statusBadge('✨ Đã tra xong', 'success'));
+}
+
+// "Đổi ví dụ khác" — chọn 1 câu khác trong CÙNG dữ liệu từ điển đã tải (không
+// tra lại từ đầu), chỉ cần dịch câu mới -> nhanh hơn nhiều so với tra lại.
+async function rerollExample() {
+  const word = document.getElementById('aw-word').value.trim();
+  if (!lastLookupEntry || !word) { showToast('Chưa có dữ liệu để đổi ví dụ — gõ từ trước nhé!'); return; }
+
+  const btn = document.getElementById('aw-reroll-example-btn');
+  if (btn) btn.disabled = true;
+
+  const picked = pickRandomExample(lastLookupEntry, lastLookupDominantPos, lastLookupUsedExamples);
+  if (!picked.example) {
+    showToast('Từ này không có thêm ví dụ khác');
+    if (btn) btn.disabled = false;
+    return;
+  }
+  lastLookupUsedExamples.add(picked.example);
+
+  const exampleEl = document.getElementById('aw-example');
+  const exViEl = document.getElementById('aw-example-vi');
+  exampleEl.value = picked.example;
+  exampleEl.classList.add('autofilled');
+  awAutoFilledValues['aw-example'] = picked.example;
+  if (exViEl) exViEl.innerHTML = '⏳ Đang dịch...';
+
+  try {
+    const vi = await translateText(picked.example);
+    if (exViEl) exViEl.innerHTML = vi ? '→ ' + escHtml(vi) : '';
+  } catch (e) {
+    if (exViEl) exViEl.innerHTML = '';
+  }
+  if (btn) btn.disabled = false;
 }

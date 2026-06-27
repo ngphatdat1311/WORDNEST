@@ -451,7 +451,10 @@
       </div>
       <div class="form-group">
         <label>Ví dụ câu (tùy chọn)</label>
-        <input class="form-input" type="text" id="aw-example" placeholder="e.g. It was serendipity that we met." maxlength="300">
+        <div class="aw-example-row">
+          <input class="form-input" type="text" id="aw-example" placeholder="e.g. It was serendipity that we met." maxlength="300">
+          <button type="button" class="aw-reroll-btn" id="aw-reroll-example-btn" onclick="rerollExample()" title="Đổi sang ví dụ khác" style="display:none;">🔄 Đổi ví dụ khác</button>
+        </div>
         <div class="example-vi-hint" id="aw-example-vi"></div>
       </div>
       <div class="form-row">
