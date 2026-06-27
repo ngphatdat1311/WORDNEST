@@ -51,13 +51,34 @@
 </header>
 
 <nav>
-  <button class="active" onclick="showSection('home')" id="nav-home">🏠 Trang chủ</button>
-  <button onclick="showSection('flashcard')" id="nav-flashcard">🃏 Flashcard</button>
-  <button onclick="showSection('quiz')" id="nav-quiz">🧠 Quiz</button>
-  <button onclick="showSection('spelling')" id="nav-spelling">✍️ Chính tả</button>
-  <button onclick="showSection('wordlist')" id="nav-wordlist">📖 Từ điển</button>
-  <button onclick="showSection('progress')" id="nav-progress">📊 Tiến độ</button>
-  <button onclick="showSection('add')" id="nav-add">➕ Thêm từ<span class="nav-badge-dot" id="nav-add-dot" style="display:none"></span></button>
+  <button class="active" onclick="showSection('home')" id="nav-home">
+    <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 11.5L12 4l8 7.5"/><path d="M6 10v9.5h12V10"/><path d="M10 19.5v-6h4v6"/></svg>
+    Trang chủ
+  </button>
+  <button onclick="showSection('flashcard')" id="nav-flashcard">
+    <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="11" rx="2"/><path d="M9 21h12V10"/></svg>
+    Flashcard
+  </button>
+  <button onclick="showSection('quiz')" id="nav-quiz">
+    <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
+    Quiz
+  </button>
+  <button onclick="showSection('spelling')" id="nav-spelling">
+    <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 20l1-5L16 4l4 4-11 11-5 1z"/><path d="M13 7l4 4"/></svg>
+    Chính tả
+  </button>
+  <button onclick="showSection('wordlist')" id="nav-wordlist">
+    <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 6c2.2-1.3 5.4-1.3 8 0v13c-2.6-1.3-5.8-1.3-8 0V6z"/><path d="M21 6c-2.2-1.3-5.4-1.3-8 0v13c2.6-1.3 5.8-1.3 8 0V6z"/></svg>
+    Từ điển
+  </button>
+  <button onclick="showSection('progress')" id="nav-progress">
+    <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 18l5-5.5 4 3.5L20 6"/><path d="M14 6h6v6"/></svg>
+    Tiến độ
+  </button>
+  <button onclick="showSection('add')" id="nav-add">
+    <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v9M7.5 12h9"/></svg>
+    Thêm từ<span class="nav-badge-dot" id="nav-add-dot" style="display:none"></span>
+  </button>
 </nav>
 
 <div class="backup-banner" id="backup-banner">

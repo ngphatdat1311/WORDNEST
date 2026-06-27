@@ -189,6 +189,13 @@ nav button {
 }
 nav button:hover { color: var(--accent); }
 nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+.nav-icon {
+  width: 17px; height: 17px; flex-shrink: 0;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+nav button:hover .nav-icon { transform: translateY(-1px) scale(1.08); }
 
 /* ── MAIN ── */
 main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 100%; }
