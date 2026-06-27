@@ -1,6 +1,6 @@
 {
   "name": "wordnest",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "WordNest – ứng dụng học từ vựng tiếng Anh cá nhân (Flashcard SRS, Quiz, Chính tả, Từ điển).",
   "main": "electron/main.js",
   "author": "ngphatdat1311",
