@@ -16,6 +16,7 @@ let lookupGen = 0; // generation counter để loại bỏ hoàn toàn race cond
 let lastLookupEntry = null;
 let lastLookupDominantPos = '';
 let lastLookupUsedExamples = new Set();
+let lastLookupAllExamples = []; // toàn bộ ví dụ có trong từ điển cho từ hiện tại (mọi nghĩa)
 
 const VI_HINTS = {
   happy:'vui vẻ, hạnh phúc', sad:'buồn bã', angry:'tức giận', fear:'sợ hãi',
@@ -82,10 +83,13 @@ function applyLookupResult(word, r) {
   if (altEl) altEl.innerHTML = r.altHtml || '';
   const exViEl = document.getElementById('aw-example-vi');
   if (exViEl) exViEl.innerHTML = r.exampleVi ? '→ ' + escHtml(r.exampleVi) : '';
-  // Chỉ cho đổi ví dụ khi vừa tra mới (có lastLookupEntry) — kết quả từ cache
-  // không giữ lại dữ liệu từ điển gốc nên không có gì để chọn ví dụ khác.
+  // Chỉ hiện nút "Đổi ví dụ khác" khi THỰC SỰ có ≥2 ví dụ khác nhau để chọn —
+  // nhiều từ (vd "profound", "genuine") chỉ có đúng 1 ví dụ trong từ điển, hiện
+  // nút ra mà bấm không đổi gì sẽ trông như app bị lỗi. Kết quả từ cache cũng
+  // không giữ dữ liệu từ điển gốc nên không có gì để chọn ví dụ khác.
+  lastLookupAllExamples = lastLookupEntry ? getAllExamples(lastLookupEntry) : [];
   const rerollBtn = document.getElementById('aw-reroll-example-btn');
-  if (rerollBtn) rerollBtn.style.display = (lastLookupEntry && r.exampleEn) ? 'flex' : 'none';
+  if (rerollBtn) rerollBtn.style.display = lastLookupAllExamples.length >= 2 ? 'flex' : 'none';
 }
 
 function resetAwExtras() {
@@ -103,6 +107,7 @@ function scheduleAutoLookup() {
   lastLookupEntry = null;
   lastLookupDominantPos = '';
   lastLookupUsedExamples = new Set();
+  lastLookupAllExamples = [];
   const rerollBtn = document.getElementById('aw-reroll-example-btn');
   if (rerollBtn) rerollBtn.style.display = 'none';
   ['aw-phonetic','aw-meaning','aw-example','aw-category'].forEach(id => {
@@ -325,6 +330,20 @@ function speakWithBrowserTTS() {
   } catch(e) { /* browser doesn't support TTS */ }
 }
 
+// Lấy TẤT CẢ câu ví dụ có trong từ điển (mọi nghĩa/từ loại, không chỉ từ loại
+// chính) — dùng cho nút "Đổi ví dụ khác" để có nhiều lựa chọn đa dạng nhất,
+// không bị giới hạn chỉ trong nhóm từ loại chiếm đa số như lúc tra tự động.
+function getAllExamples(entry) {
+  const examples = [];
+  const seen = new Set();
+  for (const m of (entry?.meanings || [])) {
+    for (const def of (m.definitions || [])) {
+      if (def.example && !seen.has(def.example)) { seen.add(def.example); examples.push(def.example); }
+    }
+  }
+  return examples;
+}
+
 function pickDominantPos(entry) {
   if (!entry) return '';
   const counts = {};
@@ -473,29 +492,28 @@ async function doAutoLookup(word) {
 // "Đổi ví dụ khác" — chọn 1 câu khác trong CÙNG dữ liệu từ điển đã tải (không
 // tra lại từ đầu), chỉ cần dịch câu mới -> nhanh hơn nhiều so với tra lại.
 async function rerollExample() {
-  const word = document.getElementById('aw-word').value.trim();
-  if (!lastLookupEntry || !word) { showToast('Chưa có dữ liệu để đổi ví dụ — gõ từ trước nhé!'); return; }
+  if (lastLookupAllExamples.length < 2) { showToast('Từ này chỉ có 1 ví dụ trong từ điển'); return; }
 
   const btn = document.getElementById('aw-reroll-example-btn');
   if (btn) btn.disabled = true;
 
-  const picked = pickRandomExample(lastLookupEntry, lastLookupDominantPos, lastLookupUsedExamples);
-  if (!picked.example) {
-    showToast('Từ này không có thêm ví dụ khác');
-    if (btn) btn.disabled = false;
-    return;
-  }
-  lastLookupUsedExamples.add(picked.example);
+  // Ưu tiên ví dụ chưa từng hiện; lỡ đã xem hết thì mới cho lặp lại (vẫn còn
+  // hơn là không bấm được gì) — lấy trên TOÀN BỘ nghĩa, không chỉ từ loại chính,
+  // để đa dạng tối đa.
+  const unseen = lastLookupAllExamples.filter(ex => !lastLookupUsedExamples.has(ex));
+  const pool = unseen.length ? unseen : lastLookupAllExamples;
+  const picked = pool[Math.floor(Math.random() * pool.length)];
+  lastLookupUsedExamples.add(picked);
 
   const exampleEl = document.getElementById('aw-example');
   const exViEl = document.getElementById('aw-example-vi');
-  exampleEl.value = picked.example;
+  exampleEl.value = picked;
   exampleEl.classList.add('autofilled');
-  awAutoFilledValues['aw-example'] = picked.example;
+  awAutoFilledValues['aw-example'] = picked;
   if (exViEl) exViEl.innerHTML = '⏳ Đang dịch...';
 
   try {
-    const vi = await translateText(picked.example);
+    const vi = await translateText(picked);
     if (exViEl) exViEl.innerHTML = vi ? '→ ' + escHtml(vi) : '';
   } catch (e) {
     if (exViEl) exViEl.innerHTML = '';
