@@ -512,7 +512,18 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   font-family: 'Inter', sans-serif;
 }
 .wl-filter-btn:hover, .wl-filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-.wl-table { width: 100%; border-collapse: collapse; }
+/* Bảng có 8 cột — ép width:100% trên màn hẹp sẽ làm cột "Từ"/"Nghĩa" quá hẹp,
+   khiến cả từ bình thường (vd "serendipity") bị overflow-wrap ép xuống dòng
+   theo từng 2-3 ký tự rất khó đọc. Cho bảng có min-width riêng, cuộn ngang
+   trong khung .wl-table-card thay vì ép vỡ chữ. */
+.wl-table-card { padding: 0; overflow: hidden; }
+.wl-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.wl-table { width: 100%; min-width: 560px; border-collapse: collapse; }
+/* overflow-wrap: anywhere khiến thuật toán table tự tính (table-layout: auto)
+   coi cột này "co được vô hạn" và nhường hết bề rộng cho cột khác — phải ép
+   min-width riêng cho 2 cột chữ chính, không thể chỉ đặt min-width ở <table>. */
+.wl-table td:nth-child(1), .wl-table th:nth-child(1) { min-width: 140px; }
+.wl-table td:nth-child(2), .wl-table th:nth-child(2) { min-width: 160px; }
 .wl-table th {
   text-align: left; font-size: 0.75rem; text-transform: uppercase;
   letter-spacing: .5px; color: var(--text3); font-weight: 500;
