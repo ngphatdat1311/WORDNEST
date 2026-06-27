@@ -29,14 +29,18 @@ function loadWords() {
     return saved ? JSON.parse(saved) : [...DEFAULT_WORDS];
   } catch { return [...DEFAULT_WORDS]; }
 }
+// Trả về true/false để nơi gọi biết có thực sự lưu được hay không — tránh báo
+// "thành công" trong khi dữ liệu chưa hề được ghi xuống (vd lúc hết quota).
 function saveWords() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(words));
+    return true;
   } catch(e) {
-    // QuotaExceededError: localStorage đầy (giới hạn ~5MB)
+    // QuotaExceededError: localStorage đầy (giới hạn ~5-10MB tùy trình duyệt)
     if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
       showToast('⚠️ Bộ nhớ đầy! Hãy xuất JSON và xóa bớt từ để tiếp tục.', 'error');
     }
+    return false;
   }
 }
 

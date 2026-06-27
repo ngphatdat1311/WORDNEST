@@ -55,13 +55,14 @@ function renderFlashcard() {
   // SRS: hiển thị ngày ôn tiếp theo
   const srsEl = document.getElementById('fc-srs-info');
   if (srsEl) {
-    if (w.srsDue) {
-      const today = new Date().toISOString().slice(0,10);
-      const daysUntil = Math.ceil((new Date(w.srsDue) - new Date(today)) / 86400000);
+    const today = new Date().toISOString().slice(0,10);
+    const daysUntil = Math.ceil((new Date(w.srsDue) - new Date(today)) / 86400000);
+    if (w.srsDue && Number.isFinite(daysUntil)) {
       if (daysUntil <= 0) srsEl.textContent = '📅 Đến hạn ôn hôm nay';
       else if (daysUntil === 1) srsEl.textContent = '📅 Ôn lại vào ngày mai';
       else srsEl.textContent = `📅 Ôn lại sau ${daysUntil} ngày`;
     } else {
+      // Không có srsDue, hoặc dữ liệu ngày bị hỏng (import lỗi/sửa tay) -> coi như chưa lên lịch
       srsEl.textContent = '🆕 Chưa lên lịch ôn';
     }
   }

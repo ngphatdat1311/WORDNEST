@@ -27,7 +27,19 @@ function importWords(event) {
       const data = JSON.parse(e.target.result);
       let imported = Array.isArray(data) ? data : (data.words || []);
       if (!Array.isArray(imported) || !imported.length) throw new Error('Không có từ nào');
-      imported = imported.filter(w => w && typeof w.word === 'string' && typeof w.meaning === 'string');
+      imported = imported
+        .filter(w => w && typeof w.word === 'string' && typeof w.meaning === 'string')
+        // File import không qua maxlength của <input> nào cả -> phải tự giới hạn ở đây,
+        // tránh 1 entry dữ liệu rác (vd hàng chục nghìn ký tự) làm vỡ layout/phình localStorage.
+        .map(w => ({
+          ...w,
+          word: clampStr(w.word, 60),
+          meaning: clampStr(w.meaning, 200),
+          phonetic: clampStr(w.phonetic || '', 80),
+          example: clampStr(w.example || '', 300),
+          category: clampStr(w.category || '', 50),
+        }))
+        .filter(w => w.word && w.meaning); // loại bỏ luôn nếu sau khi cắt mà rỗng (vd word toàn khoảng trắng)
 
       // Tính trước số từ mới / trùng để hiện trong confirm dialog
       let toAdd = [], skipped = 0;
@@ -72,6 +84,8 @@ function importWords(event) {
 
       document.getElementById('import-confirm-btn').addEventListener('click', () => {
         closeImportConfirm();
+        const backup = words;
+        words = [...words];
         let added = 0;
         toAdd.forEach(w => {
           words.push(srsInit({
@@ -81,7 +95,7 @@ function importWords(event) {
           }));
           added++;
         });
-        saveWords();
+        if (!saveWords()) { words = backup; showToast('⚠️ Không nhập được — lỗi lưu dữ liệu (có thể do hết bộ nhớ)!', 'error'); return; }
         renderWordList(); renderHome();
         showToast(`✅ Nhập ${added} từ mới${skipped ? ', bỏ qua ' + skipped + ' từ trùng' : ''}!`, 'success');
       });

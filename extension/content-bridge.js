@@ -21,7 +21,9 @@
 
   // Trang báo đã xử lý xong 1 từ -> xóa khỏi hàng đợi
   window.addEventListener('message', (event) => {
-    if (event.source !== window) return;
+    // event.origin === window.location.origin đảm bảo chỉ tin message từ chính
+    // trang đang chạy script này, không phải script lạ nào khác giả mạo.
+    if (event.source !== window || event.origin !== window.location.origin) return;
     const data = event.data;
     if (!data || data.source !== 'wordnest-page' || data.type !== 'CONSUME_WORD') return;
     chrome.storage.local.get('pendingWords', ({ pendingWords = [] }) => {

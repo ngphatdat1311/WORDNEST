@@ -2,21 +2,21 @@
 // ADD WORD
 // ════════════════════════════════════════════════════════
 function addWord() {
-  const word    = document.getElementById('aw-word').value.trim();
-  const meaning = document.getElementById('aw-meaning').value.trim();
+  const word    = clampStr(document.getElementById('aw-word').value.trim(), 60);
+  const meaning = clampStr(document.getElementById('aw-meaning').value.trim(), 200);
   if (!word || !meaning) { showToast('Cần nhập từ và nghĩa!', 'error'); return; }
   if (words.find(w => w.word.toLowerCase() === word.toLowerCase())) { showToast('Từ này đã tồn tại!', 'error'); return; }
   words.push(srsInit({
     word,
-    phonetic: document.getElementById('aw-phonetic').value.trim(),
+    phonetic: clampStr(document.getElementById('aw-phonetic').value.trim(), 80),
     meaning,
-    example:  document.getElementById('aw-example').value.trim(),
+    example:  clampStr(document.getElementById('aw-example').value.trim(), 300),
     type:     document.getElementById('aw-type').value,
-    category: document.getElementById('aw-category').value.trim() || 'Chung',
+    category: clampStr(document.getElementById('aw-category').value.trim(), 50) || 'Chung',
     level:    document.getElementById('aw-level').value,
     mastery: 0, known: 0, seen: 0
   }));
-  saveWords();
+  if (!saveWords()) { words.pop(); return; } // lưu thất bại (vd hết bộ nhớ) -> rút lại, không báo thành công giả
   // Reset form
   ['aw-word','aw-phonetic','aw-meaning','aw-example','aw-category'].forEach(id => {
     const el = document.getElementById(id);
@@ -39,13 +39,13 @@ function bulkAdd() {
   let added = 0;
   lines.forEach(line => {
     const parts = line.split('|').map(s => s.trim());
-    const word = parts[0]; const meaning = parts[1]; const example = parts[2] || '';
+    const word = clampStr(parts[0], 60); const meaning = clampStr(parts[1], 200); const example = clampStr(parts[2] || '', 300);
     if (!word || !meaning) return;
     if (words.find(w => w.word.toLowerCase() === word.toLowerCase())) return;
     words.push(srsInit({ word, phonetic:'', meaning, example, type:'other', category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0 }));
     added++;
   });
-  saveWords();
+  if (!saveWords()) { showToast('⚠️ Không lưu được — bộ nhớ đầy!', 'error'); renderHome(); renderWordList(); return; }
   document.getElementById('aw-bulk').value = '';
   showToast(`✅ Đã thêm ${added} từ!`, 'success');
   renderHome();
@@ -86,8 +86,10 @@ function confirmDelete(word) {
 }
 function closeConfirm() { const el = document.getElementById('delete-overlay'); if (el) el.remove(); }
 function deleteWord(word) {
+  const backup = words;
   words = words.filter(w => w.word !== word);
-  saveWords(); closeConfirm();
+  closeConfirm();
+  if (!saveWords()) { words = backup; showToast('⚠️ Không xóa được — lỗi lưu dữ liệu!', 'error'); return; }
   showToast('🗑️ Đã xóa "' + word + '"');
   renderWordList(); renderHome();
 }
@@ -99,7 +101,7 @@ function toggleSuspend(word) {
   const idx = words.findIndex(x => x.word === word);
   if (idx === -1) return;
   words[idx].suspended = !words[idx].suspended;
-  saveWords();
+  if (!saveWords()) { words[idx].suspended = !words[idx].suspended; showToast('⚠️ Không lưu được thay đổi!', 'error'); return; }
   showToast(words[idx].suspended ? '📌 Đã ẩn khỏi ôn tập' : '🔓 Đã bỏ ẩn — sẽ xuất hiện lại khi ôn tập', 'success');
   renderWordList();
   renderHome();
@@ -166,24 +168,26 @@ function closeEditModal() { const el = document.getElementById('edit-overlay'); 
 function saveEditWord(originalWord) {
   const idx = words.findIndex(x => x.word === originalWord);
   if (idx === -1) return;
-  const newWord    = document.getElementById('ew-word').value.trim();
-  const newMeaning = document.getElementById('ew-meaning').value.trim();
+  const newWord    = clampStr(document.getElementById('ew-word').value.trim(), 60);
+  const newMeaning = clampStr(document.getElementById('ew-meaning').value.trim(), 200);
   if (!newWord || !newMeaning) { showToast('Cần có từ và nghĩa!', 'error'); return; }
   if (newWord.toLowerCase() !== originalWord.toLowerCase() && words.find(w => w.word.toLowerCase() === newWord.toLowerCase())) {
     showToast('Từ "' + newWord + '" đã tồn tại!', 'error'); return;
   }
+  const backup = words[idx];
   words[idx] = {
     ...words[idx],
     word:     newWord,
-    phonetic: document.getElementById('ew-phonetic').value.trim(),
+    phonetic: clampStr(document.getElementById('ew-phonetic').value.trim(), 80),
     meaning:  newMeaning,
-    example:  document.getElementById('ew-example').value.trim(),
-    category: document.getElementById('ew-category').value.trim() || 'Chung',
+    example:  clampStr(document.getElementById('ew-example').value.trim(), 300),
+    category: clampStr(document.getElementById('ew-category').value.trim(), 50) || 'Chung',
     type:     document.getElementById('ew-type').value,
     level:    document.getElementById('ew-level').value,
     suspended: document.getElementById('ew-suspended').checked,
   };
-  saveWords(); closeEditModal();
+  if (!saveWords()) { words[idx] = backup; showToast('⚠️ Không lưu được thay đổi!', 'error'); return; }
+  closeEditModal();
   showToast('✅ Đã cập nhật "' + newWord + '"!', 'success');
   renderWordList(); renderHome();
 }

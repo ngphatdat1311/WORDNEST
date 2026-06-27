@@ -17,6 +17,12 @@ function shuffleArr(a) {
   return arr;
 }
 
+// Giới hạn độ dài ở tầng JS — HTML maxlength chỉ chặn khi gõ tay, dễ bị bypass
+// qua DevTools hoặc qua Import JSON (không qua input nào cả).
+function clampStr(str, max) {
+  return String(str || '').slice(0, max);
+}
+
 function typeLabel(t) {
   return { noun:'danh từ', verb:'động từ', adj:'tính từ', adv:'trạng từ', phrase:'cụm từ', other:'khác' }[t] || t || '';
 }

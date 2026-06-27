@@ -7,7 +7,10 @@
 let extensionInboxWords = [];
 
 window.addEventListener('message', (event) => {
-  if (event.source !== window) return;
+  // Chỉ nhận message từ chính trang này gửi cho chính nó (cách content-bridge.js
+  // của tiện ích giao tiếp) — kiểm tra cả source lẫn origin để chắc chắn không
+  // phải script lạ nào khác giả mạo message.
+  if (event.source !== window || event.origin !== window.location.origin) return;
   const data = event.data;
   if (!data || data.source !== 'wordnest-extension' || data.type !== 'PENDING_WORDS') return;
   extensionInboxWords = Array.isArray(data.words) ? data.words : [];
