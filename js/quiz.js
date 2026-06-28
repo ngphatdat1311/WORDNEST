@@ -48,7 +48,12 @@ function tryRestoreQuizSession() {
 }
 
 function startQuiz() {
-  if (activeWords().length < 4) { showToast('Cần ít nhất 4 từ (chưa ẩn) để chơi Quiz!', 'error'); return; }
+  if (activeWords().length < 4) {
+    showToast('Cần ít nhất 4 từ (chưa ẩn) để chơi Quiz!', 'error');
+    qzWords = [];
+    document.getElementById('quiz-area').style.display = 'none';
+    return;
+  }
 
   populateCategorySelect(document.getElementById('qz-tag-sel'));
   const countSel = document.getElementById('qz-count-sel');

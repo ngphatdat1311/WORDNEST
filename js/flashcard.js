@@ -21,11 +21,12 @@ function initFlashcard(shuffle = false) {
   if (filter === 'review') pool = pool.filter(w => w.mastery > 0 && w.mastery < 3);
   if (tag !== 'all') pool = pool.filter(w => (w.category || 'Khác') === tag);
   if (!pool.length) {
+    const hadFilter = filter !== 'all' || tag !== 'all';
     pool = activeWords();
     // Reset dropdown về "Tất cả từ" để tránh mâu thuẫn UX
     const fcCatEl = document.getElementById('fc-category');
     if (fcCatEl && fcCatEl.value !== 'all') { fcCatEl.value = 'all'; }
-    showToast('Không có từ phù hợp — hiện tất cả!');
+    if (hadFilter && pool.length) showToast('Không có từ phù hợp — hiện tất cả!');
   }
   fcWords = shuffle ? shuffleArr(pool) : pool;
   fcIndex = 0;
@@ -40,7 +41,23 @@ function initFlashcard(shuffle = false) {
 function shuffleFlashcard() { initFlashcard(true); showToast('Đã xáo trộn thẻ!'); }
 
 function renderFlashcard() {
-  if (!fcWords.length) return;
+  const fcKnowRow = document.getElementById('fc-know-row');
+  if (!fcWords.length) {
+    document.getElementById('fc-word').textContent = 'Chưa có từ nào';
+    document.getElementById('fc-phonetic').textContent = '';
+    document.getElementById('fc-type').textContent = '';
+    document.getElementById('fc-type-back').textContent = '';
+    document.getElementById('fc-meaning').textContent = 'Hãy thêm từ mới để bắt đầu học!';
+    document.getElementById('fc-example').textContent = '';
+    const srsEl = document.getElementById('fc-srs-info'); if (srsEl) srsEl.textContent = '';
+    document.getElementById('fc-prog-fill').style.width = '0%';
+    document.getElementById('fc-prog-text').textContent = '0 / 0';
+    document.getElementById('fc-prev').disabled = true;
+    document.getElementById('fc-next').disabled = true;
+    document.getElementById('flashcard').classList.remove('flipped');
+    fcKnowRow.style.display = 'none';
+    return;
+  }
   const w = fcWords[fcIndex];
   // seen chỉ tăng khi navigate đến thẻ mới, không tăng khi re-render/flip
   // — được xử lý bởi prevCard/nextCard/initFlashcard qua fcSeenThisSession
@@ -88,6 +105,7 @@ function prevCard() { if (fcIndex > 0) { fcIndex--; renderFlashcard(); markSeenC
 function nextCard() { if (fcIndex < fcWords.length - 1) { fcIndex++; renderFlashcard(); markSeenCurrent(); } }
 
 function markCard(known) {
+  if (!fcWords.length) return;
   const w = fcWords[fcIndex];
   const idx = words.findIndex(x => x.word === w.word);
   if (idx !== -1) {

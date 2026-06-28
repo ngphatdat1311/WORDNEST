@@ -97,6 +97,43 @@ function confirmDelete(word) {
   setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
 }
 function closeConfirm() { const el = document.getElementById('delete-overlay'); if (el) el.remove(); }
+
+function confirmDeleteAll() {
+  if (!words.length) { showToast('Từ điển đang trống!'); return; }
+  const old = document.getElementById('delete-overlay');
+  if (old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.id = 'delete-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'cb-dialog-title');
+  overlay.innerHTML = `
+    <div class="confirm-box">
+      <div class="cb-icon">⚠️</div>
+      <div class="cb-title" id="cb-dialog-title">Xóa toàn bộ từ điển?</div>
+      <div class="cb-word">${words.length} từ</div>
+      <div class="cb-sub">Toàn bộ từ vựng, tiến độ SRS và lịch sử học sẽ bị xóa vĩnh viễn.<br>Hành động này không thể hoàn tác — hãy Xuất JSON trước nếu chưa sao lưu.</div>
+      <div class="cb-btns">
+        <button class="cb-cancel" onclick="closeConfirm()">Hủy</button>
+        <button class="cb-confirm" id="cb-confirm-all-btn">Có, xóa tất cả</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('cb-confirm-all-btn').addEventListener('click', deleteAllWords);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
+  setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
+}
+function deleteAllWords() {
+  const backup = words;
+  const count = words.length;
+  words = [];
+  closeConfirm();
+  if (!saveWords()) { words = backup; showToast('⚠️ Không xóa được — lỗi lưu dữ liệu!', 'error'); return; }
+  showToast(`🗑️ Đã xóa toàn bộ ${count} từ`);
+  renderWordList(); renderHome();
+}
+
 function deleteWord(word) {
   const backup = words;
   words = words.filter(w => w.word !== word);

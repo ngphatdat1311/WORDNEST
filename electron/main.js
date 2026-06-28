@@ -120,6 +120,110 @@ app.on('window-all-closed', () => {
 ipcMain.handle('get-app-version', () => app.getVersion());
 
 // ════════════════════════════════════════════════════════
+// MỞ RỘNG NGUỒN TRA TỪ — Tatoeba (kho câu ví dụ thật, có bản dịch tiếng Việt
+// sẵn cho rất nhiều câu) + Datamuse (phiên âm ARPAbet, chuyển sang IPA) khi
+// dictionaryapi.dev không có hoặc quá ít dữ liệu. Cả 2 API này KHÔNG trả
+// header CORS nên phải gọi từ main process (Node, không bị CORS chặn) rồi
+// chuyển kết quả qua IPC cho renderer — renderer tự gọi trực tiếp sẽ bị chặn.
+// ════════════════════════════════════════════════════════
+async function fetchJsonWithTimeout(url, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+const TATOEBA_SEARCH_URL = 'https://tatoeba.org/en/api_v0/search';
+
+ipcMain.handle('fetch-tatoeba-examples', async (event, rawWord) => {
+  const word = String(rawWord || '').trim().slice(0, 60);
+  if (!word) return [];
+
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const wordRe = new RegExp('\\b' + escaped + '\\b', 'i');
+  const seen = new Set();
+  const out = [];
+
+  function ingest(data) {
+    for (const r of (data?.results || [])) {
+      if (out.length >= 60) break;
+      if (!r?.text || seen.has(r.text) || !wordRe.test(r.text)) continue;
+      seen.add(r.text);
+      let vi = null;
+      const flat = (r.translations || []).flat();
+      const match = flat.find(t => t && t.lang === 'vie' && t.text);
+      if (match) vi = match.text;
+      out.push({ text: r.text, vi });
+    }
+  }
+
+  const q = encodeURIComponent(word);
+  // Ưu tiên câu đã có sẵn bản dịch tiếng Việt (do người thật dịch, nhanh + chính xác hơn máy dịch)
+  const withVi = await fetchJsonWithTimeout(`${TATOEBA_SEARCH_URL}?from=eng&to=vie&query=${q}&orphans=no&unapproved=no&perPage=50`, 8000);
+  if (withVi) ingest(withVi);
+
+  // Nếu chưa đủ đa dạng, lấy thêm câu tiếng Anh thuần (chưa có bản dịch sẵn, sẽ dịch máy khi hiện ra)
+  if (out.length < 20) {
+    const plain = await fetchJsonWithTimeout(`${TATOEBA_SEARCH_URL}?from=eng&query=${q}&orphans=no&unapproved=no&perPage=50`, 8000);
+    if (plain) ingest(plain);
+  }
+
+  return out;
+});
+
+// Bảng quy đổi ARPAbet (CMU Pronouncing Dictionary, Datamuse trả về dạng này)
+// sang IPA — dùng làm phiên âm dự phòng khi dictionaryapi.dev không có.
+const ARPABET_TO_IPA = {
+  AA: 'ɑ', AE: 'æ', AH: 'ə', AO: 'ɔ', AW: 'aʊ', AY: 'aɪ',
+  B: 'b', CH: 'tʃ', D: 'd', DH: 'ð',
+  EH: 'ɛ', ER: 'ɚ', EY: 'eɪ',
+  F: 'f', G: 'g', HH: 'h',
+  IH: 'ɪ', IY: 'i',
+  JH: 'dʒ', K: 'k', L: 'l', M: 'm', N: 'n', NG: 'ŋ',
+  OW: 'oʊ', OY: 'ɔɪ',
+  P: 'p', R: 'r', S: 's', SH: 'ʃ',
+  T: 't', TH: 'θ',
+  UH: 'ʊ', UW: 'u',
+  V: 'v', W: 'w', Y: 'j', Z: 'z', ZH: 'ʒ',
+};
+function arpabetToIpa(pronTag) {
+  const phones = pronTag.trim().split(/\s+/);
+  let ipa = '';
+  for (const ph of phones) {
+    const m = ph.match(/^([A-Z]+)([0-2])?$/);
+    if (!m) continue;
+    const base = m[1], stress = m[2];
+    let sym = ARPABET_TO_IPA[base];
+    if (sym === undefined) continue;
+    if (base === 'AH' && stress && stress !== '0') sym = 'ʌ'; // AH có trọng âm đọc /ʌ/, không phải schwa
+    if (stress === '1') ipa += 'ˈ' + sym;
+    else if (stress === '2') ipa += 'ˌ' + sym;
+    else ipa += sym;
+  }
+  return ipa;
+}
+
+ipcMain.handle('fetch-phonetic-fallback', async (event, rawWord) => {
+  const word = String(rawWord || '').trim().toLowerCase().slice(0, 60);
+  if (!word || /\s/.test(word)) return ''; // Datamuse chỉ tra được từ đơn, không tra cụm từ
+
+  const data = await fetchJsonWithTimeout(`https://api.datamuse.com/words?sp=${encodeURIComponent(word)}&md=r&max=1`, 6000);
+  const entry = Array.isArray(data) ? data[0] : null;
+  if (!entry || entry.word !== word) return null; // tránh lấy phiên âm của từ gần đúng khác nghĩa
+  const tag = (entry.tags || []).find(t => t.startsWith('pron:'));
+  if (!tag) return '';
+  const ipa = arpabetToIpa(tag.slice(5));
+  return ipa ? '/' + ipa + '/' : '';
+});
+
+// ════════════════════════════════════════════════════════
 // AUTO-UPDATE — chỉ KIỂM TRA và BÁO khi mở app, không tự tải gì cả nếu người
 // dùng chưa đồng ý. Bấm "Cập nhật ngay" mới thật sự tải, rồi tự khởi động lại
 // để áp dụng — không cần gỡ cài đặt rồi tải file mới như cách thủ công.

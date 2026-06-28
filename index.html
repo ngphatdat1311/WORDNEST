@@ -310,9 +310,9 @@
         oninput="updateBlanks()">
     </div>
     <div style="display:flex;gap:8px;justify-content:center;margin-bottom:1rem;flex-wrap:wrap;">
-      <button class="btn btn-outline" onclick="giveHint()" style="flex:1;min-width:100px;max-width:130px">💡 Gợi ý</button>
-      <button class="btn btn-outline" onclick="speakSpelling()" style="flex:1;min-width:100px;max-width:130px">🔊 Phát âm</button>
-      <button class="btn btn-outline" onclick="revealWord()" style="flex:1;min-width:100px;max-width:130px">👁️ Hiện từ</button>
+      <button class="btn btn-outline" onclick="giveHint()" id="sp-hint-btn" style="flex:1;min-width:100px;max-width:130px">💡 Gợi ý</button>
+      <button class="btn btn-outline" onclick="speakSpelling()" id="sp-speak-btn" style="flex:1;min-width:100px;max-width:130px">🔊 Phát âm</button>
+      <button class="btn btn-outline" onclick="revealWord()" id="sp-reveal-btn" style="flex:1;min-width:100px;max-width:130px">👁️ Hiện từ</button>
       <button class="btn" onclick="checkSpelling()" id="sp-check-btn" style="flex:1;min-width:100px;max-width:130px">✓ Kiểm tra</button>
     </div>
     <div class="quiz-feedback" id="sp-feedback"></div>
@@ -345,6 +345,7 @@
     <label class="btn btn-outline" style="padding:6px 14px;font-size:0.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
       📥 Nhập JSON <input type="file" accept=".json" id="import-file" onchange="importWords(event)" style="display:none">
     </label>
+    <button class="btn btn-outline" onclick="confirmDeleteAll()" style="padding:6px 14px;font-size:0.82rem;color:var(--red);border-color:var(--red);">🗑️ Xóa tất cả</button>
   </div>
 
   <div class="wl-filter-row" id="wl-filters"></div>

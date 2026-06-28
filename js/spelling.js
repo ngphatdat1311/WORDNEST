@@ -70,7 +70,25 @@ function updateSpScore() {
 function loadSpellingWord() {
   spHintLevel = 0;
   spRevealed = false;
-  if (!spWords.length) return;
+  if (!spWords.length) {
+    document.getElementById('sp-meaning').textContent = 'Chưa có từ nào';
+    document.getElementById('sp-phonetic').textContent = '';
+    document.getElementById('sp-example').textContent = 'Hãy thêm từ mới để luyện chính tả!';
+    document.getElementById('sp-input').value = '';
+    document.getElementById('sp-input').disabled = true;
+    document.getElementById('sp-blanks').innerHTML = '';
+    const fb = document.getElementById('sp-feedback');
+    fb.className = 'quiz-feedback'; fb.innerHTML = '';
+    document.getElementById('sp-next').style.display = 'none';
+    ['sp-check-btn','sp-hint-btn','sp-speak-btn','sp-reveal-btn'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.disabled = true;
+    });
+    return;
+  }
+  document.getElementById('sp-input').disabled = false;
+  ['sp-check-btn','sp-hint-btn','sp-speak-btn','sp-reveal-btn'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.disabled = false;
+  });
   const w = spWords[spIndex];
   document.getElementById('sp-meaning').textContent = w.meaning;
   document.getElementById('sp-phonetic').textContent = w.phonetic || '';
