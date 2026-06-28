@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   words = loadWords();
   renderHome();
   initFlashcard(false);
+  document.querySelectorAll('.wl-mastered-only-btn').forEach(b => b.classList.toggle('active', wlShowMasteredOnly));
   showBackupBannerIfNeeded();
   // Chỉ đọc streak, không ghi — streak chỉ tăng sau khi học
   streak = loadStreak();

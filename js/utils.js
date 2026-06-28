@@ -23,6 +23,15 @@ function clampStr(str, max) {
   return String(str || '').slice(0, max);
 }
 
+// Định dạng timestamp thêm từ (ms) -> "28/06/2026 14:32"
+function formatAddedAt(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function typeLabel(t) {
   return { noun:'danh từ', verb:'động từ', adj:'tính từ', adv:'trạng từ', phrase:'cụm từ', other:'khác' }[t] || t || '';
 }

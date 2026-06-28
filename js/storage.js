@@ -4,6 +4,8 @@
 const STORAGE_KEY  = 'wordnest_data';
 const STREAK_KEY   = 'wordnest_streak';
 const THEME_KEY    = 'wordnest_theme';
+const FOLDERS_KEY  = 'wordnest_folders';
+const TRASH_KEY    = 'wordnest_trash';
 
 const DEFAULT_WORDS = [
   { word:'serendipity', phonetic:'/ˌser.ənˈdɪp.ɪ.ti/', meaning:'sự tình cờ may mắn', example:'It was serendipity that we met.', type:'noun', category:'Cuộc sống', level:'hard', mastery:0, known:0, seen:0 },
@@ -45,3 +47,51 @@ function saveWords() {
 }
 
 let words = loadWords();
+
+// ════════════════════════════════════════════════════════
+// FOLDERS — nhóm từ thủ công (khác Chủ đề), kiểu thư mục
+// ════════════════════════════════════════════════════════
+function loadFolders() {
+  try {
+    const saved = localStorage.getItem(FOLDERS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch { return []; }
+}
+function saveFolders() {
+  try {
+    localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
+    return true;
+  } catch(e) {
+    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+      showToast('⚠️ Bộ nhớ đầy! Hãy xuất JSON và xóa bớt từ để tiếp tục.', 'error');
+    }
+    return false;
+  }
+}
+
+let folders = loadFolders();
+
+// ════════════════════════════════════════════════════════
+// TRASH — từ/thư mục đã xóa, khôi phục được (kiểu Thùng rác máy tính)
+// entry dạng từ:    { id, type:'word',   deletedAt, word: {...snapshot} }
+// entry dạng folder:{ id, type:'folder', deletedAt, folder: {...snapshot}, words: [...snapshot] }
+// ════════════════════════════════════════════════════════
+function loadTrash() {
+  try {
+    const saved = localStorage.getItem(TRASH_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch { return []; }
+}
+function saveTrash() {
+  try {
+    localStorage.setItem(TRASH_KEY, JSON.stringify(trash));
+    return true;
+  } catch(e) {
+    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+      showToast('⚠️ Bộ nhớ đầy! Hãy xuất JSON và xóa bớt từ để tiếp tục.', 'error');
+    }
+    return false;
+  }
+}
+
+let trash = loadTrash();

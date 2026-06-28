@@ -47,13 +47,20 @@ function restartSpelling() {
   showToast('🔄 Đã bắt đầu lại!');
 }
 
+function spellingPool() {
+  const folderVal = (document.getElementById('sp-folder-sel') || {}).value || 'all';
+  const pool = filterByFolderSel(activeWords(), folderVal);
+  return pool.length ? pool : activeWords(); // fallback nếu thư mục đang trống
+}
+
 function initSpelling() {
+  populateFolderSelect(document.getElementById('sp-folder-sel'));
   // Không reset điểm nếu đang giữa phiên (giống Quiz giữ tiến trình)
   // Chỉ reset hoàn toàn khi chưa có phiên nào, hoặc đã xong hết từ
   if (!spSessionStarted || spIndex >= spWords.length) {
     // Nếu có phiên cũ chưa làm xong lưu trong sessionStorage (do refresh trang), khôi phục lại
     if (tryRestoreSpellingSession()) { loadSpellingWord(); return; }
-    spWords = shuffleArr(activeWords());
+    spWords = shuffleArr(spellingPool());
     spIndex = 0; spCorrect = 0; spWrong = 0; spStreak = 0;
     spSessionStarted = true;
     updateSpScore();
@@ -112,7 +119,7 @@ function nextSpelling() {
   if (spIndex >= spWords.length) {
     showToast('🎉 Đã luyện hết tất cả từ!', 'success');
     spIndex = 0;
-    spWords = shuffleArr(activeWords());
+    spWords = shuffleArr(spellingPool());
     spCorrect = 0; spWrong = 0; spStreak = 0;
     spSessionStarted = false; // Reset để lần vào tab tiếp theo bắt đầu phiên mới
     clearSpellingSession(); // phiên đã hoàn tất — không cần resume nữa

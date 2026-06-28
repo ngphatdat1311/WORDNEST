@@ -4,6 +4,61 @@
 let wlFilter = 'all';
 let wlPage = 1;
 const WL_PAGE_SIZE = 30;
+const WL_SHOWDATE_KEY = 'wordnest_wl_showdate';
+let wlShowDate = localStorage.getItem(WL_SHOWDATE_KEY) === '1';
+const WL_MASTERED_ONLY_KEY = 'wordnest_wl_mastered_only';
+// true = chỉ hiện từ "Đã thuộc hẳn", ẩn hết từ còn lại. false = hiện bình thường
+// (2 nhóm nối tiếp nhau: từ chưa thuộc ở trên, đã thuộc hẳn ở dưới — xem wlComparator).
+let wlShowMasteredOnly = localStorage.getItem(WL_MASTERED_ONLY_KEY) === '1';
+
+// 'all' = danh sách phẳng quen thuộc, 'folders' = chế độ thư mục, 'trash' = thùng rác
+let wlView = 'all';
+
+function switchWlView(view) {
+  wlView = view;
+  document.getElementById('wl-tab-all').classList.toggle('active', view === 'all');
+  document.getElementById('wl-tab-folders').classList.toggle('active', view === 'folders');
+  document.getElementById('wl-tab-trash').classList.toggle('active', view === 'trash');
+  document.getElementById('wl-view-all').style.display = view === 'all' ? '' : 'none';
+  document.getElementById('wl-view-folders').style.display = view === 'folders' ? '' : 'none';
+  document.getElementById('wl-view-trash').style.display = view === 'trash' ? '' : 'none';
+  if (view === 'all') renderWordList();
+  else if (view === 'folders') openFolderGrid();
+  else renderTrash();
+}
+
+function toggleWlShowDate() {
+  wlShowDate = !wlShowDate;
+  localStorage.setItem(WL_SHOWDATE_KEY, wlShowDate ? '1' : '0');
+  document.getElementById('wl-showdate-btn').classList.toggle('active', wlShowDate);
+  renderWordList();
+}
+
+function toggleWlMasteredOnly() {
+  wlShowMasteredOnly = !wlShowMasteredOnly;
+  localStorage.setItem(WL_MASTERED_ONLY_KEY, wlShowMasteredOnly ? '1' : '0');
+  document.querySelectorAll('.wl-mastered-only-btn').forEach(b => b.classList.toggle('active', wlShowMasteredOnly));
+  if (wlView === 'all') { wlPage = 1; renderWordList(); }
+  else refreshWlView();
+}
+
+// Comparator dùng chung cho cả bảng "Tất cả" và bảng chi tiết thư mục — từ đã
+// đánh dấu "Đã thuộc hẳn" (suspended) luôn bị đẩy xuống cuối danh sách, bất kể
+// đang sắp xếp theo kiểu gì, để không bị lẫn vào giữa các từ còn cần ôn tập.
+function wlComparator(sortVal) {
+  return (a, b) => {
+    const sa = !!a.suspended, sb = !!b.suspended;
+    if (sa !== sb) return sa ? 1 : -1;
+    if (sortVal === 'az')           return a.word.localeCompare(b.word);
+    if (sortVal === 'za')           return b.word.localeCompare(a.word);
+    if (sortVal === 'mastery_desc') return (b.mastery||0) - (a.mastery||0);
+    if (sortVal === 'mastery_asc')  return (a.mastery||0) - (b.mastery||0);
+    if (sortVal === 'seen_desc')    return (b.seen||0) - (a.seen||0);
+    if (sortVal === 'added_desc')   return (b.addedAt||0) - (a.addedAt||0);
+    if (sortVal === 'added_asc')    return (a.addedAt||0) - (b.addedAt||0);
+    return 0;
+  };
+}
 
 function renderWordList(resetPage = false) {
   if (resetPage) wlPage = 1;
@@ -26,18 +81,17 @@ function renderWordList(resetPage = false) {
     const matchCat = wlFilter === 'all' || (w.category || 'Khác') === wlFilter;
     return matchSearch && matchCat;
   });
+  if (wlShowMasteredOnly) list = list.filter(w => w.suspended);
 
-  // Sắp xếp theo lựa chọn
-  if (sortVal === 'az')           list = list.slice().sort((a,b) => a.word.localeCompare(b.word));
-  else if (sortVal === 'za')      list = list.slice().sort((a,b) => b.word.localeCompare(a.word));
-  else if (sortVal === 'mastery_desc') list = list.slice().sort((a,b) => (b.mastery||0) - (a.mastery||0));
-  else if (sortVal === 'mastery_asc')  list = list.slice().sort((a,b) => (a.mastery||0) - (b.mastery||0));
-  else if (sortVal === 'seen_desc')    list = list.slice().sort((a,b) => (b.seen||0) - (a.seen||0));
+  // Sắp xếp theo lựa chọn — từ "Đã thuộc hẳn" luôn bị đẩy xuống cuối (xem wlComparator)
+  list = list.slice().sort(wlComparator(sortVal));
 
+  renderWlTableHead('wl-thead');
   const tbody = document.getElementById('wl-body');
   const pagEl = document.getElementById('wl-pagination');
+  const colCount = 5;
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text3)">Không tìm thấy từ nào 📭</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${colCount}" style="text-align:center;padding:2rem;color:var(--text3)">Không tìm thấy từ nào 📭</td></tr>`;
     if (pagEl) pagEl.innerHTML = '';
     return;
   }
@@ -47,21 +101,7 @@ function renderWordList(resetPage = false) {
   if (wlPage > totalPages) wlPage = totalPages;
   const paginated = list.slice((wlPage - 1) * WL_PAGE_SIZE, wlPage * WL_PAGE_SIZE);
 
-  tbody.innerHTML = paginated.map(w => {
-    const dots = [0,1,2,3].map(i => `<div class="wl-dot${i < w.mastery ? ' filled' : ''}"></div>`).join('');
-    // Dùng data-word attribute thay vì nối chuỗi vào onclick
-    const esc = escAttr(w.word);
-    return `<tr class="${w.suspended ? 'wl-row-suspended' : ''}">
-      <td><div class="wl-word">${escHtml(w.word)}</div><div class="wl-phon">${escHtml(w.phonetic || '')}</div></td>
-      <td><div class="wl-meaning">${escHtml(w.meaning)}</div><div class="wl-example">${escHtml(w.example || '')}</div></td>
-      <td><span class="wl-type">${escHtml(w.category || 'Khác')}</span></td>
-      <td><div class="wl-mastery">${dots}</div></td>
-      <td><button class="wl-suspend${w.suspended ? ' active' : ''}" data-word="${esc}" onclick="toggleSuspend(this.dataset.word)" title="${w.suspended ? 'Bỏ ẩn — đưa lại vào ôn tập' : 'Đã thuộc hẳn — ẩn khỏi ôn tập'}" aria-label="Ẩn/bỏ ẩn ${escAttr(w.word)}">${w.suspended ? '🔒' : '📌'}</button></td>
-      <td><button class="wl-speak" data-word="${esc}" onclick="speak(this.dataset.word)" aria-label="Phát âm ${escAttr(w.word)}">🔊</button></td>
-      <td><button class="wl-edit"   data-word="${esc}" onclick="openEditModal(this.dataset.word)" title="Sửa" aria-label="Sửa từ ${escAttr(w.word)}">✏️</button></td>
-      <td><button class="wl-delete" data-word="${esc}" onclick="confirmDelete(this.dataset.word)" title="Xóa" aria-label="Xóa từ ${escAttr(w.word)}">🗑️</button></td>
-    </tr>`;
-  }).join('');
+  tbody.innerHTML = paginated.map(w => wlRowHtml(w)).join('');
 
   // Render pagination controls
   if (pagEl && totalPages > 1) {
@@ -74,7 +114,64 @@ function renderWordList(resetPage = false) {
   }
 }
 
+// Header bảng — luôn 5 cột cố định, dùng chung cho bảng "Tất cả" và bảng chi tiết thư mục
+function renderWlTableHead(theadId) {
+  const thead = document.getElementById(theadId);
+  if (!thead) return;
+  thead.innerHTML = `<tr><th>Từ</th><th>Nghĩa</th><th>Chủ đề</th><th>Thuộc</th><th></th></tr>`;
+}
+
+// Dùng chung cho cả 2 chế độ (danh sách phẳng + bên trong 1 thư mục)
+// Ngày thêm hiện trong ô "Từ" (không tách cột riêng), các nút hành động gộp vào 1 ô
+// duy nhất — tránh bảng phình quá nhiều cột gây xuống dòng/lệch tiêu đề trên màn hẹp.
+function wlRowHtml(w) {
+  const dots = [0,1,2,3].map(i => `<div class="wl-dot${i < w.mastery ? ' filled' : ''}"></div>`).join('');
+  const esc = escAttr(w.word);
+  const folder = w.folderId ? folders.find(f => f.id === w.folderId) : null;
+  return `<tr class="${w.suspended ? 'wl-row-suspended' : ''}">
+    <td>
+      <div class="wl-word">${escHtml(w.word)}</div>
+      <div class="wl-phon">${escHtml(w.phonetic || '')}</div>
+      ${wlShowDate ? `<div class="wl-added">🕒 ${w.addedAt ? escHtml(formatAddedAt(w.addedAt)) : 'Không rõ (từ cũ)'}</div>` : ''}
+    </td>
+    <td><div class="wl-meaning">${escHtml(w.meaning)}</div><div class="wl-example">${escHtml(w.example || '')}</div></td>
+    <td>
+      <span class="wl-type">${escHtml(w.category || 'Khác')}</span>
+      ${folder ? `<div class="wl-folder-tag">📁 ${escHtml(folder.name)}</div>` : ''}
+    </td>
+    <td><div class="wl-mastery">${dots}</div></td>
+    <td>
+      <div class="wl-actions">
+        <button class="wl-folder-btn${folder ? ' active' : ''}" data-word="${esc}" onclick="openFolderPicker(this.dataset.word)" title="${folder ? '📁 ' + escAttr(folder.name) : 'Thêm vào thư mục'}" aria-label="Gán thư mục cho ${escAttr(w.word)}">📁</button>
+        <button class="wl-suspend${w.suspended ? ' active' : ''}" data-word="${esc}" onclick="toggleSuspend(this.dataset.word)" title="${w.suspended ? 'Bỏ ẩn — đưa lại vào ôn tập' : 'Đã thuộc hẳn — ẩn khỏi ôn tập'}" aria-label="Ẩn/bỏ ẩn ${escAttr(w.word)}">${w.suspended ? '🔒' : '📌'}</button>
+        <button class="wl-speak" data-word="${esc}" onclick="speak(this.dataset.word)" aria-label="Phát âm ${escAttr(w.word)}">🔊</button>
+        <button class="wl-edit" data-word="${esc}" onclick="openEditModal(this.dataset.word)" title="Sửa" aria-label="Sửa từ ${escAttr(w.word)}">✏️</button>
+        <button class="wl-delete" data-word="${esc}" onclick="confirmDelete(this.dataset.word)" title="Xóa" aria-label="Xóa từ ${escAttr(w.word)}">🗑️</button>
+      </div>
+    </td>
+  </tr>`;
+}
+
 function setWlFilter(cat) { wlFilter = cat; wlPage = 1; renderWordList(true); }
+
+// ════════════════════════════════════════════════════════
+// Menu "⋯ Khác" (Xuất/Nhập JSON, Xóa tất cả) — gom lại thay vì dàn hàng nút to
+// ════════════════════════════════════════════════════════
+function toggleWlMoreMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('wl-more-menu');
+  if (menu) menu.classList.toggle('open');
+}
+function closeWlMoreMenu() {
+  const menu = document.getElementById('wl-more-menu');
+  if (menu) menu.classList.remove('open');
+}
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('wl-more-menu');
+  if (!menu || !menu.classList.contains('open')) return;
+  if (menu.contains(e.target) || e.target.closest('#wl-more-btn')) return;
+  menu.classList.remove('open');
+});
 
 // Debounce search input + reset to page 1 so filtering doesn't fire a full
 // re-render on every keystroke and doesn't leave the user stuck on an old page number

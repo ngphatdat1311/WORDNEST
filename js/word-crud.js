@@ -14,7 +14,8 @@ function addWord() {
     type:     document.getElementById('aw-type').value,
     category: clampStr(document.getElementById('aw-category').value.trim(), 50) || 'Chung',
     level:    document.getElementById('aw-level').value,
-    mastery: 0, known: 0, seen: 0
+    mastery: 0, known: 0, seen: 0,
+    addedAt: Date.now(), folderId: document.getElementById('aw-folder').value || null
   }));
   if (!saveWords()) { words.pop(); return; } // lưu thất bại (vd hết bộ nhớ) -> rút lại, không báo thành công giả
   // Reset form
@@ -22,6 +23,7 @@ function addWord() {
     const el = document.getElementById(id);
     if (el) { el.value = ''; el.classList.remove('autofilled'); }
   });
+  document.getElementById('aw-folder').value = '';
   const exVi = document.getElementById('aw-example-vi'); if (exVi) exVi.textContent = '';
   const altM = document.getElementById('aw-alt-meaning'); if (altM) altM.innerHTML = '';
   const speakBtn = document.getElementById('aw-speak-btn'); if (speakBtn) speakBtn.style.display = 'none';
@@ -35,7 +37,10 @@ function addWord() {
 function bulkAdd() {
   const raw = document.getElementById('aw-bulk').value.trim();
   if (!raw) { showToast('Vui lòng nhập từ!'); return; }
+  const folderId = document.getElementById('aw-bulk-folder').value || null;
   const lines = raw.split('\n').filter(l => l.trim());
+  const backup = words;
+  words = [...words];
   let added = 0;
   lines.forEach(line => {
     const parts = line.split('|').map(s => s.trim());
@@ -54,10 +59,11 @@ function bulkAdd() {
     // khác với từ đơn (vd "apple") — trước đây mọi từ thêm hàng loạt đều bị gán
     // cứng "other", mất luôn ý nghĩa phân loại cụm từ/từ đơn.
     const type = /\s/.test(word) ? 'phrase' : 'other';
-    words.push(srsInit({ word, phonetic, meaning, example, type, category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0 }));
+    words.push(srsInit({ word, phonetic, meaning, example, type, category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0, addedAt: Date.now(), folderId }));
     added++;
   });
-  if (!saveWords()) { showToast('⚠️ Không lưu được — bộ nhớ đầy!', 'error'); renderHome(); renderWordList(); return; }
+  if (!added) { showToast('Không có từ hợp lệ nào để thêm (trùng tên hoặc thiếu nghĩa)!', 'error'); return; }
+  if (!saveWords()) { words = backup; showToast('⚠️ Không lưu được — bộ nhớ đầy! Không có từ nào được thêm.', 'error'); return; }
   document.getElementById('aw-bulk').value = '';
   showToast(`✅ Đã thêm ${added} từ!`, 'success');
   renderHome();
@@ -83,7 +89,7 @@ function confirmDelete(word) {
       <div class="cb-icon">🗑️</div>
       <div class="cb-title" id="cb-dialog-title">Xóa từ này?</div>
       <div class="cb-word">${escHtml(w.word)}</div>
-      <div class="cb-sub">${escHtml(w.meaning)}<br>Hành động này không thể hoàn tác.</div>
+      <div class="cb-sub">${escHtml(w.meaning)}<br>Từ sẽ được chuyển vào 🗑️ Thùng rác — có thể khôi phục lại sau.</div>
       <div class="cb-btns">
         <button class="cb-cancel" onclick="closeConfirm()">Hủy</button>
         <button class="cb-confirm" id="cb-confirm-btn">Xóa</button>
@@ -113,7 +119,7 @@ function confirmDeleteAll() {
       <div class="cb-icon">⚠️</div>
       <div class="cb-title" id="cb-dialog-title">Xóa toàn bộ từ điển?</div>
       <div class="cb-word">${words.length} từ</div>
-      <div class="cb-sub">Toàn bộ từ vựng, tiến độ SRS và lịch sử học sẽ bị xóa vĩnh viễn.<br>Hành động này không thể hoàn tác — hãy Xuất JSON trước nếu chưa sao lưu.</div>
+      <div class="cb-sub">Toàn bộ từ vựng sẽ được chuyển vào 🗑️ Thùng rác — có thể khôi phục lại sau, hoặc xuất JSON để sao lưu chắc chắn hơn.</div>
       <div class="cb-btns">
         <button class="cb-cancel" onclick="closeConfirm()">Hủy</button>
         <button class="cb-confirm" id="cb-confirm-all-btn">Có, xóa tất cả</button>
@@ -125,22 +131,28 @@ function confirmDeleteAll() {
   setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
 }
 function deleteAllWords() {
-  const backup = words;
+  const backupWords = words, backupTrash = trash;
   const count = words.length;
+  const now = Date.now();
+  trash = [...trash, ...words.map(w => ({ id: genTrashId(), type: 'word', deletedAt: now, word: w }))];
   words = [];
   closeConfirm();
-  if (!saveWords()) { words = backup; showToast('⚠️ Không xóa được — lỗi lưu dữ liệu!', 'error'); return; }
-  showToast(`🗑️ Đã xóa toàn bộ ${count} từ`);
-  renderWordList(); renderHome();
+  if (!saveWords() || !saveTrash()) { words = backupWords; trash = backupTrash; showToast('⚠️ Không xóa được — lỗi lưu dữ liệu!', 'error'); return; }
+  showToast(`🗑️ Đã chuyển ${count} từ vào Thùng rác`);
+  refreshWlView(); renderHome();
 }
 
 function deleteWord(word) {
-  const backup = words;
+  const idx = words.findIndex(w => w.word === word);
+  if (idx === -1) { closeConfirm(); return; }
+  const backupWords = words, backupTrash = trash;
+  const snapshot = words[idx];
   words = words.filter(w => w.word !== word);
+  trash = [...trash, { id: genTrashId(), type: 'word', deletedAt: Date.now(), word: snapshot }];
   closeConfirm();
-  if (!saveWords()) { words = backup; showToast('⚠️ Không xóa được — lỗi lưu dữ liệu!', 'error'); return; }
-  showToast('🗑️ Đã xóa "' + word + '"');
-  renderWordList(); renderHome();
+  if (!saveWords() || !saveTrash()) { words = backupWords; trash = backupTrash; showToast('⚠️ Không xóa được — lỗi lưu dữ liệu!', 'error'); return; }
+  showToast('🗑️ Đã chuyển "' + word + '" vào Thùng rác');
+  refreshWlView(); renderHome();
 }
 
 // ════════════════════════════════════════════════════════
@@ -152,7 +164,7 @@ function toggleSuspend(word) {
   words[idx].suspended = !words[idx].suspended;
   if (!saveWords()) { words[idx].suspended = !words[idx].suspended; showToast('⚠️ Không lưu được thay đổi!', 'error'); return; }
   showToast(words[idx].suspended ? '📌 Đã ẩn khỏi ôn tập' : '🔓 Đã bỏ ẩn — sẽ xuất hiện lại khi ôn tập', 'success');
-  renderWordList();
+  refreshWlView();
   renderHome();
 }
 
@@ -169,6 +181,9 @@ function openEditModal(word) {
   const typeLabels = { noun:'Danh từ (noun)', verb:'Động từ (verb)', adj:'Tính từ (adj)', adv:'Trạng từ (adv)', phrase:'Cụm từ (phrase)', other:'Khác' };
   const typeSel  = typeOptions.map(t => `<option value="${t}"${w.type === t ? ' selected' : ''}>${typeLabels[t]}</option>`).join('');
   const levelSel = ['easy','medium','hard'].map(l => `<option value="${l}"${w.level === l ? ' selected' : ''}>${l==='easy'?'Dễ (A1–A2)':l==='medium'?'Trung bình (B1–B2)':'Khó (C1–C2)'}</option>`).join('');
+  const folderSel = folderOptionsHtml(w.folderId);
+  const masteryLabels = ['Chưa thuộc (0)', 'Mới biết (1)', 'Khá thuộc (2)', 'Đã thuộc (3)'];
+  const masterySel = [0,1,2,3].map(m => `<option value="${m}"${ (w.mastery||0) === m ? ' selected' : ''}>${masteryLabels[m]}</option>`).join('');
 
   const overlay = document.createElement('div');
   overlay.className = 'edit-overlay';
@@ -194,7 +209,14 @@ function openEditModal(word) {
           <div class="edit-group"><label>Chủ đề / Bộ từ</label><input class="form-input" id="ew-category" value="${escAttr(w.category||'')}"></div>
           <div class="edit-group"><label>Loại từ</label><select class="form-select" id="ew-type">${typeSel}</select></div>
         </div>
-        <div class="edit-group"><label>Mức độ khó</label><select class="form-select" id="ew-level">${levelSel}</select></div>
+        <div class="edit-row">
+          <div class="edit-group"><label>Mức độ khó</label><select class="form-select" id="ew-level">${levelSel}</select></div>
+          <div class="edit-group"><label>📁 Thư mục</label><select class="form-select" id="ew-folder">${folderSel}</select></div>
+        </div>
+        <div class="edit-row">
+          <div class="edit-group"><label>Mức độ thuộc</label><select class="form-select" id="ew-mastery">${masterySel}</select></div>
+          <div class="edit-group"><label>Ngày thêm</label><div style="font-size:0.85rem;color:var(--text3);padding:9px 0;">${w.addedAt ? formatAddedAt(w.addedAt) : 'Không rõ (từ cũ)'}</div></div>
+        </div>
         <div class="edit-group">
           <label class="ew-suspend-label">
             <input type="checkbox" id="ew-suspended"${w.suspended ? ' checked' : ''}>
@@ -234,9 +256,11 @@ function saveEditWord(originalWord) {
     type:     document.getElementById('ew-type').value,
     level:    document.getElementById('ew-level').value,
     suspended: document.getElementById('ew-suspended').checked,
+    folderId: document.getElementById('ew-folder').value || null,
+    mastery: Math.max(0, Math.min(3, parseInt(document.getElementById('ew-mastery').value, 10) || 0)),
   };
   if (!saveWords()) { words[idx] = backup; showToast('⚠️ Không lưu được thay đổi!', 'error'); return; }
   closeEditModal();
   showToast('✅ Đã cập nhật "' + newWord + '"!', 'success');
-  renderWordList(); renderHome();
+  refreshWlView(); renderHome();
 }

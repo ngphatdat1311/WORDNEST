@@ -5,7 +5,9 @@ function exportWords() {
   const data = {
     version: 1,
     exported: new Date().toISOString(),
-    words: words
+    words: words,
+    folders: folders,
+    trash: trash
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -26,6 +28,11 @@ function importWords(event) {
     try {
       const data = JSON.parse(e.target.result);
       let imported = Array.isArray(data) ? data : (data.words || []);
+      // folderId trong file là id của thư mục ở MÁY KHÁC -> chỉ map được qua tên,
+      // không thể dùng trực tiếp (id có thể trùng tình cờ với 1 thư mục khác ở đây).
+      const importedFolders = Array.isArray(data.folders) ? data.folders : [];
+      const importedFolderNameById = {};
+      importedFolders.forEach(f => { if (f && f.id && f.name) importedFolderNameById[f.id] = f.name; });
       if (!Array.isArray(imported) || !imported.length) throw new Error('Không có từ nào');
       imported = imported
         .filter(w => w && typeof w.word === 'string' && typeof w.meaning === 'string')
@@ -84,19 +91,38 @@ function importWords(event) {
 
       document.getElementById('import-confirm-btn').addEventListener('click', () => {
         closeImportConfirm();
-        const backup = words;
+        const backupWords = words, backupFolders = folders, backupTrash = trash;
         words = [...words];
+        folders = [...folders];
+        // Thùng rác chỉ gộp thêm (best-effort), không khôi phục tự động — đổi id mới
+        // để tránh đụng id trùng với thùng rác hiện có trên máy này.
+        if (Array.isArray(data.trash)) {
+          trash = [...trash, ...data.trash.map(t => ({ ...t, id: genTrashId() }))];
+        }
+        // Map id thư mục bên file -> id thư mục cục bộ (ghép theo tên, trùng tên thì dùng lại,
+        // chưa có thì tạo mới) — cache lại để 1 thư mục chỉ phải tra/tạo 1 lần dù nhiều từ dùng chung.
+        const folderIdCache = {};
+        function resolveImportedFolder(oldId) {
+          if (!oldId) return null;
+          if (folderIdCache[oldId] !== undefined) return folderIdCache[oldId];
+          const name = importedFolderNameById[oldId];
+          if (!name) return (folderIdCache[oldId] = null);
+          let local = folders.find(f => f.name.toLowerCase() === name.toLowerCase());
+          if (!local) { local = { id: genFolderId(), name, createdAt: Date.now() }; folders.push(local); }
+          return (folderIdCache[oldId] = local.id);
+        }
         let added = 0;
         toAdd.forEach(w => {
           words.push(srsInit({
             word: w.word, phonetic: w.phonetic||'', meaning: w.meaning,
             example: w.example||'', type: w.type||'other', category: w.category||'Nhập',
-            level: w.level||'medium', mastery: w.mastery||0, known: w.known||0, seen: w.seen||0
+            level: w.level||'medium', mastery: w.mastery||0, known: w.known||0, seen: w.seen||0,
+            addedAt: w.addedAt || Date.now(), folderId: resolveImportedFolder(w.folderId)
           }));
           added++;
         });
-        if (!saveWords()) { words = backup; showToast('⚠️ Không nhập được — lỗi lưu dữ liệu (có thể do hết bộ nhớ)!', 'error'); return; }
-        renderWordList(); renderHome();
+        if (!saveWords() || !saveFolders() || !saveTrash()) { words = backupWords; folders = backupFolders; trash = backupTrash; showToast('⚠️ Không nhập được — lỗi lưu dữ liệu (có thể do hết bộ nhớ)!', 'error'); return; }
+        refreshWlView(); renderHome();
         showToast(`✅ Nhập ${added} từ mới${skipped ? ', bỏ qua ' + skipped + ' từ trùng' : ''}!`, 'success');
       });
 

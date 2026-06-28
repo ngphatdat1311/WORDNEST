@@ -30,8 +30,9 @@ function showSection(id) {
       if (!qzWords.length) { if (!tryRestoreQuizSession()) startQuiz(); }
     }
     if (id === 'spelling')  initSpelling();
-    if (id === 'wordlist')  renderWordList();
+    if (id === 'wordlist')  refreshWlView();
     if (id === 'progress')  renderProgress();
+    if (id === 'add')       populateAwFolderSelects();
   });
 }
 

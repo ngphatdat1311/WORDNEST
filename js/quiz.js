@@ -56,17 +56,21 @@ function startQuiz() {
   }
 
   populateCategorySelect(document.getElementById('qz-tag-sel'));
+  populateFolderSelect(document.getElementById('qz-folder-sel'));
   const countSel = document.getElementById('qz-count-sel');
   const levelSel = document.getElementById('qz-level-sel');
   const tagSel   = document.getElementById('qz-tag-sel');
+  const folderSel = document.getElementById('qz-folder-sel');
   const countVal = countSel ? countSel.value : '10';
   const levelVal = levelSel ? levelSel.value : 'all';
   const tagVal   = tagSel ? tagSel.value : 'all';
+  const folderVal = folderSel ? folderSel.value : 'all';
 
   let pool = activeWords();
   if (tagVal !== 'all') pool = pool.filter(w => (w.category || 'Khác') === tagVal);
   if (levelVal === 'weak')  pool = pool.filter(w => w.mastery < 2);
   else if (levelVal !== 'all') pool = pool.filter(w => w.level === levelVal);
+  pool = filterByFolderSel(pool, folderVal);
   if (pool.length < 4) pool = activeWords(); // fallback
 
   const count = countVal === 'all' ? pool.length : Math.min(parseInt(countVal) || 10, pool.length);

@@ -174,6 +174,9 @@
     <select id="fc-tag" onchange="initFlashcard()">
       <option value="all">Tất cả chủ đề</option>
     </select>
+    <select id="fc-folder" onchange="initFlashcard()">
+      <option value="all">Tất cả thư mục</option>
+    </select>
     <div class="spacer"></div>
     <button class="btn btn-outline" onclick="shuffleFlashcard()">🔀 Xáo trộn</button>
     <button class="btn" onclick="initFlashcard(false)">🔄 Làm lại</button>
@@ -220,27 +223,39 @@
   <div class="section-title">Quiz Trắc Nghiệm</div>
   <div class="section-sub">Chọn nghĩa đúng cho từ được hỏi.</div>
 
-  <div id="quiz-settings" style="margin-bottom:1.2rem; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    <label style="font-size:0.85rem; color:var(--text2); font-weight:500;">Số câu:</label>
-    <select id="qz-count-sel" class="fc-controls select" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-family:'Inter',sans-serif;font-size:0.85rem;color:var(--text);cursor:pointer;outline:none;">
-      <option value="5">5 câu</option>
-      <option value="10" selected>10 câu</option>
-      <option value="20">20 câu</option>
-      <option value="all">Tất cả</option>
-    </select>
-    <label style="font-size:0.85rem; color:var(--text2); font-weight:500;">Lọc:</label>
-    <select id="qz-level-sel" class="fc-controls select" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-family:'Inter',sans-serif;font-size:0.85rem;color:var(--text);cursor:pointer;outline:none;">
-      <option value="all">Tất cả mức độ</option>
-      <option value="easy">Dễ (A1–A2)</option>
-      <option value="medium">Trung bình (B1–B2)</option>
-      <option value="hard">Khó (C1–C2)</option>
-      <option value="weak">Từ chưa thuộc</option>
-    </select>
-    <label style="font-size:0.85rem; color:var(--text2); font-weight:500;">Chủ đề:</label>
-    <select id="qz-tag-sel" class="fc-controls select" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-family:'Inter',sans-serif;font-size:0.85rem;color:var(--text);cursor:pointer;outline:none;">
-      <option value="all">Tất cả chủ đề</option>
-    </select>
-    <button class="btn" onclick="startQuiz()" style="padding:7px 18px;">🔄 Bắt đầu lại</button>
+  <div id="quiz-settings" class="qz-settings">
+    <div class="qz-field">
+      <label>Số câu</label>
+      <select id="qz-count-sel">
+        <option value="5">5 câu</option>
+        <option value="10" selected>10 câu</option>
+        <option value="20">20 câu</option>
+        <option value="all">Tất cả</option>
+      </select>
+    </div>
+    <div class="qz-field">
+      <label>Lọc</label>
+      <select id="qz-level-sel">
+        <option value="all">Tất cả mức độ</option>
+        <option value="easy">Dễ (A1–A2)</option>
+        <option value="medium">Trung bình (B1–B2)</option>
+        <option value="hard">Khó (C1–C2)</option>
+        <option value="weak">Từ chưa thuộc</option>
+      </select>
+    </div>
+    <div class="qz-field">
+      <label>Chủ đề</label>
+      <select id="qz-tag-sel">
+        <option value="all">Tất cả chủ đề</option>
+      </select>
+    </div>
+    <div class="qz-field">
+      <label>📁 Thư mục</label>
+      <select id="qz-folder-sel">
+        <option value="all">Tất cả thư mục</option>
+      </select>
+    </div>
+    <button class="btn qz-settings-btn" onclick="startQuiz()">🔄 Bắt đầu lại</button>
   </div>
 
   <div id="quiz-area">
@@ -277,6 +292,16 @@
 <div class="section" id="section-spelling">
   <div class="section-title">Luyện Chính Tả</div>
   <div class="section-sub">Đọc gợi ý và điền từ đúng.</div>
+
+  <div class="qz-settings" style="margin-bottom:1rem;">
+    <div class="qz-field">
+      <label>📁 Thư mục</label>
+      <select id="sp-folder-sel">
+        <option value="all">Tất cả thư mục</option>
+      </select>
+    </div>
+    <span style="font-size:0.78rem;color:var(--text3);padding-bottom:9px;">Chọn xong bấm "Bắt đầu lại" bên dưới để áp dụng</span>
+  </div>
 
   <div class="spell-score-row">
     <div class="spell-score-item">
@@ -325,51 +350,110 @@
   <div class="section-title">Từ Điển Cá Nhân</div>
   <div class="section-sub">Tất cả từ vựng của bạn.</div>
 
-  <div class="wl-search-bar">
-    <input class="wl-search" type="text" placeholder="🔍 Tìm từ..." id="wl-search" oninput="debouncedRenderWordList()">
-    <button class="btn" onclick="showSection('add')">+ Thêm từ</button>
+  <div class="wl-tab-row">
+    <button class="wl-tab active" id="wl-tab-all" onclick="switchWlView('all')">📋 Tất cả</button>
+    <button class="wl-tab" id="wl-tab-folders" onclick="switchWlView('folders')">📁 Thư mục</button>
+    <button class="wl-tab" id="wl-tab-trash" onclick="switchWlView('trash')">🗑️ Thùng rác</button>
   </div>
 
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
-    <label style="font-size:0.8rem;color:var(--text3);">Sắp xếp:</label>
-    <select id="wl-sort" onchange="wlPage=1;renderWordList(true)" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-family:'Inter',sans-serif;font-size:0.82rem;color:var(--text);cursor:pointer;outline:none;">
-      <option value="default">Mặc định</option>
-      <option value="az">A → Z</option>
-      <option value="za">Z → A</option>
-      <option value="mastery_desc">Thuộc nhiều nhất</option>
-      <option value="mastery_asc">Chưa thuộc</option>
-      <option value="seen_desc">Xem gần đây</option>
-    </select>
-    <div style="flex:1"></div>
-    <button class="btn btn-outline" onclick="exportWords()" style="padding:6px 14px;font-size:0.82rem;">📤 Xuất JSON</button>
-    <label class="btn btn-outline" style="padding:6px 14px;font-size:0.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
-      📥 Nhập JSON <input type="file" accept=".json" id="import-file" onchange="importWords(event)" style="display:none">
-    </label>
-    <button class="btn btn-outline" onclick="confirmDeleteAll()" style="padding:6px 14px;font-size:0.82rem;color:var(--red);border-color:var(--red);">🗑️ Xóa tất cả</button>
+  <!-- TẤT CẢ — danh sách phẳng quen thuộc -->
+  <div id="wl-view-all">
+    <div class="wl-search-bar">
+      <input class="wl-search" type="text" placeholder="🔍 Tìm từ..." id="wl-search" oninput="debouncedRenderWordList()">
+      <button class="btn" onclick="showSection('add')">+ Thêm từ</button>
+    </div>
+
+    <div class="wl-toolbar">
+      <div class="wl-toolbar-sort">
+        <label>Sắp xếp</label>
+        <select id="wl-sort" onchange="wlPage=1;renderWordList(true)">
+          <option value="default">Mặc định</option>
+          <option value="az">A → Z</option>
+          <option value="za">Z → A</option>
+          <option value="mastery_desc">Thuộc nhiều nhất</option>
+          <option value="mastery_asc">Chưa thuộc</option>
+          <option value="seen_desc">Xem gần đây</option>
+          <option value="added_desc">Mới thêm nhất</option>
+          <option value="added_asc">Thêm lâu nhất</option>
+        </select>
+      </div>
+      <button class="wl-icon-toggle" id="wl-showdate-btn" onclick="toggleWlShowDate()" title="Hiện/ẩn ngày thêm" aria-label="Hiện/ẩn ngày thêm">🕒</button>
+      <button class="wl-icon-toggle wl-mastered-only-btn" onclick="toggleWlMasteredOnly()" title="Chỉ hiện từ đã thuộc" aria-label="Chỉ hiện từ đã thuộc">🔒</button>
+      <div class="wl-toolbar-spacer"></div>
+      <div class="wl-more-wrap">
+        <button class="btn btn-outline" id="wl-more-btn" onclick="toggleWlMoreMenu(event)" style="padding:7px 14px;font-size:0.82rem;">⋯ Khác</button>
+        <div class="wl-more-menu" id="wl-more-menu">
+          <button onclick="exportWords();closeWlMoreMenu()">📤 Xuất JSON</button>
+          <label>
+            📥 Nhập JSON
+            <input type="file" accept=".json" id="import-file" onchange="importWords(event);closeWlMoreMenu()" style="display:none">
+          </label>
+          <button class="danger" onclick="confirmDeleteAll();closeWlMoreMenu()">🗑️ Xóa tất cả</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="wl-filter-row" id="wl-filters"></div>
+
+    <div class="card wl-table-card">
+      <div class="wl-table-scroll">
+      <table class="wl-table" id="wl-table">
+        <thead id="wl-thead"></thead>
+        <tbody id="wl-body"></tbody>
+      </table>
+      </div>
+    </div>
+    <div id="wl-pagination" style="display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
   </div>
 
-  <div class="wl-filter-row" id="wl-filters"></div>
+  <!-- THƯ MỤC — lưới thư mục kiểu máy tính + chi tiết bên trong 1 thư mục -->
+  <div id="wl-view-folders" style="display:none">
+    <div class="folder-grid" id="wl-folder-grid"></div>
 
-  <div class="card wl-table-card">
-    <div class="wl-table-scroll">
-    <table class="wl-table" id="wl-table">
-      <thead>
-        <tr>
-          <th>Từ</th>
-          <th>Nghĩa</th>
-          <th>Chủ đề</th>
-          <th>Thuộc</th>
-          <th>📌</th>
-          <th>🔊</th>
-          <th>✏️</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="wl-body"></tbody>
-    </table>
+    <div id="wl-folder-detail" style="display:none">
+      <div class="folder-detail-header">
+        <button class="btn btn-outline" onclick="openFolderGrid()" style="padding:6px 14px;font-size:0.82rem;">← Quay lại</button>
+        <div class="folder-detail-name" id="wl-folder-detail-name"></div>
+        <div class="folder-detail-actions" id="wl-folder-detail-actions">
+          <button class="btn btn-outline" id="wl-folder-add-btn" style="padding:6px 14px;font-size:0.82rem;">➕ Thêm từ</button>
+          <button class="btn btn-outline" id="wl-folder-rename-btn" style="padding:6px 14px;font-size:0.82rem;">✏️ Đổi tên</button>
+          <button class="btn btn-outline" id="wl-folder-del-btn" style="padding:6px 14px;font-size:0.82rem;color:var(--red);border-color:var(--red);">🗑️ Xóa</button>
+        </div>
+      </div>
+      <div class="wl-toolbar">
+        <div class="wl-toolbar-sort">
+          <label>Sắp xếp</label>
+          <select id="wl-folder-sort" onchange="renderFolderDetail()">
+            <option value="default">Mặc định</option>
+            <option value="az">A → Z</option>
+            <option value="za">Z → A</option>
+            <option value="mastery_desc">Thuộc nhiều nhất</option>
+            <option value="mastery_asc">Chưa thuộc</option>
+            <option value="seen_desc">Xem gần đây</option>
+            <option value="added_desc">Mới thêm nhất</option>
+            <option value="added_asc">Thêm lâu nhất</option>
+          </select>
+        </div>
+        <button class="wl-icon-toggle wl-mastered-only-btn" onclick="toggleWlMasteredOnly()" title="Chỉ hiện từ đã thuộc" aria-label="Chỉ hiện từ đã thuộc">🔒</button>
+      </div>
+      <div class="card wl-table-card">
+        <div class="wl-table-scroll">
+        <table class="wl-table">
+          <thead id="wl-folder-thead"></thead>
+          <tbody id="wl-folder-body"></tbody>
+        </table>
+        </div>
+      </div>
     </div>
   </div>
-  <div id="wl-pagination" style="display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap;"></div>
+
+  <!-- THÙNG RÁC — từ/thư mục đã xóa, khôi phục được -->
+  <div id="wl-view-trash" style="display:none">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:1rem;">
+      <button class="btn btn-outline" id="wl-trash-empty-btn" onclick="confirmEmptyTrash()" style="padding:6px 14px;font-size:0.82rem;color:var(--red);border-color:var(--red);display:none;">🗑️ Đổ hết thùng rác</button>
+    </div>
+    <div id="wl-trash-list"></div>
+  </div>
 </div>
 
 <!-- PROGRESS -->
@@ -481,7 +565,7 @@
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Chủ đề / Bộ từ</label>
+          <label>Chủ đề</label>
           <input class="form-input" type="text" id="aw-category" placeholder="e.g. Du lịch, Công việc..." maxlength="50">
         </div>
         <div class="form-group">
@@ -492,6 +576,10 @@
             <option value="hard">Khó (C1–C2)</option>
           </select>
         </div>
+      </div>
+      <div class="form-group">
+        <label>📁 Bộ từ / Thư mục (tùy chọn)</label>
+        <select class="form-select" id="aw-folder"><option value="">— Không có —</option></select>
       </div>
       <button class="btn" onclick="addWord()" style="padding:13px; font-size:0.95rem;">✓ Thêm từ vào kho</button>
     </div>
@@ -506,6 +594,10 @@
           placeholder="apple | /ˈæp.əl/ | quả táo | I eat an apple every day.&#10;book | /bʊk/ | quyển sách | She reads a book every night.&#10;run | | chạy"
           style="resize:vertical; line-height:1.7;"></textarea>
         <div class="example-vi-hint">Vẫn dùng được định dạng cũ "từ | nghĩa | ví dụ" (không có phiên âm) — app tự nhận diện.</div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>📁 Thêm tất cả vào thư mục (tùy chọn)</label>
+        <select class="form-select" id="aw-bulk-folder"><option value="">— Không có —</option></select>
       </div>
       <button class="btn btn-outline" onclick="bulkAdd()">📥 Thêm hàng loạt</button>
     </div>
@@ -525,6 +617,8 @@
 <script src="js/quiz.js"></script>
 <script src="js/spelling.js"></script>
 <script src="js/wordlist.js"></script>
+<script src="js/folders.js"></script>
+<script src="js/trash.js"></script>
 <script src="js/export-import.js"></script>
 <script src="js/progress.js"></script>
 <script src="js/word-crud.js"></script>

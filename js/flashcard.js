@@ -14,18 +14,23 @@ function markSeenCurrent() {
 
 function initFlashcard(shuffle = false) {
   populateCategorySelect(document.getElementById('fc-tag'));
+  populateFolderSelect(document.getElementById('fc-folder'));
   const filter = document.getElementById('fc-category').value;
   const tag = document.getElementById('fc-tag').value;
+  const folderVal = (document.getElementById('fc-folder') || {}).value || 'all';
   let pool = filter === 'srs' ? getSrsDueWords() : activeWords(); // SRS: từ đến hạn ôn (đã loại suspend)
   if (filter === 'new')    pool = pool.filter(w => w.mastery === 0);
   if (filter === 'review') pool = pool.filter(w => w.mastery > 0 && w.mastery < 3);
   if (tag !== 'all') pool = pool.filter(w => (w.category || 'Khác') === tag);
+  pool = filterByFolderSel(pool, folderVal);
   if (!pool.length) {
-    const hadFilter = filter !== 'all' || tag !== 'all';
+    const hadFilter = filter !== 'all' || tag !== 'all' || folderVal !== 'all';
     pool = activeWords();
     // Reset dropdown về "Tất cả từ" để tránh mâu thuẫn UX
     const fcCatEl = document.getElementById('fc-category');
     if (fcCatEl && fcCatEl.value !== 'all') { fcCatEl.value = 'all'; }
+    const fcFolderEl = document.getElementById('fc-folder');
+    if (fcFolderEl && fcFolderEl.value !== 'all') { fcFolderEl.value = 'all'; }
     if (hadFilter && pool.length) showToast('Không có từ phù hợp — hiện tất cả!');
   }
   fcWords = shuffle ? shuffleArr(pool) : pool;
@@ -134,9 +139,15 @@ document.addEventListener('keydown', function(e) {
     const editOverlay = document.getElementById('edit-overlay');
     const deleteOverlay = document.getElementById('delete-overlay');
     const importOverlay = document.getElementById('import-confirm-overlay');
+    const folderNameOverlay = document.getElementById('folder-name-overlay');
+    const folderPickOverlay = document.getElementById('folder-pick-overlay');
+    const folderBulkOverlay = document.getElementById('folder-bulk-overlay');
     if (editOverlay) { closeEditModal(); return; }
     if (deleteOverlay) { closeConfirm(); return; }
     if (importOverlay) { closeImportConfirm(); return; }
+    if (folderNameOverlay) { closeFolderNameModal(); return; }
+    if (folderPickOverlay) { closeFolderPicker(); return; }
+    if (folderBulkOverlay) { closeFolderBulkModal(); return; }
     return;
   }
 

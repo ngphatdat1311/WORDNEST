@@ -288,6 +288,26 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 }
 .fc-controls select:focus { border-color: var(--accent); }
 .fc-controls .spacer { flex: 1; }
+
+/* ── QUIZ SETTINGS ── */
+/* Mỗi label+select là 1 khối (.qz-field) để cùng xuống dòng với nhau khi hết chỗ,
+   tránh tình trạng label đứng 1 mình cuối dòng còn select rơi xuống dòng dưới. */
+.qz-settings {
+  display: flex; align-items: flex-end; gap: 16px;
+  margin-bottom: 1.4rem; flex-wrap: wrap;
+}
+.qz-field { display: flex; flex-direction: column; gap: 5px; }
+.qz-field label { font-size: 0.78rem; color: var(--text3); font-weight: 500; }
+.qz-field select {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 12px; min-width: 150px;
+  font-family: 'Inter', sans-serif; font-size: 0.85rem; color: var(--text);
+  cursor: pointer; outline: none;
+  transition: background .25s, border-color .2s, color .25s;
+}
+.qz-field select:focus { border-color: var(--accent); }
+.qz-settings-btn { padding: 9px 18px; }
+
 .btn {
   background: var(--accent); color: #fff;
   border: none; border-radius: 8px;
@@ -570,6 +590,133 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .wl-row-suspended:hover { opacity: .85; }
 .ew-suspend-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; color: var(--text2); }
 .ew-suspend-label input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+.wl-added { font-size: 0.74rem; color: var(--text3); white-space: nowrap; margin-top: 2px; }
+.wl-folder-tag { font-size: 0.72rem; color: var(--text3); white-space: nowrap; margin-top: 4px; }
+/* Gộp mọi nút hành động (thư mục/ẩn/phát âm/sửa/xóa) vào 1 ô duy nhất —
+   tránh bảng có quá nhiều cột riêng lẻ gây xuống dòng tiêu đề trên màn hẹp. */
+.wl-actions { display: flex; align-items: center; gap: 2px; flex-wrap: nowrap; white-space: nowrap; }
+
+/* ── WL TOOLBAR — thanh công cụ gọn cho Từ điển: sắp xếp + toggle hiển thị +
+   menu "Khác" thay vì dàn hết Xuất/Nhập/Xóa thành dãy nút to gây rối mắt. ── */
+.wl-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.wl-toolbar-sort { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.wl-toolbar-sort label { font-size: 0.8rem; color: var(--text3); white-space: nowrap; }
+.wl-toolbar-sort select {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 10px;
+  font-family: 'Inter', sans-serif; font-size: 0.82rem; color: var(--text);
+  cursor: pointer; outline: none;
+}
+.wl-toolbar-spacer { flex: 1; }
+.wl-icon-toggle {
+  background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.95rem; line-height: 1; cursor: pointer; color: var(--text2);
+  transition: background .15s, border-color .15s, color .15s;
+}
+.wl-icon-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.wl-icon-toggle.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.wl-more-wrap { position: relative; }
+.wl-more-menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--r);
+  box-shadow: var(--shadow2); padding: 6px; min-width: 175px;
+  display: none; flex-direction: column; gap: 2px;
+}
+.wl-more-menu.open { display: flex; }
+.wl-more-menu button, .wl-more-menu label {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 8px 10px; border-radius: 6px; background: none; border: none;
+  font-size: 0.85rem; color: var(--text2); text-align: left;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: background .15s;
+}
+.wl-more-menu button:hover, .wl-more-menu label:hover { background: var(--bg2); }
+.wl-more-menu button.danger { color: var(--red); }
+.wl-folder-btn { background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--text3); padding: 2px; opacity: .5; transition: opacity .15s, transform .15s; }
+.wl-folder-btn:hover { opacity: 1; transform: scale(1.1); }
+.wl-folder-btn.active { opacity: 1; }
+
+/* ── WORD LIST TABS (Tất cả / Thư mục) ── */
+.wl-tab-row { display: flex; gap: 6px; margin-bottom: 1.4rem; border-bottom: 1px solid var(--border); }
+.wl-tab {
+  background: none; border: none; cursor: pointer;
+  padding: 9px 18px; font-size: 0.88rem; font-weight: 500;
+  color: var(--text3); font-family: 'Inter', sans-serif;
+  border-bottom: 2.5px solid transparent; transition: color .15s, border-color .15s;
+}
+.wl-tab:hover { color: var(--text); }
+.wl-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── FOLDERS — lưới thư mục kiểu máy tính ── */
+.folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.folder-card {
+  position: relative; background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 4px; transition: border-color .2s, box-shadow .2s, transform .15s;
+}
+.folder-card:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-2px); }
+.folder-card-body { cursor: pointer; text-align: center; padding: 1.4rem 0.8rem 1rem; }
+.folder-card-icon { font-size: 2.2rem; margin-bottom: 8px; }
+.folder-card-name { font-family: 'Lora', serif; font-size: 0.95rem; color: var(--text); font-weight: 500; overflow-wrap: anywhere; margin-bottom: 4px; }
+.folder-card-count { font-size: 0.76rem; color: var(--text3); }
+.folder-card-del, .folder-card-rename {
+  position: absolute; top: 6px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 50%; width: 24px; height: 24px; font-size: 0.7rem; line-height: 1;
+  color: var(--text3); cursor: pointer; opacity: 0; transition: opacity .15s, color .15s, background .15s;
+}
+.folder-card:hover .folder-card-del { opacity: 1; }
+.folder-card:hover .folder-card-rename { opacity: 1; }
+.folder-card:focus-within .folder-card-del { opacity: 1; }
+.folder-card:focus-within .folder-card-rename { opacity: 1; }
+.folder-card-del { right: 6px; }
+.folder-card-del:hover { background: var(--red); color: #fff; border-color: var(--red); }
+.folder-card-rename { left: 6px; }
+.folder-card-rename:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+.folder-card-new { border-style: dashed; cursor: pointer; }
+.folder-card-new .folder-card-icon, .folder-card-new .folder-card-name { color: var(--text3); }
+.folder-card-new:hover .folder-card-icon, .folder-card-new:hover .folder-card-name { color: var(--accent); }
+.folder-card-unfiled .folder-card-icon { opacity: .8; }
+
+.folder-detail-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 1.4rem; }
+.folder-detail-name { font-family: 'Lora', serif; font-size: 1.1rem; color: var(--text); flex: 1; overflow-wrap: anywhere; }
+.folder-detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── FOLDER PICK / BULK MODALS ── */
+.folder-pick-box { max-width: 420px; }
+.folder-pick-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; text-align: left; margin-bottom: 10px; }
+.folder-pick-item {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; font-size: 0.85rem; color: var(--text2); text-align: left;
+  cursor: pointer; font-family: 'Inter', sans-serif; transition: background .15s, border-color .15s;
+}
+.folder-pick-item:hover { border-color: var(--accent); }
+.folder-pick-item.active { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+.folder-pick-new { display: flex; gap: 8px; margin-bottom: 1rem; }
+.folder-pick-new .form-input { flex: 1; }
+.folder-bulk-list { max-height: 320px; overflow-y: auto; text-align: left; border: 1px solid var(--border); border-radius: 8px; }
+.folder-bulk-row {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-bottom: 1px solid var(--bg3); cursor: pointer; font-size: 0.85rem;
+}
+.folder-bulk-row:last-child { border-bottom: none; }
+.folder-bulk-row:hover { background: var(--bg2); }
+.folder-bulk-row .fb-check { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+.folder-bulk-row .fb-word { font-family: 'Lora', serif; color: var(--text); font-weight: 500; flex-shrink: 0; }
+.folder-bulk-row .fb-meaning { color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.folder-bulk-row .fb-other-folder { font-size: 0.74rem; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
+
+/* ── TRASH — thùng rác ── */
+.trash-item {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 0.9rem 1.2rem; margin-bottom: 10px;
+}
+.trash-icon { font-size: 1.5rem; flex-shrink: 0; }
+.trash-info { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.trash-name { font-family: 'Lora', serif; font-size: 0.98rem; color: var(--text); font-weight: 500; }
+.trash-sub { font-size: 0.8rem; color: var(--text3); margin-top: 2px; }
+.trash-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
 
 /* ── MODALS ── */
 .edit-overlay, .confirm-overlay {
