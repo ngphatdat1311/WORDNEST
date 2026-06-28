@@ -16,7 +16,8 @@ let lookupGen = 0; // generation counter để loại bỏ hoàn toàn race cond
 let lastLookupEntry = null;
 let lastLookupDominantPos = '';
 let lastLookupUsedExamples = new Set();
-let lastLookupAllExamples = []; // toàn bộ ví dụ có trong từ điển cho từ hiện tại (mọi nghĩa)
+let lastLookupAllExamples = []; // toàn bộ ví dụ có trong từ điển cho từ hiện tại (mọi nghĩa) + Tatoeba
+let lastLookupExampleVi = {}; // text -> bản dịch tiếng Việt có sẵn (Tatoeba), khỏi phải dịch máy lại
 
 const VI_HINTS = {
   happy:'vui vẻ, hạnh phúc', sad:'buồn bã', angry:'tức giận', fear:'sợ hãi',
@@ -74,7 +75,7 @@ function setCachedLookup(word, result) {
 function applyLookupResult(word, r) {
   fillField('aw-phonetic', r.phonetic);
   fillField('aw-example', r.exampleEn);
-  document.getElementById('aw-level').value = estimateLevel(word);
+  document.getElementById('aw-level').value = r.level || estimateLevel(word);
   fillField('aw-meaning', r.meaningVI);
   document.getElementById('aw-type').value = r.finalPos || 'other';
   fillField('aw-category', r.category);
@@ -88,9 +89,39 @@ function applyLookupResult(word, r) {
   // nút ra mà bấm không đổi gì sẽ trông như app bị lỗi. Kết quả từ cache cũng
   // không giữ dữ liệu từ điển gốc nên không có gì để chọn ví dụ khác.
   lastLookupAllExamples = lastLookupEntry ? getAllExamples(lastLookupEntry) : [];
+  lastLookupExampleVi = {};
+  refreshRerollVisibility();
+}
+
+// Hiện/ẩn + cập nhật nhãn nút "Đổi ví dụ khác" theo số ví dụ hiện có trong pool
+// (dictionaryapi.dev + Tatoeba) — gọi lại mỗi khi pool thay đổi (Tatoeba tải
+// xong ở nền sau khi đã hiện kết quả ban đầu).
+function refreshRerollVisibility() {
   const rerollBtn = document.getElementById('aw-reroll-example-btn');
-  if (rerollBtn) rerollBtn.style.display = lastLookupAllExamples.length >= 2 ? 'flex' : 'none';
+  if (!rerollBtn) return;
+  rerollBtn.style.display = lastLookupAllExamples.length >= 2 ? 'flex' : 'none';
   if (lastLookupAllExamples.length >= 2) updateRerollButtonLabel();
+}
+
+// Tải thêm ví dụ thật từ Tatoeba ở NỀN (không chặn UI ban đầu) — Tatoeba có
+// hàng chục câu cho mỗi từ, nhiều hơn rất nhiều so với 1-3 câu cố định của
+// dictionaryapi.dev, giúp "Đổi ví dụ khác" luôn ra câu MỚI, không lặp lại.
+// Chỉ chạy trong app desktop (Electron) — API này không có CORS nên web thường
+// không gọi được trực tiếp.
+async function loadMoreExamplesFromTatoeba(word, myGen) {
+  if (!window.electronAPI?.fetchTatoebaExamples) return;
+  let list;
+  try { list = await window.electronAPI.fetchTatoebaExamples(word); }
+  catch (e) { return; }
+  if (myGen !== lookupGen || isStale(word) || !Array.isArray(list)) return;
+  const seen = new Set(lastLookupAllExamples);
+  for (const item of list) {
+    if (!item?.text || seen.has(item.text)) continue;
+    seen.add(item.text);
+    lastLookupAllExamples.push(item.text);
+    if (item.vi) lastLookupExampleVi[item.text] = item.vi;
+  }
+  refreshRerollVisibility();
 }
 
 function resetAwExtras() {
@@ -109,6 +140,7 @@ function scheduleAutoLookup() {
   lastLookupDominantPos = '';
   lastLookupUsedExamples = new Set();
   lastLookupAllExamples = [];
+  lastLookupExampleVi = {};
   const rerollBtn = document.getElementById('aw-reroll-example-btn');
   if (rerollBtn) rerollBtn.style.display = 'none';
   ['aw-phonetic','aw-meaning','aw-example','aw-category'].forEach(id => {
@@ -384,10 +416,48 @@ function pickRandomExample(entry, dominantPos, excludeExamples) {
     : (source[Math.floor(Math.random() * source.length)] || { example:'', definition:'', pos:'' });
 }
 
+// Người dùng đôi khi dán/gõ nguyên 1 CÂU vào ô "Từ tiếng Anh" (muốn lưu lại +
+// học nguyên câu đó) thay vì 1 từ/cụm từ — câu thì tra dictionaryapi.dev chắc
+// chắn không ra gì (API chỉ có từ/cụm cố định), và việc đoán từ loại/chủ đề
+// cũng vô nghĩa với cả câu. Nhận diện sớm để dịch thẳng nguyên câu, không tra
+// từ điển, không đoán từ loại.
+function looksLikeSentence(input) {
+  const trimmed = (input || '').trim();
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  if (wordCount >= 6) return true;
+  if (wordCount >= 2 && /[.!?]$/.test(trimmed)) return true;
+  return false;
+}
+
+async function doSentenceLookup(sentence, myGen) {
+  const controller = new AbortController();
+  awAbortController = controller;
+  const signal = controller.signal;
+  const guardTimer = setTimeout(() => controller.abort(), 9000);
+  setStatus(statusBadge('⏳ Đang dịch câu...', 'loading'));
+
+  let meaningVI = '';
+  try { meaningVI = await translateText(sentence, signal); }
+  catch (e) { /* thử tiếp ở dưới, không throw */ }
+  clearTimeout(guardTimer);
+  if (myGen !== lookupGen || signal.aborted || isStale(sentence)) return;
+
+  if (!meaningVI) {
+    setStatus(statusBadge('❌ Không dịch được câu này — nhập tay nhé', 'error'));
+    return;
+  }
+
+  const result = { phonetic: '', exampleEn: '', meaningVI, finalPos: 'phrase', category: 'Câu', audioUrl: '', altHtml: '', exampleVi: '', level: 'medium' };
+  applyLookupResult(sentence, result);
+  setStatus(statusBadge('✨ Đã dịch xong', 'success'));
+}
+
 async function doAutoLookup(word) {
   if (!word || word.length < 2) return;
   currentLookupWord = word;
   const myGen = ++lookupGen; // capture generation at start
+
+  if (looksLikeSentence(word)) { await doSentenceLookup(word, myGen); return; }
 
   // Nếu đã tra từ này trước đó (còn hạn cache), dùng lại kết quả ngay —
   // không gọi lại dictionaryapi.dev/Google Translate, tránh rate-limit và
@@ -396,6 +466,7 @@ async function doAutoLookup(word) {
   if (cached) {
     applyLookupResult(word, cached);
     setStatus(statusBadge('✨ Đã tra xong', 'success'));
+    loadMoreExamplesFromTatoeba(word, myGen);
     return;
   }
 
@@ -405,10 +476,16 @@ async function doAutoLookup(word) {
   const guardTimer = setTimeout(() => controller.abort(), 9000);
   setStatus(statusBadge('⏳ Đang tra từ điển & dịch...', 'loading'));
 
+  // Datamuse chỉ tra phiên âm cho TỪ ĐƠN (không phải cụm từ) — dùng làm dự
+  // phòng khi dictionaryapi.dev không có entry hoặc có entry nhưng thiếu phonetic.
+  const phoneticFallbackPromise = (window.electronAPI?.fetchPhoneticFallback && !/\s/.test(word))
+    ? window.electronAPI.fetchPhoneticFallback(word).catch(() => '')
+    : Promise.resolve('');
+
   const dictPromise = fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`, { signal })
     .then(r => r.ok ? r.json() : null).catch(() => null);
   const transPromise = translateWordLikeGoogle(word, signal).catch(() => null);
-  const [entries, gTrans] = await Promise.all([dictPromise, transPromise]);
+  const [entries, gTrans, phoneticFallback] = await Promise.all([dictPromise, transPromise, phoneticFallbackPromise]);
   clearTimeout(guardTimer);
   // Kiểm tra generation counter — loại bỏ kết quả từ request cũ hơn
   if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
@@ -425,6 +502,7 @@ async function doAutoLookup(word) {
     if (!phonetic) { for (const p of (entry.phonetics || [])) { if (p.text) { phonetic = p.text; break; } } }
     awAudioUrl = pickAudio(entry.phonetics);
   }
+  if (!phonetic && phoneticFallback) phonetic = phoneticFallback;
 
   const picked = pickRandomExample(entry, dominantPos);
   const exampleEn = picked.example || '';
@@ -460,6 +538,18 @@ async function doAutoLookup(word) {
   }
   if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
 
+  // Tầng dự phòng cuối — Google (endpoint tra từ điển dt=bd) đôi khi không có
+  // entry cho từ hiếm/ít gặp/biến thể số nhiều... thử lại bằng đường dịch câu
+  // thông thường (đua song song Google dt=t + MyMemory) trước khi chịu thua.
+  if (!meaningVI) {
+    try {
+      meaningVI = await translateText(word, signal);
+      if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
+    } catch (e) {
+      if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
+    }
+  }
+
   if (!meaningVI) {
     setStatus(statusBadge('❌ Không tìm thấy nghĩa — nhập tay nhé', 'error'));
     return;
@@ -488,6 +578,7 @@ async function doAutoLookup(word) {
   setCachedLookup(word, result);
   applyLookupResult(word, result);
   setStatus(statusBadge('✨ Đã tra xong', 'success'));
+  loadMoreExamplesFromTatoeba(word, myGen);
 }
 
 // "Đổi ví dụ khác" — chọn 1 câu khác trong CÙNG dữ liệu từ điển đã tải (không
@@ -519,19 +610,30 @@ async function rerollExample() {
 
   const picked = unseen[Math.floor(Math.random() * unseen.length)];
   lastLookupUsedExamples.add(picked);
+  const wordAtPick = currentLookupWord;
 
   const exampleEl = document.getElementById('aw-example');
   const exViEl = document.getElementById('aw-example-vi');
   exampleEl.value = picked;
   exampleEl.classList.add('autofilled');
   awAutoFilledValues['aw-example'] = picked;
-  if (exViEl) exViEl.innerHTML = '⏳ Đang dịch...';
 
+  // Câu lấy từ Tatoeba đã có sẵn bản dịch người dịch thật (chính xác + nhanh hơn
+  // dịch máy) — chỉ gọi API dịch khi không có sẵn (câu từ dictionaryapi.dev).
+  const knownVi = lastLookupExampleVi[picked];
+  if (knownVi) {
+    if (exViEl) exViEl.innerHTML = '→ ' + escHtml(knownVi);
+    updateRerollButtonLabel();
+    return;
+  }
+
+  if (exViEl) exViEl.innerHTML = '⏳ Đang dịch...';
   try {
     const vi = await translateText(picked);
+    if (isStale(wordAtPick)) { updateRerollButtonLabel(); return; }
     if (exViEl) exViEl.innerHTML = vi ? '→ ' + escHtml(vi) : '';
   } catch (e) {
-    if (exViEl) exViEl.innerHTML = '';
+    if (!isStale(wordAtPick) && exViEl) exViEl.innerHTML = '';
   }
   updateRerollButtonLabel();
 }

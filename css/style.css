@@ -523,6 +523,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   font-size: 0.8rem; color: var(--text2);
   cursor: pointer; transition: background .15s, border-color .15s, color .15s;
   font-family: 'Inter', sans-serif;
+  white-space: nowrap; flex-shrink: 0;
 }
 .wl-filter-btn:hover, .wl-filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 /* Bảng có 8 cột — ép width:100% trên màn hẹp sẽ làm cột "Từ"/"Nghĩa" quá hẹp,
@@ -553,7 +554,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .wl-phon { font-size: 0.78rem; color: var(--text3); font-style: italic; overflow-wrap: anywhere; }
 .wl-meaning { color: var(--text2); overflow-wrap: anywhere; text-wrap: balance; }
 .wl-example { font-style: italic; color: var(--text3); font-size: 0.82rem; margin-top: 2px; overflow-wrap: anywhere; }
-.wl-type { background: var(--bg2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; color: var(--accent); }
+.wl-type { display: inline-block; white-space: nowrap; background: var(--bg2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; color: var(--accent); }
 .wl-mastery { display: flex; gap: 3px; align-items: center; }
 .wl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bg3); }
 .wl-dot.filled { background: var(--gold); }

@@ -19,4 +19,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-error', () => callback());
   },
   downloadUpdate: () => ipcRenderer.send('download-update'),
+  // Tatoeba có hàng chục câu ví dụ thật cho mỗi từ (so với 1-3 câu cố định của
+  // dictionaryapi.dev) — dùng để "Đổi ví dụ khác" có nhiều lựa chọn, không lặp lại.
+  fetchTatoebaExamples: (word) => ipcRenderer.invoke('fetch-tatoeba-examples', word),
+  fetchPhoneticFallback: (word) => ipcRenderer.invoke('fetch-phonetic-fallback', word),
 });
