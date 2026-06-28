@@ -125,7 +125,9 @@ function renderWlTableHead(theadId) {
 // Ngày thêm hiện trong ô "Từ" (không tách cột riêng), các nút hành động gộp vào 1 ô
 // duy nhất — tránh bảng phình quá nhiều cột gây xuống dòng/lệch tiêu đề trên màn hẹp.
 function wlRowHtml(w) {
-  const dots = [0,1,2,3].map(i => `<div class="wl-dot${i < w.mastery ? ' filled' : ''}"></div>`).join('');
+  // mastery chạy 0-3 (3 mức tăng dần) -> 3 chấm là vừa đủ để "Đã thuộc (3)" lấp đầy
+  // toàn bộ thanh chấm; 4 chấm sẽ khiến mức cao nhất luôn dở dang (3/4), gây hiểu lầm.
+  const dots = [0,1,2].map(i => `<div class="wl-dot${i < w.mastery ? ' filled' : ''}"></div>`).join('');
   const esc = escAttr(w.word);
   const folder = w.folderId ? folders.find(f => f.id === w.folderId) : null;
   return `<tr class="${w.suspended ? 'wl-row-suspended' : ''}">
