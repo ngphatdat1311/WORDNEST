@@ -100,7 +100,6 @@ header {
   height: 60px;
   position: sticky; top: 0; z-index: 100;
   transition: background .25s, border-color .25s;
-  backdrop-filter: blur(8px);
 }
 .logo { display: flex; align-items: center; gap: 10px; }
 .logo-icon { width: 34px; height: 34px; flex-shrink: 0; border-radius: 9px; box-shadow: 0 1px 3px rgba(90,70,40,.25); }

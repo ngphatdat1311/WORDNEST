@@ -71,7 +71,10 @@ function renderActivityHeatmap() {
 
   const max = Math.max(1, ...Object.values(dailyMap));
 
-  grid.innerHTML = '';
+  // Gom hết vào 1 DocumentFragment rồi append 1 lần — tránh 371 lần reflow
+  // riêng lẻ (mỗi appendChild trực tiếp vào DOM đang gắn cây có thể trigger
+  // tính toán layout/style lại) khi mở tab Tiến độ.
+  const frag = document.createDocumentFragment();
   for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
     const key = d.toISOString().slice(0, 10);
     const div = document.createElement('div');
@@ -87,6 +90,8 @@ function renderActivityHeatmap() {
       div.className = 'activity-day ' + level;
       div.title = key + (count ? ` — ${count} lượt học` : ' — không học');
     }
-    grid.appendChild(div);
+    frag.appendChild(div);
   }
+  grid.innerHTML = '';
+  grid.appendChild(frag);
 }
