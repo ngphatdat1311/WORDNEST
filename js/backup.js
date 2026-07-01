@@ -8,7 +8,7 @@ const BACKUP_REMINDER_DAYS = 7;
 const BACKUP_DISMISS_DAYS = 3;
 
 function markBackedUpNow() {
-  localStorage.setItem(BACKUP_KEY, new Date().toISOString());
+  storeSet(BACKUP_KEY, new Date().toISOString());
   hideBackupBanner();
 }
 
@@ -25,9 +25,9 @@ function hasUnsavedChanges() {
 
 function shouldRemindBackup() {
   if (!hasUnsavedChanges()) return false;
-  const dismissedUntil = parseInt(localStorage.getItem(BACKUP_DISMISS_KEY) || '0', 10);
+  const dismissedUntil = parseInt(storeGet(BACKUP_DISMISS_KEY) || '0', 10);
   if (Date.now() < dismissedUntil) return false;
-  return daysSince(localStorage.getItem(BACKUP_KEY)) >= BACKUP_REMINDER_DAYS;
+  return daysSince(storeGet(BACKUP_KEY)) >= BACKUP_REMINDER_DAYS;
 }
 
 function showBackupBannerIfNeeded() {
@@ -42,8 +42,7 @@ function hideBackupBanner() {
 }
 
 function dismissBackupBanner() {
-  // Không im re vĩnh viễn — chỉ hoãn nhắc thêm vài ngày
-  localStorage.setItem(BACKUP_DISMISS_KEY, String(Date.now() + BACKUP_DISMISS_DAYS * 86400000));
+  storeSet(BACKUP_DISMISS_KEY, String(Date.now() + BACKUP_DISMISS_DAYS * 86400000));
   hideBackupBanner();
 }
 

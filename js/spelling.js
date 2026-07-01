@@ -49,11 +49,18 @@ function restartSpelling() {
 
 function spellingPool() {
   const folderVal = (document.getElementById('sp-folder-sel') || {}).value || 'all';
-  const pool = filterByFolderSel(activeWords(), folderVal);
-  return pool.length ? pool : activeWords(); // fallback nếu thư mục đang trống
+  const levelVal  = (document.getElementById('sp-level-sel')  || {}).value || 'all';
+  const tagVal    = (document.getElementById('sp-tag-sel')    || {}).value || 'all';
+  let pool = activeWords();
+  if (levelVal === 'weak')       pool = pool.filter(w => w.mastery < 2);
+  else if (levelVal !== 'all')   pool = pool.filter(w => w.level === levelVal);
+  if (tagVal !== 'all')          pool = pool.filter(w => (w.category || 'Khác') === tagVal);
+  pool = filterByFolderSel(pool, folderVal);
+  return pool.length ? pool : activeWords(); // fallback nếu bộ lọc cho ra 0 từ
 }
 
 function initSpelling() {
+  populateCategorySelect(document.getElementById('sp-tag-sel'));
   populateFolderSelect(document.getElementById('sp-folder-sel'));
   // Không reset điểm nếu đang giữa phiên (giống Quiz giữ tiến trình)
   // Chỉ reset hoàn toàn khi chưa có phiên nào, hoặc đã xong hết từ

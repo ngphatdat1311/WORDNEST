@@ -236,6 +236,23 @@ function openEditModal(word) {
   setTimeout(() => { const el = document.getElementById('ew-word'); if (el) el.focus(); }, 50);
 }
 function closeEditModal() { const el = document.getElementById('edit-overlay'); if (el) el.remove(); }
+
+// ── UNDO ──
+let _undoTimer = null;
+function showUndoToast(msg, onUndo) {
+  const t = document.getElementById('undo-toast');
+  if (!t) return;
+  clearTimeout(_undoTimer);
+  t.querySelector('#undo-label').textContent = msg;
+  t.classList.add('show');
+  t.querySelector('#undo-btn').onclick = () => {
+    clearTimeout(_undoTimer);
+    t.classList.remove('show');
+    onUndo();
+  };
+  _undoTimer = setTimeout(() => t.classList.remove('show'), 5000);
+}
+
 function saveEditWord(originalWord) {
   const idx = words.findIndex(x => x.word === originalWord);
   if (idx === -1) return;
@@ -261,6 +278,14 @@ function saveEditWord(originalWord) {
   };
   if (!saveWords()) { words[idx] = backup; showToast('⚠️ Không lưu được thay đổi!', 'error'); return; }
   closeEditModal();
-  showToast('✅ Đã cập nhật "' + newWord + '"!', 'success');
   refreshWlView(); renderHome();
+  // Undo: khôi phục lại trạng thái cũ trong vòng 5 giây
+  showUndoToast('✅ Đã sửa "' + newWord + '"', () => {
+    const ri = words.findIndex(x => x.word === newWord);
+    if (ri === -1) { showToast('⚠️ Không hoàn tác được — từ đã bị xóa', 'error'); return; }
+    words[ri] = { ...backup };
+    if (!saveWords()) { showToast('⚠️ Hoàn tác thất bại!', 'error'); return; }
+    showToast('↩️ Đã hoàn tác!', 'success');
+    refreshWlView(); renderHome();
+  });
 }

@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const http = require('http');
@@ -118,6 +119,48 @@ app.on('window-all-closed', () => {
 });
 
 ipcMain.handle('get-app-version', () => app.getVersion());
+
+// ════════════════════════════════════════════════════════
+// FILE-BASED STORE — thay thế localStorage, không giới hạn kích thước
+// Mỗi key → 1 file JSON trong thư mục userData của Electron
+// ════════════════════════════════════════════════════════
+ipcMain.on('store-read', (event, key) => {
+  try {
+    const file = path.join(app.getPath('userData'), 'store_' + String(key) + '.json');
+    event.returnValue = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
+  } catch { event.returnValue = null; }
+});
+ipcMain.on('store-write', (event, key, val) => {
+  try {
+    const file = path.join(app.getPath('userData'), 'store_' + String(key) + '.json');
+    fs.writeFileSync(file, String(val), 'utf8');
+    event.returnValue = true;
+  } catch { event.returnValue = false; }
+});
+
+// ════════════════════════════════════════════════════════
+// SYNC FOLDER — tự động sao lưu vào thư mục do user chọn (vd OneDrive)
+// ════════════════════════════════════════════════════════
+ipcMain.handle('pick-sync-folder', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+    title: 'Chọn thư mục đồng bộ WordNest'
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+ipcMain.on('sync-write', (event, folderPath, jsonData) => {
+  try {
+    fs.writeFileSync(path.join(String(folderPath), 'wordnest-sync.json'), String(jsonData), 'utf8');
+    event.returnValue = true;
+  } catch { event.returnValue = false; }
+});
+ipcMain.on('sync-check', (event, folderPath) => {
+  try {
+    const file = path.join(String(folderPath), 'wordnest-sync.json');
+    event.returnValue = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
+  } catch { event.returnValue = null; }
+});
 
 // ════════════════════════════════════════════════════════
 // MỞ RỘNG NGUỒN TRA TỪ — Tatoeba (kho câu ví dụ thật, có bản dịch tiếng Việt

@@ -161,6 +161,12 @@ document.addEventListener('keydown', function(e) {
 
 function showQuizResult() {
   clearQuizSession(); // quiz đã hoàn tất — không cần resume nữa
+  // Cập nhật thống kê tích lũy
+  const qzStats = loadQuizStats();
+  qzStats.sessions = (qzStats.sessions || 0) + 1;
+  qzStats.totalQ = (qzStats.totalQ || 0) + qzWords.length;
+  qzStats.totalCorrect = (qzStats.totalCorrect || 0) + qzScore;
+  saveQuizStats(qzStats);
   document.getElementById('quiz-area').style.display = 'none';
   document.getElementById('quiz-result').style.display = '';
   const pct = Math.round(qzScore / qzWords.length * 100);
@@ -169,8 +175,8 @@ function showQuizResult() {
   const mi = pct < 50 ? 0 : pct < 70 ? 1 : pct < 90 ? 2 : 3;
   document.getElementById('qz-result-msg').textContent = `${qzScore}/${qzWords.length} câu đúng. ${msgs[mi]}`;
   if (mi >= 2) triggerConfetti(); // Tuyệt vời/Xuất sắc (≥70%) -> ăn mừng nhẹ
-  const best = parseInt(localStorage.getItem('qs_best_score') || 0);
-  if (pct > best) localStorage.setItem('qs_best_score', pct);
+  const best = parseInt(storeGet('qs_best_score') || 0);
+  if (pct > best) storeSet('qs_best_score', String(pct));
 
   // Hiện danh sách từ sai để ôn lại
   const wrongEl = document.getElementById('qz-wrong-list');

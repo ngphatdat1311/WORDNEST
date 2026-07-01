@@ -23,4 +23,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // dictionaryapi.dev) — dùng để "Đổi ví dụ khác" có nhiều lựa chọn, không lặp lại.
   fetchTatoebaExamples: (word) => ipcRenderer.invoke('fetch-tatoeba-examples', word),
   fetchPhoneticFallback: (word) => ipcRenderer.invoke('fetch-phonetic-fallback', word),
+  // File-based store (thay localStorage)
+  storeRead:  (key)       => ipcRenderer.sendSync('store-read', key),
+  storeWrite: (key, val)  => ipcRenderer.sendSync('store-write', key, val),
+  // Sync folder
+  pickSyncFolder: ()                  => ipcRenderer.invoke('pick-sync-folder'),
+  syncWrite:      (folder, data)      => ipcRenderer.sendSync('sync-write', folder, data),
+  syncCheck:      (folder)            => ipcRenderer.sendSync('sync-check', folder),
 });

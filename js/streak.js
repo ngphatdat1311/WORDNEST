@@ -2,10 +2,10 @@
 // STREAK — chỉ tăng sau khi user học ít nhất 1 thẻ/quiz
 // ════════════════════════════════════════════════════════
 function loadStreak() {
-  try { return JSON.parse(localStorage.getItem(STREAK_KEY)) || { count:0, last:null, history:[] }; }
+  try { return JSON.parse(storeGet(STREAK_KEY)) || { count:0, last:null, history:[] }; }
   catch { return { count:0, last:null, history:[] }; }
 }
-function saveStreak(s) { localStorage.setItem(STREAK_KEY, JSON.stringify(s)); }
+function saveStreak(s) { storeSet(STREAK_KEY, JSON.stringify(s)); }
 
 // Lưu số lượt học theo từng ngày (date -> count) để vẽ heatmap kiểu GitHub.
 // Tách riêng khỏi streak vì streak chỉ cần biết "có học hay không" mỗi ngày,
@@ -14,12 +14,10 @@ const DAILY_ACTIVITY_KEY = 'wordnest_daily_activity';
 const DAILY_ACTIVITY_MAX_DAYS = 370;
 
 function loadDailyActivity() {
-  try { return JSON.parse(localStorage.getItem(DAILY_ACTIVITY_KEY)) || {}; }
+  try { return JSON.parse(storeGet(DAILY_ACTIVITY_KEY)) || {}; }
   catch { return {}; }
 }
-function saveDailyActivity(map) {
-  try { localStorage.setItem(DAILY_ACTIVITY_KEY, JSON.stringify(map)); } catch(e) {}
-}
+function saveDailyActivity(map) { storeSet(DAILY_ACTIVITY_KEY, JSON.stringify(map)); }
 function bumpDailyActivity() {
   const map = loadDailyActivity();
   const today = new Date().toISOString().slice(0, 10);
@@ -50,6 +48,7 @@ function recordLearningActivity() {
   return s;
 }
 
+migrateKeyIfNeeded(DAILY_ACTIVITY_KEY); // migration localStorage → file
 let streak = loadStreak(); // Chỉ đọc, không ghi
 
 // ════════════════════════════════════════════════════════

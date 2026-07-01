@@ -1,11 +1,40 @@
 // ════════════════════════════════════════════════════════
+// STORAGE BACKEND — file-based trong Electron (không giới hạn kích thước),
+// localStorage làm fallback khi chạy trên web thường.
+// ════════════════════════════════════════════════════════
+function storeGet(key) {
+  if (window.electronAPI?.storeRead) return window.electronAPI.storeRead(key);
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function storeSet(key, val) {
+  if (window.electronAPI?.storeWrite) {
+    const ok = window.electronAPI.storeWrite(key, val) !== false;
+    if (!ok) { try { showToast('⚠️ Không ghi được file dữ liệu!', 'error'); } catch {} }
+    return ok;
+  }
+  try { localStorage.setItem(key, val); return true; } catch(e) {
+    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+      showToast('⚠️ Bộ nhớ đầy! Hãy xuất JSON và xóa bớt từ để tiếp tục.', 'error');
+    }
+    return false;
+  }
+}
+// Migration: chép dữ liệu từ localStorage sang file khi lần đầu chạy Electron
+function migrateKeyIfNeeded(key) {
+  if (!window.electronAPI?.storeRead || !window.electronAPI?.storeWrite) return;
+  if (window.electronAPI.storeRead(key) !== null) return; // đã có file rồi
+  try { const v = localStorage.getItem(key); if (v !== null) window.electronAPI.storeWrite(key, v); } catch {}
+}
+
+// ════════════════════════════════════════════════════════
 // DATA STORE
 // ════════════════════════════════════════════════════════
-const STORAGE_KEY  = 'wordnest_data';
-const STREAK_KEY   = 'wordnest_streak';
-const THEME_KEY    = 'wordnest_theme';
-const FOLDERS_KEY  = 'wordnest_folders';
-const TRASH_KEY    = 'wordnest_trash';
+const STORAGE_KEY    = 'wordnest_data';
+const STREAK_KEY     = 'wordnest_streak';
+const THEME_KEY      = 'wordnest_theme';
+const FOLDERS_KEY    = 'wordnest_folders';
+const TRASH_KEY      = 'wordnest_trash';
+const QUIZ_STATS_KEY = 'wordnest_quiz_stats';
 
 const DEFAULT_WORDS = [
   { word:'serendipity', phonetic:'/ˌser.ənˈdɪp.ɪ.ti/', meaning:'sự tình cờ may mắn', example:'It was serendipity that we met.', type:'noun', category:'Cuộc sống', level:'hard', mastery:0, known:0, seen:0 },
@@ -27,49 +56,30 @@ const DEFAULT_WORDS = [
 
 function loadWords() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = storeGet(STORAGE_KEY);
     return saved ? JSON.parse(saved) : [...DEFAULT_WORDS];
   } catch { return [...DEFAULT_WORDS]; }
 }
-// Trả về true/false để nơi gọi biết có thực sự lưu được hay không — tránh báo
-// "thành công" trong khi dữ liệu chưa hề được ghi xuống (vd lúc hết quota).
 function saveWords() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(words));
-    return true;
-  } catch(e) {
-    // QuotaExceededError: localStorage đầy (giới hạn ~5-10MB tùy trình duyệt)
-    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-      showToast('⚠️ Bộ nhớ đầy! Hãy xuất JSON và xóa bớt từ để tiếp tục.', 'error');
-    }
-    return false;
-  }
+  const ok = storeSet(STORAGE_KEY, JSON.stringify(words));
+  if (ok && typeof autoSyncWrite === 'function') autoSyncWrite();
+  return ok;
 }
-
-let words = loadWords();
 
 // ════════════════════════════════════════════════════════
 // FOLDERS — nhóm từ thủ công (khác Chủ đề), kiểu thư mục
 // ════════════════════════════════════════════════════════
 function loadFolders() {
   try {
-    const saved = localStorage.getItem(FOLDERS_KEY);
+    const saved = storeGet(FOLDERS_KEY);
     return saved ? JSON.parse(saved) : [];
   } catch { return []; }
 }
 function saveFolders() {
-  try {
-    localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
-    return true;
-  } catch(e) {
-    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-      showToast('⚠️ Bộ nhớ đầy! Hãy xuất JSON và xóa bớt từ để tiếp tục.', 'error');
-    }
-    return false;
-  }
+  const ok = storeSet(FOLDERS_KEY, JSON.stringify(folders));
+  if (ok && typeof autoSyncWrite === 'function') autoSyncWrite();
+  return ok;
 }
-
-let folders = loadFolders();
 
 // ════════════════════════════════════════════════════════
 // TRASH — từ/thư mục đã xóa, khôi phục được (kiểu Thùng rác máy tính)
@@ -78,20 +88,35 @@ let folders = loadFolders();
 // ════════════════════════════════════════════════════════
 function loadTrash() {
   try {
-    const saved = localStorage.getItem(TRASH_KEY);
+    const saved = storeGet(TRASH_KEY);
     return saved ? JSON.parse(saved) : [];
   } catch { return []; }
 }
 function saveTrash() {
-  try {
-    localStorage.setItem(TRASH_KEY, JSON.stringify(trash));
-    return true;
-  } catch(e) {
-    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-      showToast('⚠️ Bộ nhớ đầy! Hãy xuất JSON và xóa bớt từ để tiếp tục.', 'error');
-    }
-    return false;
-  }
+  const ok = storeSet(TRASH_KEY, JSON.stringify(trash));
+  if (ok && typeof autoSyncWrite === 'function') autoSyncWrite();
+  return ok;
 }
 
-let trash = loadTrash();
+// Migration từ localStorage sang file (chỉ chạy 1 lần lần đầu Electron)
+migrateKeyIfNeeded(STORAGE_KEY);
+migrateKeyIfNeeded(FOLDERS_KEY);
+migrateKeyIfNeeded(TRASH_KEY);
+migrateKeyIfNeeded(STREAK_KEY);
+migrateKeyIfNeeded(QUIZ_STATS_KEY);
+migrateKeyIfNeeded('qs_best_score');
+
+let words   = loadWords();
+let folders = loadFolders();
+let trash   = loadTrash();
+
+// ════════════════════════════════════════════════════════
+// QUIZ STATS — thống kê tích lũy qua nhiều phiên quiz
+// ════════════════════════════════════════════════════════
+function loadQuizStats() {
+  try {
+    const saved = storeGet(QUIZ_STATS_KEY);
+    return saved ? JSON.parse(saved) : { sessions: 0, totalQ: 0, totalCorrect: 0 };
+  } catch { return { sessions: 0, totalQ: 0, totalCorrect: 0 }; }
+}
+function saveQuizStats(stats) { storeSet(QUIZ_STATS_KEY, JSON.stringify(stats)); }

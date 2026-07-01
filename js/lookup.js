@@ -44,24 +44,29 @@ const LOOKUP_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 ngày
 const LOOKUP_CACHE_MAX = 300; // giới hạn số từ cache để tránh đầy localStorage
 
 function loadLookupCacheRaw() {
-  try { return JSON.parse(localStorage.getItem(LOOKUP_CACHE_KEY)) || {}; }
+  try { return JSON.parse(storeGet(LOOKUP_CACHE_KEY)) || {}; }
   catch { return {}; }
 }
 function saveLookupCacheRaw(cache) {
-  try { localStorage.setItem(LOOKUP_CACHE_KEY, JSON.stringify(cache)); }
-  catch(e) { /* localStorage đầy — bỏ qua cache, không ảnh hưởng chức năng tra từ */ }
+  migrateKeyIfNeeded(LOOKUP_CACHE_KEY); // migration 1 lần rồi thôi
+  storeSet(LOOKUP_CACHE_KEY, JSON.stringify(cache));
 }
 function getCachedLookup(word) {
   const cache = loadLookupCacheRaw();
   const entry = cache[word.toLowerCase()];
   if (!entry) return null;
-  if (Date.now() - entry.ts > LOOKUP_CACHE_TTL_MS) return null; // hết hạn, tra lại cho chắc
+  const ttl = entry.partialTtl ? 24 * 60 * 60 * 1000 : LOOKUP_CACHE_TTL_MS;
+  if (Date.now() - entry.ts > ttl) return null; // hết hạn (thông thường 30 ngày, kết quả thiếu thì 1 ngày)
   return entry.result;
 }
 function setCachedLookup(word, result) {
+  // Không cache nếu thiếu cả phonetic lẫn example — quá thiếu, để retry lần sau
+  if (!result.phonetic && !result.exampleEn) return;
   const cache = loadLookupCacheRaw();
   const key = word.toLowerCase();
-  cache[key] = { ts: Date.now(), result };
+  // Kết quả thiếu phonetic HOẶC thiếu example → đánh dấu partialTtl để hết hạn sớm hơn (1 ngày)
+  const isPartial = !result.phonetic || !result.exampleEn;
+  cache[key] = { ts: Date.now(), result, ...(isPartial ? { partialTtl: true } : {}) };
   const keys = Object.keys(cache);
   if (keys.length > LOOKUP_CACHE_MAX) {
     keys.sort((a, b) => cache[a].ts - cache[b].ts); // cũ nhất trước
@@ -466,6 +471,14 @@ async function doAutoLookup(word) {
   if (cached) {
     applyLookupResult(word, cached);
     setStatus(statusBadge('✨ Đã tra xong', 'success'));
+    // Nếu phonetic bị thiếu trong cache, thử Datamuse trong nền — nhanh, không chặn UI
+    if (!cached.phonetic && window.electronAPI?.fetchPhoneticFallback && !/\s/.test(word)) {
+      window.electronAPI.fetchPhoneticFallback(word).then(ph => {
+        if (!ph || myGen !== lookupGen || isStale(word)) return;
+        fillField('aw-phonetic', ph);
+        setCachedLookup(word, { ...cached, phonetic: ph });
+      }).catch(() => {});
+    }
     loadMoreExamplesFromTatoeba(word, myGen);
     return;
   }

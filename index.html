@@ -95,6 +95,13 @@
   <button class="bb-close" onclick="dismissAppUpdateBanner()" aria-label="Đóng">✕</button>
 </div>
 
+<div class="backup-banner" id="sync-restore-banner">
+  <span class="bb-icon">☁️</span>
+  <span class="bb-text">File đồng bộ tại <strong id="sync-restore-time"></strong> có vẻ mới hơn dữ liệu hiện tại. Bạn có muốn khôi phục không?</span>
+  <button class="btn" id="sync-restore-btn" style="padding:6px 14px;font-size:0.82rem;flex-shrink:0;">📥 Khôi phục</button>
+  <button class="bb-close" onclick="hideSyncRestoreBanner()" aria-label="Đóng">✕</button>
+</div>
+
 <main>
 
 <!-- HOME -->
@@ -295,6 +302,22 @@
 
   <div class="qz-settings" style="margin-bottom:1rem;">
     <div class="qz-field">
+      <label>Mức độ</label>
+      <select id="sp-level-sel">
+        <option value="all">Tất cả mức độ</option>
+        <option value="easy">Dễ (A1–A2)</option>
+        <option value="medium">Trung bình (B1–B2)</option>
+        <option value="hard">Khó (C1–C2)</option>
+        <option value="weak">Từ chưa thuộc</option>
+      </select>
+    </div>
+    <div class="qz-field">
+      <label>Chủ đề</label>
+      <select id="sp-tag-sel">
+        <option value="all">Tất cả chủ đề</option>
+      </select>
+    </div>
+    <div class="qz-field">
       <label>📁 Thư mục</label>
       <select id="sp-folder-sel">
         <option value="all">Tất cả thư mục</option>
@@ -384,6 +407,8 @@
         <button class="btn btn-outline" id="wl-more-btn" onclick="toggleWlMoreMenu(event)" style="padding:7px 14px;font-size:0.82rem;">⋯ Khác</button>
         <div class="wl-more-menu" id="wl-more-menu">
           <button onclick="exportWords();closeWlMoreMenu()">📤 Xuất JSON</button>
+          <button onclick="exportCSV();closeWlMoreMenu()">📊 Xuất CSV</button>
+          <button onclick="exportAnkiTxt();closeWlMoreMenu()">🃏 Xuất Anki</button>
           <label>
             📥 Nhập JSON
             <input type="file" accept=".json" id="import-file" onchange="importWords(event);closeWlMoreMenu()" style="display:none">
@@ -484,9 +509,36 @@
     </div>
   </div>
 
+  <!-- Quiz stats tích lũy -->
+  <div class="prog-section">
+    <h3>Thống kê Quiz</h3>
+    <div id="quiz-stats-grid" style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:0.5rem;"></div>
+  </div>
+
   <div class="prog-section">
     <h3>Mức độ thuộc từ</h3>
     <div id="mastery-bars"></div>
+  </div>
+
+  <!-- Phân bổ từ vựng -->
+  <div class="prog-section">
+    <h3>Phân bổ từ vựng</h3>
+    <div class="vocab-breakdown-grid">
+      <div>
+        <div class="vb-subtitle">Theo mức độ khó</div>
+        <div id="vocab-level-bars"></div>
+      </div>
+      <div>
+        <div class="vb-subtitle">Theo loại từ</div>
+        <div id="vocab-type-bars"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Từ khó nhớ nhất -->
+  <div class="prog-section">
+    <h3>Từ cần ôn thêm</h3>
+    <div id="difficult-words-list"></div>
   </div>
 
   <div class="prog-section">
@@ -503,6 +555,19 @@
       <span><div class="activity-day l1" style="display:inline-block;width:14px;height:14px;border-radius:2px;"></div> Ít</span>
       <span><div class="activity-day l2" style="display:inline-block;width:14px;height:14px;border-radius:2px;"></div> Trung bình</span>
       <span><div class="activity-day l3" style="display:inline-block;width:14px;height:14px;border-radius:2px;"></div> Nhiều</span>
+    </div>
+  </div>
+
+  <div class="prog-section">
+    <h3>Đồng bộ tự động ☁️</h3>
+    <p style="font-size:0.82rem;color:var(--text3);margin-bottom:0.75rem;">Tự động lưu snapshot vào thư mục OneDrive / Google Drive / Dropbox sau mỗi thay đổi. Khi mở app trên máy khác, bạn có thể khôi phục từ file này.</p>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:0.5rem;">
+      <span style="font-size:0.85rem;color:var(--text2);">📁</span>
+      <span id="sync-folder-path" style="font-size:0.82rem;color:var(--text3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Chưa chọn thư mục</span>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-primary" style="font-size:0.82rem;padding:7px 16px;" onclick="pickSyncFolder()">📂 Chọn thư mục</button>
+      <button class="btn btn-outline" id="sync-disable-btn" style="font-size:0.82rem;padding:7px 16px;display:none;color:var(--red);border-color:var(--red);" onclick="disableSync()">✕ Tắt đồng bộ</button>
     </div>
   </div>
 </div>
@@ -607,6 +672,10 @@
 </main>
 
 <div class="toast" id="toast"></div>
+<div class="undo-toast" id="undo-toast">
+  <span id="undo-label"></span>
+  <button id="undo-btn" class="undo-btn">↩ Hoàn tác</button>
+</div>
 
 <script src="js/storage.js"></script>
 <script src="js/utils.js"></script>
@@ -624,6 +693,7 @@
 <script src="js/word-crud.js"></script>
 <script src="js/lookup.js"></script>
 <script src="js/backup.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/extension-inbox.js"></script>
 <script src="js/app.js"></script>
 <script src="js/auto-update.js"></script>
