@@ -46,7 +46,7 @@ function renderHome() {
   document.getElementById('home-mastered').textContent = masteredCount;
   document.getElementById('home-streak').textContent = s.count;
   document.getElementById('streak-count').textContent = s.count;
-  const qsBest = localStorage.getItem('qs_best_score');
+  const qsBest = storeGet('qs_best_score');
   document.getElementById('home-quiz-score').textContent = qsBest ? qsBest + '%' : '—';
   // SRS: hiển thị số từ đến hạn ôn
   const srsEl = document.getElementById('home-srs-due');

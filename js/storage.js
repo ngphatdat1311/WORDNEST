@@ -105,6 +105,8 @@ migrateKeyIfNeeded(TRASH_KEY);
 migrateKeyIfNeeded(STREAK_KEY);
 migrateKeyIfNeeded(QUIZ_STATS_KEY);
 migrateKeyIfNeeded('qs_best_score');
+migrateKeyIfNeeded('wordnest_last_backup');
+migrateKeyIfNeeded('wordnest_backup_dismiss_until');
 
 let words   = loadWords();
 let folders = loadFolders();

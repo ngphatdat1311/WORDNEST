@@ -2,6 +2,8 @@
 // FOLDERS UI — tạo/đổi tên/xóa thư mục, gán từ vào thư mục
 // (dữ liệu folders[]/loadFolders()/saveFolders() ở storage.js)
 // ════════════════════════════════════════════════════════
+let wlActiveFolder = null;
+
 function genFolderId() {
   return 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
