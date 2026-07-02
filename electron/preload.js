@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // tiếp — đây là cách an toàn duy nhất để main process nói chuyện với trang.
 contextBridge.exposeInMainWorld('electronAPI', {
   isElectron: true,
+  platform: process.platform, // 'darwin'/'win32'/'linux' — dùng để hiện gợi ý riêng cho macOS (chưa hỗ trợ auto-update)
   onCaptureWord: (callback) => {
     ipcRenderer.on('capture-word', (_event, data) => callback(data));
   },
@@ -30,4 +31,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pickSyncFolder: ()                  => ipcRenderer.invoke('pick-sync-folder'),
   syncWrite:      (folder, data)      => ipcRenderer.sendSync('sync-write', folder, data),
   syncCheck:      (folder)            => ipcRenderer.sendSync('sync-check', folder),
+  // Mở trang GitHub Releases bằng trình duyệt mặc định (không nhận URL tùy ý từ
+  // renderer — main process tự hardcode đúng 1 địa chỉ, tránh bị lợi dụng mở URL lạ).
+  openReleasesPage: () => ipcRenderer.send('open-releases-page'),
 });

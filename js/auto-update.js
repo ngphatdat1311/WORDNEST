@@ -33,3 +33,25 @@ function dismissAppUpdateBanner() {
   const banner = document.getElementById('app-update-banner');
   if (banner) banner.classList.remove('show');
 }
+
+// ════════════════════════════════════════════════════════
+// GỢI Ý RIÊNG CHO macOS — auto-update cần app được ký chứng chỉ Apple Developer
+// (trả phí) mới hoạt động được, đây là giới hạn của hệ điều hành, không phải lỗi
+// app. Trên Mac, checkForUpdates() ở main process luôn thất bại trong im lặng
+// (xem electron/main.js), nên KHÔNG hiện banner lỗi báo động — thay vào đó hiện
+// 1 gợi ý nhẹ nhàng, có thể tắt vĩnh viễn, nhắc người dùng tự ghé GitHub Releases.
+// ════════════════════════════════════════════════════════
+const MAC_UPDATE_HINT_DISMISSED_KEY = 'wordnest_mac_update_hint_dismissed';
+
+function showMacUpdateHintIfNeeded() {
+  if (!window.electronAPI || window.electronAPI.platform !== 'darwin') return;
+  if (storeGet(MAC_UPDATE_HINT_DISMISSED_KEY) === '1') return;
+  const banner = document.getElementById('mac-update-hint-banner');
+  if (banner) banner.classList.add('show');
+}
+
+function dismissMacUpdateHintBanner() {
+  storeSet(MAC_UPDATE_HINT_DISMISSED_KEY, '1');
+  const banner = document.getElementById('mac-update-hint-banner');
+  if (banner) banner.classList.remove('show');
+}

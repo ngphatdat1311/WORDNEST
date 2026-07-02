@@ -6,8 +6,8 @@ App học từ vựng tiếng Anh cá nhân: Flashcard (SRS kiểu SM-2), Quiz t
 
 | Hệ điều hành | Tải về |
 |---|---|
-| Windows | [WordNest-Setup-1.0.12.exe](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.12/WordNest-Setup-1.0.12.exe) |
-| macOS (Intel & Apple Silicon) | [WordNest-1.0.12-universal.dmg](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.12/WordNest-1.0.12-universal.dmg) |
+| Windows | [WordNest-Setup-1.0.13.exe](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.13/WordNest-Setup-1.0.13.exe) |
+| macOS (Intel & Apple Silicon) | [WordNest-1.0.13-universal.dmg](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.13/WordNest-1.0.13-universal.dmg) |
 
 Xem tất cả bản phát hành tại [Releases](https://github.com/ngphatdat1311/WORDNEST/releases).
 
@@ -108,7 +108,7 @@ Cài đặt tại tab **Tiến Độ → Đồng bộ tự động ☁️**.
 
 App tự kiểm tra phiên bản mới mỗi khi mở (không tự tải gì nếu bạn chưa đồng ý). Có bản mới sẽ hiện banner ở trên cùng — bấm **"⬇️ Cập nhật ngay"**, app tự tải và khởi động lại để áp dụng, dữ liệu của bạn không bị mất.
 
-> **macOS** cần app được ký bằng chứng chỉ Apple (trả phí) mới auto-update đầy đủ được. Hiện tại bản Mac **chưa có chữ ký số**, nên người dùng Mac vẫn cần tải bản `.dmg` mới thủ công từ [Releases](https://github.com/ngphatdat1311/WORDNEST/releases) khi có bản cập nhật — Windows thì auto-update hoạt động đầy đủ.
+> **macOS** cần app được ký bằng chứng chỉ Apple (trả phí) mới auto-update đầy đủ được. Hiện tại bản Mac **chưa có chữ ký số**, nên người dùng Mac vẫn cần tải bản `.dmg` mới thủ công từ [Releases](https://github.com/ngphatdat1311/WORDNEST/releases) khi có bản cập nhật — Windows thì auto-update hoạt động đầy đủ. Bản Mac có 1 banner nhỏ trong app nhắc việc này (tắt được vĩnh viễn bằng nút ✕).
 
 ## 🧩 Tiện ích Chrome — bôi đen từ trên web khác, gửi thẳng vào app
 

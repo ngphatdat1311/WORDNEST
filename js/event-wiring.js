@@ -28,6 +28,9 @@ function wireStaticEvents() {
   on('app-update-close-btn', 'click', dismissAppUpdateBanner);
   on('sync-restore-close-btn', 'click', hideSyncRestoreBanner);
 
+  on('mac-update-hint-open-btn', 'click', () => window.electronAPI?.openReleasesPage());
+  on('mac-update-hint-close-btn', 'click', dismissMacUpdateHintBanner);
+
   on('home-srs-card', 'click', () => showSection('flashcard'));
   on('action-flashcard', 'click', () => showSection('flashcard'));
   on('action-quiz', 'click', () => showSection('quiz'));

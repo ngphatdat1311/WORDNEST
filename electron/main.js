@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
@@ -125,6 +125,13 @@ app.on('window-all-closed', () => {
 });
 
 ipcMain.handle('get-app-version', () => app.getVersion());
+
+// Mở trang Releases bằng trình duyệt mặc định — dùng cho gợi ý "tự kiểm tra bản
+// mới" trên macOS (chưa ký chứng chỉ Apple nên auto-update không hoạt động được).
+// Địa chỉ hardcode ở đây, KHÔNG nhận URL từ renderer, tránh bị lợi dụng mở URL lạ.
+ipcMain.on('open-releases-page', () => {
+  shell.openExternal('https://github.com/ngphatdat1311/WORDNEST/releases');
+});
 
 // ════════════════════════════════════════════════════════
 // FILE-BASED STORE — thay thế localStorage, không giới hạn kích thước

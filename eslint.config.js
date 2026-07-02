@@ -56,6 +56,7 @@ const appGlobals = Object.fromEntries(
     'saveQuizStats', 'saveSpellingSession', 'saveStreak', 'saveTrash', 'saveWords',
     'scheduleAutoLookup', 'setCachedLookup', 'setStatus', 'setSyncFolder', 'setWlFilter',
     'shouldRemindBackup', 'shouldShowSyncBanner', 'showBackupBannerIfNeeded', 'showQuizResult',
+    'showMacUpdateHintIfNeeded', 'dismissMacUpdateHintBanner', 'MAC_UPDATE_HINT_DISMISSED_KEY',
     'showSection', 'showSyncRestoreBanner', 'showSyncUndoBanner', 'showToast', 'showUndoToast', 'shuffleArr',
     'savePreSyncSnapshot', 'undoSyncRestore',
     'shuffleFlashcard', 'spSessionStarted', 'spWords', 'speak', 'speakSpelling',
