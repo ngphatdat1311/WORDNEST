@@ -77,8 +77,8 @@ function renderFlashcard() {
   // SRS: hiển thị ngày ôn tiếp theo
   const srsEl = document.getElementById('fc-srs-info');
   if (srsEl) {
-    const today = new Date().toISOString().slice(0,10);
-    const daysUntil = Math.ceil((new Date(w.srsDue) - new Date(today)) / 86400000);
+    const today = localDateKey();
+    const daysUntil = Math.round((Date.parse(w.srsDue + 'T00:00:00') - Date.parse(today + 'T00:00:00')) / 86400000);
     if (w.srsDue && Number.isFinite(daysUntil)) {
       if (daysUntil <= 0) srsEl.textContent = '📅 Đến hạn ôn hôm nay';
       else if (daysUntil === 1) srsEl.textContent = '📅 Ôn lại vào ngày mai';

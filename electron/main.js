@@ -62,8 +62,14 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
-function setCors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function setCors(req, res) {
+  // Chỉ cho phép tiện ích Chrome (origin dạng chrome-extension://...) đọc được response.
+  // Trước đây dùng '*' khiến BẤT KỲ trang web nào người dùng mở cũng có thể fetch tới
+  // server cục bộ này và bơm từ rác vào app — thu hẹp lại còn đúng nguồn hợp lệ.
+  const origin = req.headers.origin;
+  if (origin && origin.startsWith('chrome-extension://')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
@@ -73,7 +79,7 @@ function setCors(res) {
 // để tránh phải cài thêm dependency cho 1 việc rất nhỏ.
 function startBridgeServer() {
   const server = http.createServer((req, res) => {
-    setCors(res);
+    setCors(req, res);
 
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
@@ -96,7 +102,7 @@ function startBridgeServer() {
           }
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true }));
-        } catch (e) {
+        } catch {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: false, error: 'invalid body' }));
         }
@@ -124,15 +130,24 @@ ipcMain.handle('get-app-version', () => app.getVersion());
 // FILE-BASED STORE — thay thế localStorage, không giới hạn kích thước
 // Mỗi key → 1 file JSON trong thư mục userData của Electron
 // ════════════════════════════════════════════════════════
+// key luôn phải là hằng số cố định do chính app định nghĩa (vd 'wordnest_data',
+// 'wordnest_streak'...) — chặn ký tự lạ (., /, \...) ở biên IPC để dù renderer
+// có bị chiếm quyền kiểu nào cũng không thể biến key thành đường dẫn ra ngoài
+// thư mục userData (path traversal), dù path.join phía dưới không tự chặn việc đó.
+function isValidStoreKey(key) {
+  return typeof key === 'string' && /^[A-Za-z0-9_]{1,64}$/.test(key);
+}
 ipcMain.on('store-read', (event, key) => {
+  if (!isValidStoreKey(key)) { event.returnValue = null; return; }
   try {
-    const file = path.join(app.getPath('userData'), 'store_' + String(key) + '.json');
+    const file = path.join(app.getPath('userData'), 'store_' + key + '.json');
     event.returnValue = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
   } catch { event.returnValue = null; }
 });
 ipcMain.on('store-write', (event, key, val) => {
+  if (!isValidStoreKey(key)) { event.returnValue = false; return; }
   try {
-    const file = path.join(app.getPath('userData'), 'store_' + String(key) + '.json');
+    const file = path.join(app.getPath('userData'), 'store_' + key + '.json');
     fs.writeFileSync(file, String(val), 'utf8');
     event.returnValue = true;
   } catch { event.returnValue = false; }
@@ -141,6 +156,14 @@ ipcMain.on('store-write', (event, key, val) => {
 // ════════════════════════════════════════════════════════
 // SYNC FOLDER — tự động sao lưu vào thư mục do user chọn (vd OneDrive)
 // ════════════════════════════════════════════════════════
+// folderPath do renderer gửi lên mỗi lần ghi/đọc (lưu lại từ lần chọn qua dialog
+// trước đó) — xác nhận lại đây thực sự là 1 thư mục CÓ TỒN TẠI trên máy trước
+// khi ghi/đọc file, để không lỡ ghi/đọc vào 1 đường dẫn bất kỳ nếu giá trị lưu
+// trong store bị hỏng hoặc bị can thiệp.
+function isValidSyncFolder(folderPath) {
+  if (typeof folderPath !== 'string' || !folderPath || !path.isAbsolute(folderPath)) return false;
+  try { return fs.statSync(folderPath).isDirectory(); } catch { return false; }
+}
 ipcMain.handle('pick-sync-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],
@@ -150,14 +173,16 @@ ipcMain.handle('pick-sync-folder', async () => {
   return result.filePaths[0];
 });
 ipcMain.on('sync-write', (event, folderPath, jsonData) => {
+  if (!isValidSyncFolder(folderPath)) { event.returnValue = false; return; }
   try {
-    fs.writeFileSync(path.join(String(folderPath), 'wordnest-sync.json'), String(jsonData), 'utf8');
+    fs.writeFileSync(path.join(folderPath, 'wordnest-sync.json'), String(jsonData), 'utf8');
     event.returnValue = true;
   } catch { event.returnValue = false; }
 });
 ipcMain.on('sync-check', (event, folderPath) => {
+  if (!isValidSyncFolder(folderPath)) { event.returnValue = null; return; }
   try {
-    const file = path.join(String(folderPath), 'wordnest-sync.json');
+    const file = path.join(folderPath, 'wordnest-sync.json');
     event.returnValue = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
   } catch { event.returnValue = null; }
 });
@@ -176,7 +201,7 @@ async function fetchJsonWithTimeout(url, ms) {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) return null;
     return await res.json();
-  } catch (e) {
+  } catch {
     return null;
   } finally {
     clearTimeout(timer);

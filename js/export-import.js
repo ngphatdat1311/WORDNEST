@@ -48,11 +48,16 @@ function importWords(event) {
         }))
         .filter(w => w.word && w.meaning); // loại bỏ luôn nếu sau khi cắt mà rỗng (vd word toàn khoảng trắng)
 
-      // Tính trước số từ mới / trùng để hiện trong confirm dialog
+      // Tính trước số từ mới / trùng để hiện trong confirm dialog.
+      // Dùng Set tra O(1) thay vì words.find() lặp lại (O(n) mỗi từ) và tự thêm
+      // vào Set ngay khi chấp nhận, để phát hiện luôn 2 từ trùng tên NẰM TRONG
+      // CHÍNH file import (trước đây chỉ so với kho hiện có nên lọt cả 2).
       let toAdd = [], skipped = 0;
+      const existing = new Set(words.map(x => x.word.toLowerCase()));
       imported.forEach(w => {
-        if (words.find(x => x.word.toLowerCase() === w.word.toLowerCase())) { skipped++; }
-        else { toAdd.push(w); }
+        const key = w.word.toLowerCase();
+        if (existing.has(key)) { skipped++; }
+        else { toAdd.push(w); existing.add(key); }
       });
 
       if (!toAdd.length) {
@@ -81,11 +86,12 @@ function importWords(event) {
             <br><br>Bạn có muốn tiếp tục không?
           </div>
           <div class="cb-btns">
-            <button class="cb-cancel" onclick="closeImportConfirm()">Hủy</button>
+            <button class="cb-cancel" id="import-cancel-btn">Hủy</button>
             <button class="cb-confirm" id="import-confirm-btn">Nhập ${toAdd.length} từ</button>
           </div>
         </div>`;
       document.body.appendChild(overlay);
+      document.getElementById('import-cancel-btn').addEventListener('click', closeImportConfirm);
       overlay.addEventListener('click', ev => { if (ev.target === overlay) closeImportConfirm(); });
       setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
 

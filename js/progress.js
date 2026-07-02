@@ -12,13 +12,19 @@ function renderProgress() {
 
   renderQuizStats();
 
-  // Mastery bars
-  const cats = [...new Set(words.map(w => w.category || 'Khác'))].sort();
+  // Mastery bars — gom nhóm 1 lần bằng reduce thay vì filter() lại toàn bộ words cho mỗi category
+  const catStats = {};
+  words.forEach(w => {
+    const c = w.category || 'Khác';
+    const st = catStats[c] || (catStats[c] = { sum: 0, count: 0 });
+    st.sum += (w.mastery || 0);
+    st.count++;
+  });
+  const cats = Object.keys(catStats).sort();
   document.getElementById('mastery-bars').innerHTML = cats.length
     ? cats.map(c => {
-        const cw = words.filter(w => (w.category || 'Khác') === c);
-        const avg = cw.reduce((a, b) => a + (b.mastery || 0), 0) / cw.length;
-        const pct = (avg / 3 * 100).toFixed(0);
+        const { sum, count } = catStats[c];
+        const pct = (sum / count / 3 * 100).toFixed(0);
         return `<div class="mastery-bar-wrap">
           <div class="mastery-bar-label"><span>${escHtml(c)}</span><span>${pct}%</span></div>
           <div class="mastery-bar-track"><div class="mastery-bar-fill" style="width:${pct}%"></div></div>
@@ -30,7 +36,7 @@ function renderProgress() {
   renderDifficultWords();
 
   // SRS info
-  const today = new Date().toISOString().slice(0,10);
+  const today = localDateKey();
   const srsDue = words.filter(w => !w.srsDue || w.srsDue <= today).length;
   const srsScheduled = words.filter(w => w.srsDue && w.srsDue > today).length;
   const srsNew = words.filter(w => !w.srsDue).length;
@@ -109,8 +115,16 @@ function renderVocabBreakdown() {
 
   const total = words.length || 1;
 
+  // Đếm 1 lần duy nhất qua words thay vì filter() riêng cho từng level/type (9 lượt duyệt trước đây)
+  const levelCounts = {}, typeCounts = {};
+  words.forEach(w => {
+    levelCounts[w.level] = (levelCounts[w.level] || 0) + 1;
+    const t = w.type || 'other';
+    typeCounts[t] = (typeCounts[t] || 0) + 1;
+  });
+
   levelEl.innerHTML = levels.map(l => {
-    const cnt = words.filter(w => w.level === l.key).length;
+    const cnt = levelCounts[l.key] || 0;
     const pct = Math.round(cnt / total * 100);
     return `<div class="mastery-bar-wrap">
       <div class="mastery-bar-label"><span>${l.label}</span><span>${cnt} từ (${pct}%)</span></div>
@@ -119,7 +133,7 @@ function renderVocabBreakdown() {
   }).join('');
 
   typeEl.innerHTML = types.map(t => {
-    const cnt = words.filter(w => (w.type || 'other') === t.key).length;
+    const cnt = typeCounts[t.key] || 0;
     if (!cnt) return '';
     const pct = Math.round(cnt / total * 100);
     return `<div class="mastery-bar-wrap">
@@ -148,7 +162,7 @@ function renderDifficultWords() {
   el.innerHTML = difficult.map(w => {
     const failPct = Math.round(w.failRate * 100);
     return `<div class="diff-word-row">
-      <button class="speak-btn" onclick="speak('${escAttr(w.word)}')" title="Phát âm" style="flex-shrink:0;width:30px;height:30px;font-size:0.85rem;">🔊</button>
+      <button class="speak-btn" data-word="${escAttr(w.word)}" title="Phát âm" style="flex-shrink:0;width:30px;height:30px;font-size:0.85rem;">🔊</button>
       <div style="flex:1;min-width:0;">
         <div class="diff-word-name">${escHtml(w.word)} <span class="diff-phonetic">${escHtml(w.phonetic || '')}</span></div>
         <div class="diff-word-meaning">${escHtml(w.meaning)}</div>
@@ -159,6 +173,7 @@ function renderDifficultWords() {
       </div>
     </div>`;
   }).join('');
+  el.querySelectorAll('.speak-btn').forEach(btn => btn.addEventListener('click', () => speak(btn.dataset.word)));
 }
 
 // ════════════════════════════════════════════════════════
@@ -173,7 +188,7 @@ function renderActivityHeatmap() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayKey = today.toISOString().slice(0, 10);
+  const todayKey = localDateKey(today);
 
   const TOTAL_DAYS = 371; // 53 tuần
   const start = new Date(today.getTime() - (TOTAL_DAYS - 1) * 86400000);
@@ -186,7 +201,7 @@ function renderActivityHeatmap() {
   // tính toán layout/style lại) khi mở tab Tiến độ.
   const frag = document.createDocumentFragment();
   for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
-    const key = d.toISOString().slice(0, 10);
+    const key = localDateKey(d);
     const div = document.createElement('div');
     if (key > todayKey) {
       div.className = 'activity-day future';

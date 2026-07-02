@@ -17,7 +17,7 @@
     "default_popup": "popup.html"
   },
   "permissions": ["storage", "contextMenus", "activeTab", "notifications"],
-  "host_permissions": ["<all_urls>", "http://127.0.0.1:51789/*"],
+  "host_permissions": ["http://127.0.0.1:51789/*"],
   "background": {
     "service_worker": "background.js"
   },

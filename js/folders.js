@@ -136,6 +136,7 @@ function renderFolderDetail() {
   tbody.innerHTML = list.length
     ? list.map(w => wlRowHtml(w)).join('')
     : `<tr><td colspan="${colCount}" style="text-align:center;padding:2rem;color:var(--text3)">Chưa có từ nào ở đây 📭</td></tr>`;
+  wireWlRowActions(tbody);
 
   if (!isUnfiled) {
     // .onclick = ... (không addEventListener) để tránh chồng listener mỗi lần render lại
@@ -163,7 +164,7 @@ function openFolderNameModal({ title = '📁 Tạo thư mục mới', initial = 
       <div class="cb-title" id="fn-title">${escHtml(title)}</div>
       <input class="form-input" id="fn-input" maxlength="40" value="${escAttr(initial)}" placeholder="Tên thư mục...">
       <div class="cb-btns" style="margin-top:1.2rem;">
-        <button class="cb-cancel" onclick="closeFolderNameModal()">Hủy</button>
+        <button class="cb-cancel" id="fn-cancel-btn">Hủy</button>
         <button class="cb-confirm" id="fn-confirm-btn" style="background:var(--accent);border-color:var(--accent);">${escHtml(confirmLabel)}</button>
       </div>
     </div>`;
@@ -178,6 +179,7 @@ function openFolderNameModal({ title = '📁 Tạo thư mục mới', initial = 
     onConfirm(name);
   };
   document.getElementById('fn-confirm-btn').addEventListener('click', confirm);
+  document.getElementById('fn-cancel-btn').addEventListener('click', closeFolderNameModal);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } });
   overlay.addEventListener('click', e => { if (e.target === overlay) closeFolderNameModal(); });
   setTimeout(() => { input.focus(); input.select(); }, 50);
@@ -234,12 +236,13 @@ function deleteFolderConfirm(id) {
       <div class="cb-word">📁 ${escHtml(f.name)}</div>
       <div class="cb-sub">${count ? `Thư mục cùng ${count} từ bên trong sẽ chuyển vào 🗑️ Thùng rác` : 'Thư mục đang trống sẽ chuyển vào 🗑️ Thùng rác'} — khôi phục sẽ trả lại đúng như cũ.</div>
       <div class="cb-btns">
-        <button class="cb-cancel" onclick="closeConfirm()">Hủy</button>
+        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
         <button class="cb-confirm" id="cb-confirm-btn">Xóa thư mục</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
   document.getElementById('cb-confirm-btn').addEventListener('click', () => deleteFolder(id));
+  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
   setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
 }
@@ -289,10 +292,11 @@ function openFolderPicker(word) {
         <button class="btn btn-outline" id="fp-create-btn">Tạo</button>
       </div>
       <div class="cb-btns">
-        ${w.folderId ? '<button class="cb-cancel" id="fp-remove-btn">🚫 Bỏ khỏi thư mục</button><button class="cb-cancel" onclick="closeFolderPicker()">Đóng</button>' : '<button class="cb-cancel" onclick="closeFolderPicker()">Đóng</button>'}
+        ${w.folderId ? '<button class="cb-cancel" id="fp-remove-btn">🚫 Bỏ khỏi thư mục</button><button class="cb-cancel" id="fp-close-btn">Đóng</button>' : '<button class="cb-cancel" id="fp-close-btn">Đóng</button>'}
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  document.getElementById('fp-close-btn').addEventListener('click', closeFolderPicker);
   overlay.querySelectorAll('.folder-pick-item').forEach(btn => btn.addEventListener('click', () => { assignWordToFolder(word, btn.dataset.id); closeFolderPicker(); }));
   document.getElementById('fp-create-btn').addEventListener('click', () => {
     const name = clampStr(document.getElementById('fp-new-name').value.trim(), 40);
@@ -352,11 +356,12 @@ function openAddWordsToFolderModal(folderId) {
       <input class="form-input" id="fb-search" placeholder="🔍 Tìm từ..." style="margin-bottom:10px;">
       <div class="folder-bulk-list" id="fb-list">${rows || '<div style="font-size:0.85rem;color:var(--text3);padding:10px 0;">Chưa có từ nào trong từ điển.</div>'}</div>
       <div class="cb-btns" style="margin-top:1.2rem;">
-        <button class="cb-cancel" onclick="closeFolderBulkModal()">Hủy</button>
+        <button class="cb-cancel" id="fb-cancel-btn">Hủy</button>
         <button class="cb-confirm" id="fb-save-btn" style="background:var(--accent);border-color:var(--accent);">💾 Lưu</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  document.getElementById('fb-cancel-btn').addEventListener('click', closeFolderBulkModal);
   document.getElementById('fb-search').addEventListener('input', (e) => {
     const q = e.target.value.trim().toLowerCase();
     overlay.querySelectorAll('.folder-bulk-row').forEach(row => {

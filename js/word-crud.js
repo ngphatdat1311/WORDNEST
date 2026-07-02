@@ -34,6 +34,26 @@ function addWord() {
   renderWordList(); // đồng bộ luôn danh sách từ, tránh hiển thị stale nếu user quay lại tab Danh sách
 }
 
+// Tách 1 dòng "từ | phiên âm | nghĩa | ví dụ" (hoặc định dạng cũ "từ | nghĩa |
+// ví dụ" không phiên âm, nhận diện qua số lượng phần tách được) thành object.
+// Tách riêng khỏi bulkAdd() để test được logic nhận diện định dạng độc lập,
+// không phụ thuộc DOM/state toàn cục.
+function parseBulkLine(line) {
+  const parts = line.split('|').map(s => s.trim());
+  let word, phonetic, meaning, example;
+  if (parts.length >= 4) {
+    [word, phonetic, meaning, example] = parts;
+  } else {
+    word = parts[0]; phonetic = ''; meaning = parts[1]; example = parts[2] || '';
+  }
+  return {
+    word: clampStr(word, 60),
+    phonetic: clampStr(phonetic, 80),
+    meaning: clampStr(meaning, 200),
+    example: clampStr(example, 300),
+  };
+}
+
 function bulkAdd() {
   const raw = document.getElementById('aw-bulk').value.trim();
   if (!raw) { showToast('Vui lòng nhập từ!'); return; }
@@ -43,16 +63,7 @@ function bulkAdd() {
   words = [...words];
   let added = 0;
   lines.forEach(line => {
-    const parts = line.split('|').map(s => s.trim());
-    // Hỗ trợ cả định dạng mới "từ | phiên âm | nghĩa | ví dụ" và định dạng cũ
-    // "từ | nghĩa | ví dụ" (không phiên âm) — nhận diện qua số lượng phần tách được.
-    let word, phonetic, meaning, example;
-    if (parts.length >= 4) {
-      [word, phonetic, meaning, example] = parts;
-    } else {
-      word = parts[0]; phonetic = ''; meaning = parts[1]; example = parts[2] || '';
-    }
-    word = clampStr(word, 60); phonetic = clampStr(phonetic, 80); meaning = clampStr(meaning, 200); example = clampStr(example, 300);
+    const { word, phonetic, meaning, example } = parseBulkLine(line);
     if (!word || !meaning) return;
     if (words.find(w => w.word.toLowerCase() === word.toLowerCase())) return;
     // Có khoảng trắng (vd "give up", "be fond of ...") -> tự nhận là cụm từ,
@@ -91,13 +102,14 @@ function confirmDelete(word) {
       <div class="cb-word">${escHtml(w.word)}</div>
       <div class="cb-sub">${escHtml(w.meaning)}<br>Từ sẽ được chuyển vào 🗑️ Thùng rác — có thể khôi phục lại sau.</div>
       <div class="cb-btns">
-        <button class="cb-cancel" onclick="closeConfirm()">Hủy</button>
+        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
         <button class="cb-confirm" id="cb-confirm-btn">Xóa</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
   // Dùng event listener, không nối chuỗi từ vào onclick inline
   document.getElementById('cb-confirm-btn').addEventListener('click', () => deleteWord(word));
+  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
   // Focus vào nút đầu tiên khi modal mở
   setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
@@ -121,12 +133,13 @@ function confirmDeleteAll() {
       <div class="cb-word">${words.length} từ</div>
       <div class="cb-sub">Toàn bộ từ vựng sẽ được chuyển vào 🗑️ Thùng rác — có thể khôi phục lại sau, hoặc xuất JSON để sao lưu chắc chắn hơn.</div>
       <div class="cb-btns">
-        <button class="cb-cancel" onclick="closeConfirm()">Hủy</button>
+        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
         <button class="cb-confirm" id="cb-confirm-all-btn">Có, xóa tất cả</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
   document.getElementById('cb-confirm-all-btn').addEventListener('click', deleteAllWords);
+  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
   setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
 }
@@ -196,7 +209,7 @@ function openEditModal(word) {
     <div class="edit-box">
       <div class="eb-title" id="edit-dialog-title">
         <span>✏️ Sửa từ: <em>${escHtml(w.word)}</em></span>
-        <button class="eb-close" onclick="closeEditModal()">✕</button>
+        <button class="eb-close" id="eb-close-btn">✕</button>
       </div>
       <div class="edit-form-grid">
         <div class="edit-row">
@@ -225,12 +238,14 @@ function openEditModal(word) {
         </div>
       </div>
       <div class="edit-btns">
-        <button class="btn btn-outline" onclick="closeEditModal()">Hủy</button>
+        <button class="btn btn-outline" id="eb-cancel-btn">Hủy</button>
         <button class="btn" id="eb-save-btn">💾 Lưu thay đổi</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
   document.getElementById('eb-save-btn').addEventListener('click', () => saveEditWord(word));
+  document.getElementById('eb-close-btn').addEventListener('click', closeEditModal);
+  document.getElementById('eb-cancel-btn').addEventListener('click', closeEditModal);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeEditModal(); });
   // Focus vào field đầu tiên khi edit modal mở
   setTimeout(() => { const el = document.getElementById('ew-word'); if (el) el.focus(); }, 50);

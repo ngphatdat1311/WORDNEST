@@ -21,11 +21,15 @@ window.addEventListener('message', (event) => {
 // gửi từ trực tiếp đến app qua HTTP cục bộ, main process chuyển tiếp qua IPC.
 if (window.electronAPI && window.electronAPI.onCaptureWord) {
   window.electronAPI.onCaptureWord((item) => {
-    const exists = extensionInboxWords.some(w => w.word.toLowerCase() === item.word.toLowerCase());
+    // Không tin tưởng tuyệt đối phía gửi (IPC) dù main.js đã validate — kiểm tra lại ở đây
+    // để tránh crash toàn bộ listener nếu payload thiếu field `word`.
+    const word = String(item?.word || '').trim();
+    if (!word) return;
+    const exists = extensionInboxWords.some(w => w.word.toLowerCase() === word.toLowerCase());
     if (!exists) {
-      extensionInboxWords.push(item);
+      extensionInboxWords.push({ ...item, word });
       renderExtensionInbox();
-      showToast('📥 Đã nhận từ "' + item.word + '" từ tiện ích Chrome', 'success');
+      showToast('📥 Đã nhận từ "' + word + '" từ tiện ích Chrome', 'success');
     }
   });
 }
@@ -45,10 +49,12 @@ function renderExtensionInbox() {
   if (navDot) navDot.style.display = '';
   chipsEl.innerHTML = extensionInboxWords.map((item, i) => `
     <span class="inbox-chip">
-      <span onclick="useInboxWord(${i})" title="Nhấn để điền vào form Thêm từ">${escHtml(item.word)}</span>
-      <span class="ic-remove" onclick="removeInboxWord(${i})" title="Bỏ qua">✕</span>
+      <span class="ic-use" data-idx="${i}" title="Nhấn để điền vào form Thêm từ">${escHtml(item.word)}</span>
+      <span class="ic-remove" data-idx="${i}" title="Bỏ qua">✕</span>
     </span>
   `).join('');
+  chipsEl.querySelectorAll('.ic-use').forEach(el => el.addEventListener('click', () => useInboxWord(Number(el.dataset.idx))));
+  chipsEl.querySelectorAll('.ic-remove').forEach(el => el.addEventListener('click', () => removeInboxWord(Number(el.dataset.idx))));
 }
 
 function useInboxWord(idx) {

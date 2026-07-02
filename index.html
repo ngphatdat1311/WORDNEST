@@ -6,12 +6,15 @@
 <title>WordNest – Học Tiếng Anh</title>
 <meta name="wordnest-app" content="1">
 <meta name="theme-color" content="#8B6F47">
-<!-- script-src vẫn cần 'unsafe-inline' vì toàn bộ app dùng onclick="..." trực tiếp
-     trong HTML; nhưng đã chặn 'unsafe-eval' (cảnh báo chính của Electron) và mọi
-     script-src lạ ngoài chính trang. Font giờ tự host (css/fonts.css) nên không
-     cần whitelist domain ngoài cho style-src/font-src nữa — CSP chặt hơn, app
-     cũng không phụ thuộc mạng để hiện đúng font (nhanh hơn + chạy offline được). -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; media-src https:; connect-src 'self' https: http://127.0.0.1:51789;">
+<!-- script-src KHÔNG còn 'unsafe-inline' — toàn bộ onclick="..."/oninput="..." đã
+     chuyển sang addEventListener (js/event-wiring.js + wiring ngay trong hàm render
+     của từng module), nên script độc hại chèn qua XSS (vd innerHTML với dữ liệu
+     import từ file JSON không đáng tin) không thể tự thực thi được nữa. style-src
+     vẫn giữ 'unsafe-inline' vì UI còn nhiều style="..." nội tuyến — rủi ro thấp hơn
+     nhiều so với script-src (không dẫn tới thực thi mã). Cũng đã chặn 'unsafe-eval'
+     (cảnh báo chính của Electron) và mọi script-src lạ ngoài chính trang. Font tự
+     host (css/fonts.css) nên không cần whitelist domain ngoài cho style-src/font-src. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; media-src https:; connect-src 'self' https: http://127.0.0.1:51789;">
 <link rel="stylesheet" href="css/fonts.css">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -42,40 +45,40 @@
       <span id="streak-count">0</span> ngày liên tiếp
     </div>
     <!-- DARK MODE TOGGLE -->
-    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Chuyển chế độ sáng/tối" aria-label="Toggle dark mode">
+    <button class="theme-toggle" id="theme-toggle" title="Chuyển chế độ sáng/tối" aria-label="Toggle dark mode">
       <span class="tt-icon tt-sun">☀️</span>
       <span class="tt-icon tt-moon">🌙</span>
     </button>
-    <button class="icon-btn" onclick="toggleFullscreen()" id="fs-btn" title="Toàn màn hình">⛶</button>
+    <button class="icon-btn" id="fs-btn" title="Toàn màn hình">⛶</button>
   </div>
 </header>
 
 <nav>
-  <button class="active" onclick="showSection('home')" id="nav-home">
+  <button class="active" id="nav-home">
     <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 11.5L12 4l8 7.5"/><path d="M6 10v9.5h12V10"/><path d="M10 19.5v-6h4v6"/></svg>
     Trang chủ
   </button>
-  <button onclick="showSection('flashcard')" id="nav-flashcard">
+  <button id="nav-flashcard">
     <svg class="nav-icon" viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="11" rx="2"/><path d="M9 21h12V10"/></svg>
     Flashcard
   </button>
-  <button onclick="showSection('quiz')" id="nav-quiz">
+  <button id="nav-quiz">
     <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg>
     Quiz
   </button>
-  <button onclick="showSection('spelling')" id="nav-spelling">
+  <button id="nav-spelling">
     <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 20l1-5L16 4l4 4-11 11-5 1z"/><path d="M13 7l4 4"/></svg>
     Chính tả
   </button>
-  <button onclick="showSection('wordlist')" id="nav-wordlist">
+  <button id="nav-wordlist">
     <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 6c2.2-1.3 5.4-1.3 8 0v13c-2.6-1.3-5.8-1.3-8 0V6z"/><path d="M21 6c-2.2-1.3-5.4-1.3-8 0v13c2.6-1.3 5.8-1.3 8 0V6z"/></svg>
     Từ điển
   </button>
-  <button onclick="showSection('progress')" id="nav-progress">
+  <button id="nav-progress">
     <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 18l5-5.5 4 3.5L20 6"/><path d="M14 6h6v6"/></svg>
     Tiến độ
   </button>
-  <button onclick="showSection('add')" id="nav-add">
+  <button id="nav-add">
     <svg class="nav-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v9M7.5 12h9"/></svg>
     Thêm từ<span class="nav-badge-dot" id="nav-add-dot" style="display:none"></span>
   </button>
@@ -84,22 +87,23 @@
 <div class="backup-banner" id="backup-banner">
   <span class="bb-icon">💾</span>
   <span class="bb-text">Bạn chưa sao lưu dữ liệu gần đây. Xuất JSON để có bản dự phòng phòng khi cần cài lại ứng dụng hoặc chuyển máy!</span>
-  <button class="btn" style="padding:6px 14px;font-size:0.82rem;flex-shrink:0;" onclick="doBackupFromBanner()">📤 Sao lưu ngay</button>
-  <button class="bb-close" onclick="dismissBackupBanner()" aria-label="Đóng">✕</button>
+  <button class="btn" id="backup-do-btn" style="padding:6px 14px;font-size:0.82rem;flex-shrink:0;">📤 Sao lưu ngay</button>
+  <button class="bb-close" id="backup-close-btn" aria-label="Đóng">✕</button>
 </div>
 
 <div class="update-banner" id="app-update-banner">
   <span class="bb-icon">✨</span>
   <span class="bb-text" id="app-update-text">Đã có bản cập nhật mới.</span>
-  <button class="btn" id="app-update-btn" style="padding:6px 14px;font-size:0.82rem;flex-shrink:0;" onclick="downloadAppUpdate()">⬇️ Cập nhật ngay</button>
-  <button class="bb-close" onclick="dismissAppUpdateBanner()" aria-label="Đóng">✕</button>
+  <button class="btn" id="app-update-btn" style="padding:6px 14px;font-size:0.82rem;flex-shrink:0;">⬇️ Cập nhật ngay</button>
+  <button class="bb-close" id="app-update-close-btn" aria-label="Đóng">✕</button>
 </div>
 
 <div class="backup-banner" id="sync-restore-banner">
   <span class="bb-icon">☁️</span>
-  <span class="bb-text">File đồng bộ tại <strong id="sync-restore-time"></strong> có vẻ mới hơn dữ liệu hiện tại. Bạn có muốn khôi phục không?</span>
+  <span class="bb-text" id="sync-restore-msg">File đồng bộ tại <strong id="sync-restore-time"></strong> có vẻ mới hơn dữ liệu hiện tại. Bạn có muốn khôi phục không?</span>
   <button class="btn" id="sync-restore-btn" style="padding:6px 14px;font-size:0.82rem;flex-shrink:0;">📥 Khôi phục</button>
-  <button class="bb-close" onclick="hideSyncRestoreBanner()" aria-label="Đóng">✕</button>
+  <button class="btn" id="sync-undo-btn" style="padding:6px 14px;font-size:0.82rem;flex-shrink:0;display:none;">↩️ Hoàn tác</button>
+  <button class="bb-close" id="sync-restore-close-btn" aria-label="Đóng">✕</button>
 </div>
 
 <main>
@@ -130,7 +134,7 @@
       <div class="val" id="home-streak">0</div>
       <div class="sub">ngày liên tiếp 🔥</div>
     </div>
-    <div class="home-stat" onclick="showSection('flashcard')" style="cursor:pointer">
+    <div class="home-stat" id="home-srs-card" style="cursor:pointer">
       <div class="label">Cần ôn hôm nay</div>
       <div class="val" id="home-srs-due" style="color:var(--gold)">0</div>
       <div class="sub">từ đến hạn SRS 📅</div>
@@ -138,22 +142,22 @@
   </div>
 
   <div class="home-actions">
-    <div class="action-btn" onclick="showSection('flashcard')">
+    <div class="action-btn" id="action-flashcard">
       <div class="ab-icon">🃏</div>
       <div class="ab-title">Flashcard</div>
       <div class="ab-desc">Lật thẻ, ghi nhớ từ vựng</div>
     </div>
-    <div class="action-btn" onclick="showSection('quiz')">
+    <div class="action-btn" id="action-quiz">
       <div class="ab-icon">🧠</div>
       <div class="ab-title">Quiz trắc nghiệm</div>
       <div class="ab-desc">4 lựa chọn, thử thách bản thân</div>
     </div>
-    <div class="action-btn" onclick="showSection('spelling')">
+    <div class="action-btn" id="action-spelling">
       <div class="ab-icon">✍️</div>
       <div class="ab-title">Luyện chính tả</div>
       <div class="ab-desc">Nghe gợi ý, điền từ đúng</div>
     </div>
-    <div class="action-btn" onclick="showSection('wordlist')">
+    <div class="action-btn" id="action-wordlist">
       <div class="ab-icon">📖</div>
       <div class="ab-title">Từ điển cá nhân</div>
       <div class="ab-desc">Xem và quản lý từ vựng</div>
@@ -172,21 +176,21 @@
   <div class="section-sub">Nhấn vào thẻ để xem nghĩa. Đánh dấu từ bạn đã biết.</div>
 
   <div class="fc-controls">
-    <select id="fc-category" onchange="initFlashcard()">
+    <select id="fc-category">
       <option value="all">Tất cả từ</option>
       <option value="new">Chưa thuộc</option>
       <option value="review">Cần ôn tập</option>
       <option value="srs">📅 Đến hạn ôn (SRS)</option>
     </select>
-    <select id="fc-tag" onchange="initFlashcard()">
+    <select id="fc-tag">
       <option value="all">Tất cả chủ đề</option>
     </select>
-    <select id="fc-folder" onchange="initFlashcard()">
+    <select id="fc-folder">
       <option value="all">Tất cả thư mục</option>
     </select>
     <div class="spacer"></div>
-    <button class="btn btn-outline" onclick="shuffleFlashcard()">🔀 Xáo trộn</button>
-    <button class="btn" onclick="initFlashcard(false)">🔄 Làm lại</button>
+    <button class="btn btn-outline" id="fc-shuffle-btn">🔀 Xáo trộn</button>
+    <button class="btn" id="fc-reset-btn">🔄 Làm lại</button>
   </div>
 
   <div class="fc-progress">
@@ -194,14 +198,14 @@
     <div class="prog-text" id="fc-prog-text">0 / 0</div>
   </div>
 
-  <div class="flashcard-wrap" id="flashcard" onclick="flipCard()">
+  <div class="flashcard-wrap" id="flashcard">
     <div class="flashcard-inner" id="fc-inner">
       <div class="fc-face fc-front">
         <div class="hint">Nhấn để xem nghĩa</div>
         <div class="word" id="fc-word">—</div>
         <div class="phonetic" id="fc-phonetic"></div>
         <div class="type-tag" id="fc-type"></div>
-        <div class="speak-btn" onclick="speakWord(event)" title="Phát âm">🔊</div>
+        <div class="speak-btn" id="fc-speak-btn" title="Phát âm">🔊</div>
       </div>
       <div class="fc-face fc-back">
         <div class="type-tag" id="fc-type-back"></div>
@@ -215,13 +219,13 @@
   <div class="fc-tap-hint">👆 Nhấn thẻ để lật • Phím ← → để chuyển</div>
 
   <div class="fc-nav">
-    <button class="nav-btn" onclick="prevCard()" id="fc-prev">◀</button>
-    <button class="nav-btn" onclick="nextCard()" id="fc-next">▶</button>
+    <button class="nav-btn" id="fc-prev">◀</button>
+    <button class="nav-btn" id="fc-next">▶</button>
   </div>
 
   <div class="fc-know-btns" id="fc-know-row" style="display:none">
-    <button class="know-btn no" onclick="markCard(false)">❌ Chưa biết</button>
-    <button class="know-btn yes" onclick="markCard(true)">✅ Đã biết</button>
+    <button class="know-btn no" id="fc-mark-no-btn">❌ Chưa biết</button>
+    <button class="know-btn yes" id="fc-mark-yes-btn">✅ Đã biết</button>
   </div>
 </div>
 
@@ -262,7 +266,7 @@
         <option value="all">Tất cả thư mục</option>
       </select>
     </div>
-    <button class="btn qz-settings-btn" onclick="startQuiz()">🔄 Bắt đầu lại</button>
+    <button class="btn qz-settings-btn" id="qz-restart-btn">🔄 Bắt đầu lại</button>
   </div>
 
   <div id="quiz-area">
@@ -274,12 +278,12 @@
       <div class="quiz-question-num" id="qz-num">Câu 1</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
         <div class="quiz-q" id="qz-word" style="margin-bottom:0"></div>
-        <button class="speak-btn" onclick="speak(document.getElementById('qz-word').textContent)" title="Phát âm" style="flex-shrink:0">🔊</button>
+        <button class="speak-btn" id="qz-speak-btn" title="Phát âm" style="flex-shrink:0">🔊</button>
       </div>
       <div class="quiz-q-sub" id="qz-phonetic"></div>
       <div class="quiz-options" id="qz-options"></div>
       <div class="quiz-feedback" id="qz-feedback"></div>
-      <button class="btn quiz-next-btn" id="qz-next" onclick="nextQuiz()" style="display:none">Câu tiếp theo →</button>
+      <button class="btn quiz-next-btn" id="qz-next" style="display:none">Câu tiếp theo →</button>
     </div>
   </div>
 
@@ -288,8 +292,8 @@
       <div class="big-score" id="qz-final-score"></div>
       <div class="score-label">điểm số</div>
       <div class="result-msg" id="qz-result-msg"></div>
-      <button class="btn" onclick="startQuiz()" style="margin-right:10px">🔄 Chơi lại</button>
-      <button class="btn btn-outline" onclick="showSection('progress')">📊 Xem tiến độ</button>
+      <button class="btn" id="qz-replay-btn" style="margin-right:10px">🔄 Chơi lại</button>
+      <button class="btn btn-outline" id="qz-view-progress-btn">📊 Xem tiến độ</button>
       <div id="qz-wrong-list"></div>
     </div>
   </div>
@@ -339,7 +343,7 @@
       <div class="ss-val" id="sp-streak">0</div>
       <div class="ss-label">Chuỗi 🔥</div>
     </div>
-    <div class="spell-score-item" style="cursor:pointer;" onclick="restartSpelling()" title="Bắt đầu lại từ đầu">
+    <div class="spell-score-item" id="sp-restart-card" style="cursor:pointer;" title="Bắt đầu lại từ đầu">
       <div class="ss-val" style="font-size:1.1rem;">🔄</div>
       <div class="ss-label">Bắt đầu lại</div>
     </div>
@@ -354,17 +358,16 @@
     <div class="spell-blanks" id="sp-blanks"></div>
     <div style="position:relative; margin-bottom: 1rem;">
       <input class="spell-input" type="text" id="sp-input"
-        placeholder="Gõ từ tiếng Anh..."
-        oninput="updateBlanks()">
+        placeholder="Gõ từ tiếng Anh...">
     </div>
     <div style="display:flex;gap:8px;justify-content:center;margin-bottom:1rem;flex-wrap:wrap;">
-      <button class="btn btn-outline" onclick="giveHint()" id="sp-hint-btn" style="flex:1;min-width:100px;max-width:130px">💡 Gợi ý</button>
-      <button class="btn btn-outline" onclick="speakSpelling()" id="sp-speak-btn" style="flex:1;min-width:100px;max-width:130px">🔊 Phát âm</button>
-      <button class="btn btn-outline" onclick="revealWord()" id="sp-reveal-btn" style="flex:1;min-width:100px;max-width:130px">👁️ Hiện từ</button>
-      <button class="btn" onclick="checkSpelling()" id="sp-check-btn" style="flex:1;min-width:100px;max-width:130px">✓ Kiểm tra</button>
+      <button class="btn btn-outline" id="sp-hint-btn" style="flex:1;min-width:100px;max-width:130px">💡 Gợi ý</button>
+      <button class="btn btn-outline" id="sp-speak-btn" style="flex:1;min-width:100px;max-width:130px">🔊 Phát âm</button>
+      <button class="btn btn-outline" id="sp-reveal-btn" style="flex:1;min-width:100px;max-width:130px">👁️ Hiện từ</button>
+      <button class="btn" id="sp-check-btn" style="flex:1;min-width:100px;max-width:130px">✓ Kiểm tra</button>
     </div>
     <div class="quiz-feedback" id="sp-feedback"></div>
-    <button class="btn" onclick="nextSpelling()" id="sp-next" style="width:100%;margin-top:1rem;display:none">Từ tiếp theo →</button>
+    <button class="btn" id="sp-next" style="width:100%;margin-top:1rem;display:none">Từ tiếp theo →</button>
   </div>
 </div>
 
@@ -374,22 +377,22 @@
   <div class="section-sub">Tất cả từ vựng của bạn.</div>
 
   <div class="wl-tab-row">
-    <button class="wl-tab active" id="wl-tab-all" onclick="switchWlView('all')">📋 Tất cả</button>
-    <button class="wl-tab" id="wl-tab-folders" onclick="switchWlView('folders')">📁 Thư mục</button>
-    <button class="wl-tab" id="wl-tab-trash" onclick="switchWlView('trash')">🗑️ Thùng rác</button>
+    <button class="wl-tab active" id="wl-tab-all">📋 Tất cả</button>
+    <button class="wl-tab" id="wl-tab-folders">📁 Thư mục</button>
+    <button class="wl-tab" id="wl-tab-trash">🗑️ Thùng rác</button>
   </div>
 
   <!-- TẤT CẢ — danh sách phẳng quen thuộc -->
   <div id="wl-view-all">
     <div class="wl-search-bar">
-      <input class="wl-search" type="text" placeholder="🔍 Tìm từ..." id="wl-search" oninput="debouncedRenderWordList()">
-      <button class="btn" onclick="showSection('add')">+ Thêm từ</button>
+      <input class="wl-search" type="text" placeholder="🔍 Tìm từ..." id="wl-search">
+      <button class="btn" id="wl-add-word-btn">+ Thêm từ</button>
     </div>
 
     <div class="wl-toolbar">
       <div class="wl-toolbar-sort">
         <label>Sắp xếp</label>
-        <select id="wl-sort" onchange="wlPage=1;renderWordList(true)">
+        <select id="wl-sort">
           <option value="default">Mặc định</option>
           <option value="az">A → Z</option>
           <option value="za">Z → A</option>
@@ -400,20 +403,20 @@
           <option value="added_asc">Thêm lâu nhất</option>
         </select>
       </div>
-      <button class="wl-icon-toggle" id="wl-showdate-btn" onclick="toggleWlShowDate()" title="Hiện/ẩn ngày thêm" aria-label="Hiện/ẩn ngày thêm">🕒</button>
-      <button class="wl-icon-toggle wl-mastered-only-btn" onclick="toggleWlMasteredOnly()" title="Chỉ hiện từ đã thuộc" aria-label="Chỉ hiện từ đã thuộc">🔒</button>
+      <button class="wl-icon-toggle" id="wl-showdate-btn" title="Hiện/ẩn ngày thêm" aria-label="Hiện/ẩn ngày thêm">🕒</button>
+      <button class="wl-icon-toggle wl-mastered-only-btn" title="Chỉ hiện từ đã thuộc" aria-label="Chỉ hiện từ đã thuộc">🔒</button>
       <div class="wl-toolbar-spacer"></div>
       <div class="wl-more-wrap">
-        <button class="btn btn-outline" id="wl-more-btn" onclick="toggleWlMoreMenu(event)" style="padding:7px 14px;font-size:0.82rem;">⋯ Khác</button>
+        <button class="btn btn-outline" id="wl-more-btn" style="padding:7px 14px;font-size:0.82rem;">⋯ Khác</button>
         <div class="wl-more-menu" id="wl-more-menu">
-          <button onclick="exportWords();closeWlMoreMenu()">📤 Xuất JSON</button>
-          <button onclick="exportCSV();closeWlMoreMenu()">📊 Xuất CSV</button>
-          <button onclick="exportAnkiTxt();closeWlMoreMenu()">🃏 Xuất Anki</button>
+          <button id="wl-export-json-btn">📤 Xuất JSON</button>
+          <button id="wl-export-csv-btn">📊 Xuất CSV</button>
+          <button id="wl-export-anki-btn">🃏 Xuất Anki</button>
           <label>
             📥 Nhập JSON
-            <input type="file" accept=".json" id="import-file" onchange="importWords(event);closeWlMoreMenu()" style="display:none">
+            <input type="file" accept=".json" id="import-file" style="display:none">
           </label>
-          <button class="danger" onclick="confirmDeleteAll();closeWlMoreMenu()">🗑️ Xóa tất cả</button>
+          <button class="danger" id="wl-delete-all-btn">🗑️ Xóa tất cả</button>
         </div>
       </div>
     </div>
@@ -437,7 +440,7 @@
 
     <div id="wl-folder-detail" style="display:none">
       <div class="folder-detail-header">
-        <button class="btn btn-outline" onclick="openFolderGrid()" style="padding:6px 14px;font-size:0.82rem;">← Quay lại</button>
+        <button class="btn btn-outline" id="wl-folder-back-btn" style="padding:6px 14px;font-size:0.82rem;">← Quay lại</button>
         <div class="folder-detail-name" id="wl-folder-detail-name"></div>
         <div class="folder-detail-actions" id="wl-folder-detail-actions">
           <button class="btn btn-outline" id="wl-folder-add-btn" style="padding:6px 14px;font-size:0.82rem;">➕ Thêm từ</button>
@@ -448,7 +451,7 @@
       <div class="wl-toolbar">
         <div class="wl-toolbar-sort">
           <label>Sắp xếp</label>
-          <select id="wl-folder-sort" onchange="renderFolderDetail()">
+          <select id="wl-folder-sort">
             <option value="default">Mặc định</option>
             <option value="az">A → Z</option>
             <option value="za">Z → A</option>
@@ -459,7 +462,7 @@
             <option value="added_asc">Thêm lâu nhất</option>
           </select>
         </div>
-        <button class="wl-icon-toggle wl-mastered-only-btn" onclick="toggleWlMasteredOnly()" title="Chỉ hiện từ đã thuộc" aria-label="Chỉ hiện từ đã thuộc">🔒</button>
+        <button class="wl-icon-toggle wl-mastered-only-btn" title="Chỉ hiện từ đã thuộc" aria-label="Chỉ hiện từ đã thuộc">🔒</button>
       </div>
       <div class="card wl-table-card">
         <div class="wl-table-scroll">
@@ -475,7 +478,7 @@
   <!-- THÙNG RÁC — từ/thư mục đã xóa, khôi phục được -->
   <div id="wl-view-trash" style="display:none">
     <div style="display:flex;justify-content:flex-end;margin-bottom:1rem;">
-      <button class="btn btn-outline" id="wl-trash-empty-btn" onclick="confirmEmptyTrash()" style="padding:6px 14px;font-size:0.82rem;color:var(--red);border-color:var(--red);display:none;">🗑️ Đổ hết thùng rác</button>
+      <button class="btn btn-outline" id="wl-trash-empty-btn" style="padding:6px 14px;font-size:0.82rem;color:var(--red);border-color:var(--red);display:none;">🗑️ Đổ hết thùng rác</button>
     </div>
     <div id="wl-trash-list"></div>
   </div>
@@ -566,8 +569,8 @@
       <span id="sync-folder-path" style="font-size:0.82rem;color:var(--text3);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Chưa chọn thư mục</span>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="btn btn-primary" style="font-size:0.82rem;padding:7px 16px;" onclick="pickSyncFolder()">📂 Chọn thư mục</button>
-      <button class="btn btn-outline" id="sync-disable-btn" style="font-size:0.82rem;padding:7px 16px;display:none;color:var(--red);border-color:var(--red);" onclick="disableSync()">✕ Tắt đồng bộ</button>
+      <button class="btn btn-primary" id="sync-pick-folder-btn" style="font-size:0.82rem;padding:7px 16px;">📂 Chọn thư mục</button>
+      <button class="btn btn-outline" id="sync-disable-btn" style="font-size:0.82rem;padding:7px 16px;display:none;color:var(--red);border-color:var(--red);">✕ Tắt đồng bộ</button>
     </div>
   </div>
 </div>
@@ -580,7 +583,7 @@
   <div class="inbox-panel" id="inbox-panel" style="display:none;">
     <div class="inbox-head">
       <span>📥 Từ vừa bôi đen (Tiện ích Chrome)</span>
-      <button class="inbox-clear" onclick="clearExtensionInbox()">Xóa hết</button>
+      <button class="inbox-clear" id="inbox-clear-btn">Xóa hết</button>
     </div>
     <div class="inbox-chips" id="inbox-chips"></div>
   </div>
@@ -592,13 +595,13 @@
           <label>Từ tiếng Anh *</label>
           <div class="aw-status-row" id="aw-autofill-status"></div>
           <input class="form-input" type="text" id="aw-word" placeholder="e.g. serendipity"
-            oninput="scheduleAutoLookup()" maxlength="60">
+            maxlength="60">
         </div>
         <div class="form-group">
           <label>Phiên âm (tùy chọn)</label>
           <div class="aw-phonetic-row">
             <input class="form-input" type="text" id="aw-phonetic" placeholder="e.g. /ˌser.ənˈdɪp.ɪ.ti/" maxlength="80">
-            <button type="button" class="aw-speak-btn" id="aw-speak-btn" onclick="playPronunciation()" title="Nghe phát âm" style="display:none;">🔊</button>
+            <button type="button" class="aw-speak-btn" id="aw-speak-btn" title="Nghe phát âm" style="display:none;">🔊</button>
           </div>
         </div>
       </div>
@@ -624,7 +627,7 @@
         <label>Ví dụ câu (tùy chọn)</label>
         <div class="aw-example-row">
           <input class="form-input" type="text" id="aw-example" placeholder="e.g. It was serendipity that we met." maxlength="300">
-          <button type="button" class="aw-reroll-btn" id="aw-reroll-example-btn" onclick="rerollExample()" title="Đổi sang ví dụ khác" style="display:none;">🔄 Đổi ví dụ khác</button>
+          <button type="button" class="aw-reroll-btn" id="aw-reroll-example-btn" title="Đổi sang ví dụ khác" style="display:none;">🔄 Đổi ví dụ khác</button>
         </div>
         <div class="example-vi-hint" id="aw-example-vi"></div>
       </div>
@@ -646,7 +649,7 @@
         <label>📁 Bộ từ / Thư mục (tùy chọn)</label>
         <select class="form-select" id="aw-folder"><option value="">— Không có —</option></select>
       </div>
-      <button class="btn" onclick="addWord()" style="padding:13px; font-size:0.95rem;">✓ Thêm từ vào kho</button>
+      <button class="btn" id="aw-submit-btn" style="padding:13px; font-size:0.95rem;">✓ Thêm từ vào kho</button>
     </div>
   </div>
 
@@ -664,7 +667,7 @@
         <label>📁 Thêm tất cả vào thư mục (tùy chọn)</label>
         <select class="form-select" id="aw-bulk-folder"><option value="">— Không có —</option></select>
       </div>
-      <button class="btn btn-outline" onclick="bulkAdd()">📥 Thêm hàng loạt</button>
+      <button class="btn btn-outline" id="aw-bulk-submit-btn">📥 Thêm hàng loạt</button>
     </div>
   </div>
 </div>
@@ -691,11 +694,15 @@
 <script src="js/export-import.js"></script>
 <script src="js/progress.js"></script>
 <script src="js/word-crud.js"></script>
+<script src="js/lookup-cache.js"></script>
+<script src="js/lookup-classify.js"></script>
+<script src="js/lookup-providers.js"></script>
 <script src="js/lookup.js"></script>
 <script src="js/backup.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/extension-inbox.js"></script>
 <script src="js/app.js"></script>
 <script src="js/auto-update.js"></script>
+<script src="js/event-wiring.js"></script>
 </body>
 </html>

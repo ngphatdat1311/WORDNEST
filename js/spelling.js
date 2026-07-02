@@ -17,15 +17,15 @@ function saveSpellingSession() {
       wrong: spWrong,
       streak: spStreak
     }));
-  } catch(e) { /* sessionStorage bị chặn/đầy — bỏ qua, không ảnh hưởng chức năng chính */ }
+  } catch { /* sessionStorage bị chặn/đầy — bỏ qua, không ảnh hưởng chức năng chính */ }
 }
 function clearSpellingSession() {
-  try { sessionStorage.removeItem(SPELLING_SESSION_KEY); } catch(e) {}
+  try { sessionStorage.removeItem(SPELLING_SESSION_KEY); } catch { /* bỏ qua */ }
 }
 // Trả về true nếu khôi phục thành công (đã load lại từ hiện tại của phiên cũ)
 function tryRestoreSpellingSession() {
   let raw;
-  try { raw = JSON.parse(sessionStorage.getItem(SPELLING_SESSION_KEY)); } catch(e) { raw = null; }
+  try { raw = JSON.parse(sessionStorage.getItem(SPELLING_SESSION_KEY)); } catch { raw = null; }
   if (!raw || !Array.isArray(raw.words) || !raw.words.length) return false;
   const resolved = raw.words.map(ws => words.find(x => x.word === ws)).filter(Boolean);
   if (resolved.length !== raw.words.length || (raw.index || 0) >= resolved.length) { clearSpellingSession(); return false; }

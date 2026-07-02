@@ -1,5 +1,8 @@
 // ════════════════════════════════════════════════════════
-// AUTO-LOOKUP (Add Word) — dictionary + translation autofill
+// AUTO-LOOKUP (Add Word) — điều phối tra từ điển + dịch tự động khi gõ vào ô
+// "Từ tiếng Anh", và đổ kết quả vào form. Dựa vào lookup-cache.js (cache kết
+// quả), lookup-classify.js (đoán từ loại/độ khó/chủ đề) và lookup-providers.js
+// (gọi API dịch/từ điển bên ngoài).
 // ════════════════════════════════════════════════════════
 let autoLookupTimer = null;
 let awAutoFilledValues = {};
@@ -18,63 +21,6 @@ let lastLookupDominantPos = '';
 let lastLookupUsedExamples = new Set();
 let lastLookupAllExamples = []; // toàn bộ ví dụ có trong từ điển cho từ hiện tại (mọi nghĩa) + Tatoeba
 let lastLookupExampleVi = {}; // text -> bản dịch tiếng Việt có sẵn (Tatoeba), khỏi phải dịch máy lại
-
-const VI_HINTS = {
-  happy:'vui vẻ, hạnh phúc', sad:'buồn bã', angry:'tức giận', fear:'sợ hãi',
-  love:'tình yêu, yêu thương', hate:'ghét', joy:'niềm vui', grief:'đau buồn',
-  anxiety:'lo lắng', calm:'bình tĩnh', excited:'hào hứng', bored:'chán nản',
-  brave:'dũng cảm', kind:'tốt bụng', smart:'thông minh', lazy:'lười biếng',
-  honest:'thành thật', rude:'thô lỗ', shy:'nhút nhát', confident:'tự tin',
-  creative:'sáng tạo', patient:'kiên nhẫn', generous:'hào phóng',
-  run:'chạy', walk:'đi bộ', eat:'ăn', drink:'uống', sleep:'ngủ',
-  work:'làm việc', study:'học', read:'đọc', write:'viết', speak:'nói',
-  listen:'lắng nghe', think:'suy nghĩ', help:'giúp đỡ', learn:'học hỏi',
-  water:'nước', fire:'lửa', tree:'cây', flower:'hoa', animal:'động vật',
-  mountain:'núi', river:'sông', ocean:'đại dương', sky:'bầu trời', sun:'mặt trời',
-};
-
-// ── LOOKUP CACHE ──
-// Cache kết quả tra từ điển + dịch theo từ, để (1) không gọi lại API
-// dictionaryapi.dev/Google Translate mỗi lần tra cùng một từ (giảm rủi ro bị
-// rate-limit/block), và (2) kết quả trả về nhất quán giữa các lần tra (trước đây
-// pickRandomExample() chọn ví dụ ngẫu nhiên mỗi lần, nay từ đã cache sẽ giữ
-// nguyên ví dụ/nghĩa đã chọn).
-const LOOKUP_CACHE_KEY = 'wordnest_lookup_cache';
-const LOOKUP_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 ngày
-const LOOKUP_CACHE_MAX = 300; // giới hạn số từ cache để tránh đầy localStorage
-
-function loadLookupCacheRaw() {
-  try { return JSON.parse(storeGet(LOOKUP_CACHE_KEY)) || {}; }
-  catch { return {}; }
-}
-function saveLookupCacheRaw(cache) {
-  migrateKeyIfNeeded(LOOKUP_CACHE_KEY); // migration 1 lần rồi thôi
-  storeSet(LOOKUP_CACHE_KEY, JSON.stringify(cache));
-}
-function getCachedLookup(word) {
-  const cache = loadLookupCacheRaw();
-  const entry = cache[word.toLowerCase()];
-  if (!entry) return null;
-  const ttl = entry.partialTtl ? 24 * 60 * 60 * 1000 : LOOKUP_CACHE_TTL_MS;
-  if (Date.now() - entry.ts > ttl) return null; // hết hạn (thông thường 30 ngày, kết quả thiếu thì 1 ngày)
-  return entry.result;
-}
-function setCachedLookup(word, result) {
-  // Không cache nếu thiếu cả phonetic lẫn example — quá thiếu, để retry lần sau
-  if (!result.phonetic && !result.exampleEn) return;
-  const cache = loadLookupCacheRaw();
-  const key = word.toLowerCase();
-  // Kết quả thiếu phonetic HOẶC thiếu example → đánh dấu partialTtl để hết hạn sớm hơn (1 ngày)
-  const isPartial = !result.phonetic || !result.exampleEn;
-  cache[key] = { ts: Date.now(), result, ...(isPartial ? { partialTtl: true } : {}) };
-  const keys = Object.keys(cache);
-  if (keys.length > LOOKUP_CACHE_MAX) {
-    keys.sort((a, b) => cache[a].ts - cache[b].ts); // cũ nhất trước
-    const removeCount = keys.length - LOOKUP_CACHE_MAX;
-    for (let i = 0; i < removeCount; i++) delete cache[keys[i]];
-  }
-  saveLookupCacheRaw(cache);
-}
 
 // Áp kết quả (từ cache hoặc từ API) vào form — dùng chung cho cả 2 đường
 function applyLookupResult(word, r) {
@@ -117,7 +63,7 @@ async function loadMoreExamplesFromTatoeba(word, myGen) {
   if (!window.electronAPI?.fetchTatoebaExamples) return;
   let list;
   try { list = await window.electronAPI.fetchTatoebaExamples(word); }
-  catch (e) { return; }
+  catch { return; }
   if (myGen !== lookupGen || isStale(word) || !Array.isArray(list)) return;
   const seen = new Set(lastLookupAllExamples);
   for (const item of list) {
@@ -190,160 +136,6 @@ function statusBadge(text, type) {
   return `<span class="autofill-badge">${text}</span>`;
 }
 
-function mapPartOfSpeech(pos) {
-  if (!pos) return 'other';
-  const p = pos.toLowerCase();
-  if (p.includes('noun') || p === 'pronoun') return 'noun';
-  if (p.includes('verb') || p.includes('auxiliary')) return 'verb';
-  if (p.includes('adjective')) return 'adj';
-  if (p.includes('adverb')) return 'adv';
-  if (p.includes('phrase') || p.includes('idiom') || p.includes('expression')) return 'phrase';
-  return 'other';
-}
-
-const POS_LABEL_VI = { noun:'danh từ', verb:'động từ', adj:'tính từ', adv:'trạng từ', phrase:'cụm từ', other:'khác' };
-
-// Danh sách từ CEFR A1-A2 phổ biến (easy) và C1-C2 phổ biến (hard)
-// Từ không nằm trong hai danh sách này → medium (B1-B2)
-const CEFR_EASY = new Set([
-  'a','able','about','above','after','again','age','ago','all','also','always','am','an','and','animal',
-  'another','any','are','ask','at','away','back','bad','be','because','before','big','blue','book',
-  'both','boy','bread','but','buy','by','call','can','car','cat','city','class','clean','come','cool',
-  'could','country','day','do','dog','door','down','drink','drive','eat','end','english','even','every',
-  'eye','face','far','fast','find','first','food','for','friend','from','get','girl','give','go','good',
-  'great','green','had','hair','hand','happy','have','he','help','her','here','him','his','home','hot',
-  'house','how','if','in','is','it','job','just','kind','know','large','last','late','learn','left',
-  'like','little','live','long','look','lot','love','make','man','many','me','meet','milk','more','most',
-  'mother','much','my','name','new','next','nice','no','not','now','number','of','old','on','one','open',
-  'or','other','our','out','over','own','part','people','phone','place','play','please','put','read',
-  'red','right','run','sad','same','school','see','she','sleep','small','some','son','soon','sorry',
-  'speak','start','stay','stop','study','sun','take','talk','teacher','tell','than','thank','that','the',
-  'their','them','then','there','they','thing','think','this','time','to','today','together','too','try',
-  'under','up','use','very','walk','want','warm','water','way','we','well','what','when','where','which',
-  'white','who','why','will','with','work','world','write','year','yes','you','young','your',
-  'bad','deft','grim','taut','gush','keen','limp','mild','neat','pale','rash','tame','vain','wary','woe',
-]);
-const CEFR_HARD = new Set([
-  'aberrant','abhorrent','abject','abrogate','abscond','abstain','abstinence','acrimony','acumen',
-  'admonish','adroit','adversarial','aegis','affidavit','aggrandize','alacrity','alleviate','ameliorate',
-  'anachronism','anomalous','antipathy','apocryphal','approbation','arduous','ascertain','asperity',
-  'assiduous','atrophy','audacious','auspicious','austere','avarice','banal','belligerent','benevolent',
-  'bequeath','besmirch','cacophony','capricious','catharsis','caustic','chicanery','circumspect',
-  'clandestine','coerce','cogent','complacent','convoluted','copious','corroborate','credulous',
-  'culpable','cursory','debilitate','decorum','deleterious','demagogue','deprecated','depravity',
-  'deranged','desiccate','desultory','dilapidated','dilettante','diminutive','disavow','disconcert',
-  'disparate','dissemble','dogmatic','duplicity','ebullient','egregious','elusive','embroil','empirical',
-  'endemic','enervate','enigmatic','ephemeral','equivocal','erudite','esoteric','euphemism','evanescent',
-  'exacerbate','excoriate','exemplary','exonerate','expedient','extraneous','fecund','fervent','flagrant',
-  'foment','fortuitous','fractious','fraudulent','furtive','garrulous','grandiose','gregarious',
-  'hapless','harangue','hegemony','heterogeneous','hubris','hypocritical','iconoclast','idiosyncrasy',
-  'ignominious','immutable','imperious','implacable','impudent','inadvertent','incendiary','incorrigible',
-  'indomitable','inequitable','inexorable','infallible','ingenuous','insidious','intransigent','inveterate',
-  'irascible','labyrinthine','laconic','lethargic','litigious','loquacious','lucid','lugubrious',
-  'magnanimous','malevolent','malleable','mendacious','meticulous','misanthrope','mitigate','mundane',
-  'nefarious','neologism','nihilism','nonchalant','obdurate','obfuscate','oblique','obstinate','obtuse',
-  'odious','omnipotent','omniscient','opaque','ostentatious','ostracize','parsimonious','pedantic',
-  'pejorative','pernicious','perspicacious','pervasive','philanthropy','platitude','plausible',
-  'polemical','portentous','pragmatic','precarious','predilection','preposterous','presumptuous',
-  'prevaricate','probity','procrastinate','profound','proliferate','propitious','provincial','prudent',
-  'pugnacious','querulous','ramification','rancorous','rapacious','recalcitrant','recondite',
-  'remonstrate','repudiate','resilient','reticent','rhetoric','sanctimonious','sanguine','sardonic',
-  'scrupulous','serendipity','solicitous','specious','spurious','squalor','stoic','strident',
-  'subjugate','superfluous','sycophant','taciturn','tangential','tenacious','timorous','torpid',
-  'transient','trite','truculent','turbulent','ubiquitous','unconscionable','unctuous','utilitarian',
-  'vacillate','venerate','verbose','vexatious','vicarious','vindictive','virulent','volatile',
-  'wanton','zealous','zeal',
-]);
-function estimateLevel(word) {
-  const w = (word || '').toLowerCase().trim();
-  if (CEFR_EASY.has(w)) return 'easy';
-  if (CEFR_HARD.has(w)) return 'hard';
-  // Fallback: từ rất ngắn (≤3) thường dễ, từ rất dài (≥12) thường khó
-  const len = w.length;
-  if (len <= 3) return 'easy';
-  if (len >= 12) return 'hard';
-  return 'medium';
-}
-
-function guessCategory(definition, partOfSpeech, meaningVI) {
-  const d = (definition || '').toLowerCase();
-  const v = (meaningVI || '').toLowerCase();
-  if (/feel|emotion|happy|sad|anger|love|fear|joy|grief/.test(d) || /cảm xúc|vui|buồn|giận|sợ|yêu thương/.test(v)) return 'Cảm xúc';
-  if (/person|character|behav|personality|trait|manner/.test(d) || /tính cách|tính khí/.test(v)) return 'Tính cách';
-  if (/work|job|career|business|profess|office|manage/.test(d) || /công việc|nghề nghiệp/.test(v)) return 'Công việc';
-  if (/learn|educat|school|study|knowledge|university|college|campus|academ/.test(d) || /giáo dục|học tập|trường/.test(v)) return 'Giáo dục';
-  if (/\bnature\b|plant|animal|\bearth\b|wildlife|forest|ocean|mountain|river/.test(d) || /thiên nhiên|động vật|thực vật/.test(v)) return 'Thiên nhiên';
-  if (/speak|talk|language|word|communicat|express/.test(d) || /giao tiếp|nói|ngôn ngữ/.test(v)) return 'Giao tiếp';
-  if (/think|idea|mind|philosoph|concept|logic|reason/.test(d) || /triết học|tư tưởng/.test(v)) return 'Triết học';
-  if (/travel|journey|place|country|city|trip/.test(d) || /du lịch|chuyến đi/.test(v)) return 'Du lịch';
-  if (/food|eat|cook|drink|meal|taste/.test(d) || /ẩm thực|món ăn/.test(v)) return 'Ẩm thực';
-  if (/science|technolog|digital|computer|data|system/.test(d) || /công nghệ|khoa học/.test(v)) return 'Công nghệ';
-  if (/art|music|paint|creat|design|aesthetic/.test(d) || /nghệ thuật/.test(v)) return 'Nghệ thuật';
-  if (/health|medic|body|disease|treatment/.test(d) || /sức khỏe|bệnh/.test(v)) return 'Sức khỏe';
-  if (/society|social|culture|community|people/.test(d) || /xã hội|cộng đồng/.test(v)) return 'Xã hội';
-  if (mapPartOfSpeech(partOfSpeech) === 'verb') return 'Hành động';
-  return 'Cuộc sống';
-}
-
-// Gọi SONG SONG cả Google Translate (unofficial) và MyMemory, lấy kết quả của
-// bất kỳ nguồn nào trả về thành công trước — nhanh hơn cách nối tiếp cũ (phải
-// đợi Google lỗi/timeout hẳn rồi mới thử MyMemory, có thể tốn gấp đôi thời gian
-// khi Google chậm/bị chặn).
-async function translateText(text, signal) {
-  if (!text || !text.trim()) return '';
-
-  const tryGoogle = async () => {
-    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=' + encodeURIComponent(text);
-    const resp = await fetch(url, { signal });
-    if (!resp.ok) throw new Error('Google HTTP ' + resp.status);
-    const data = await resp.json();
-    const result = (data[0] || []).map(seg => (seg && seg[0]) || '').join('').trim().normalize('NFC');
-    if (!result) throw new Error('Google: kết quả rỗng');
-    return result;
-  };
-
-  const tryMyMemory = async () => {
-    const url2 = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|vi`;
-    const resp2 = await fetch(url2, { signal });
-    if (!resp2.ok) throw new Error('MyMemory HTTP ' + resp2.status);
-    const data2 = await resp2.json();
-    const result2 = (data2.responseData?.translatedText || '').trim().normalize('NFC');
-    if (!result2 || result2 === text) throw new Error('MyMemory: kết quả rỗng/không dịch được');
-    return result2;
-  };
-
-  try {
-    return await Promise.any([tryGoogle(), tryMyMemory()]);
-  } catch (e) {
-    if (signal?.aborted) {
-      const err = new Error('aborted'); err.name = 'AbortError'; throw err;
-    }
-    throw new Error('Tất cả API dịch đều không khả dụng');
-  }
-}
-
-async function translateWordLikeGoogle(word, signal) {
-  const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&dt=bd&q=' + encodeURIComponent(word);
-  const resp = await fetch(url, { signal });
-  if (!resp.ok) throw new Error('Translate HTTP ' + resp.status);
-  const data = await resp.json();
-  const quick = (data[0] || []).map(seg => (seg && seg[0]) || '').join('').trim().normalize('NFC');
-  let dictEntries = [];
-  try {
-    dictEntries = (data[1] || [])
-      .map(e => ({ pos: (e && e[0]) || '', terms: (e && Array.isArray(e[1])) ? e[1].filter(t => typeof t === 'string' && t.trim()).map(t => t.normalize('NFC')) : [] }))
-      .filter(e => e.terms.length);
-  } catch(e) { dictEntries = []; }
-  return { quick, dictEntries };
-}
-
-function pickAudio(phonetics) {
-  for (const p of (phonetics || [])) {
-    if (p.audio) return p.audio.startsWith('http') ? p.audio : 'https:' + p.audio;
-  }
-  return '';
-}
-
 function playPronunciation() {
   const btn = document.getElementById('aw-speak-btn');
   if (btn) { btn.classList.add('speaking'); setTimeout(() => btn.classList.remove('speaking'), 600); }
@@ -353,7 +145,7 @@ function playPronunciation() {
       awCurrentAudio = new Audio(awAudioUrl);
       awCurrentAudio.play().catch(() => speakWithBrowserTTS());
       return;
-    } catch(e) { /* fallthrough */ }
+    } catch { /* fallthrough */ }
   }
   speakWithBrowserTTS();
 }
@@ -365,73 +157,7 @@ function speakWithBrowserTTS() {
     const u = new SpeechSynthesisUtterance(awSpeakWord);
     u.lang = 'en-US'; u.rate = 0.92;
     window.speechSynthesis.speak(u);
-  } catch(e) { /* browser doesn't support TTS */ }
-}
-
-// Lấy TẤT CẢ câu ví dụ có trong từ điển (mọi nghĩa/từ loại, không chỉ từ loại
-// chính) — dùng cho nút "Đổi ví dụ khác" để có nhiều lựa chọn đa dạng nhất,
-// không bị giới hạn chỉ trong nhóm từ loại chiếm đa số như lúc tra tự động.
-function getAllExamples(entry) {
-  const examples = [];
-  const seen = new Set();
-  for (const m of (entry?.meanings || [])) {
-    for (const def of (m.definitions || [])) {
-      if (def.example && !seen.has(def.example)) { seen.add(def.example); examples.push(def.example); }
-    }
-  }
-  return examples;
-}
-
-function pickDominantPos(entry) {
-  if (!entry) return '';
-  const counts = {};
-  for (const m of (entry.meanings || [])) {
-    const p = mapPartOfSpeech(m.partOfSpeech || '');
-    counts[p] = (counts[p] || 0) + (m.definitions || []).length;
-  }
-  const priority = ['noun','verb','adj','adv','phrase','other'];
-  const sorted = Object.entries(counts).sort(([pa, a], [pb, b]) => {
-    if (b !== a) return b - a;
-    return priority.indexOf(pa) - priority.indexOf(pb);
-  });
-  return sorted[0]?.[0] || '';
-}
-
-function pickRandomExample(entry, dominantPos, excludeExamples) {
-  if (!entry) return { example: '', definition: '', pos: '' };
-  const pool = [], fallback = [];
-  for (const m of (entry.meanings || [])) {
-    const p = mapPartOfSpeech(m.partOfSpeech || '');
-    for (const def of (m.definitions || [])) {
-      if (!def.definition) continue;
-      const item = { pos: m.partOfSpeech || '', definition: def.definition, example: def.example || '' };
-      if (p === dominantPos) pool.push(item);
-      else fallback.push(item);
-    }
-  }
-  const source = pool.length ? pool : fallback;
-  let withEx = source.filter(x => x.example);
-  // Đang đổi ví dụ khác -> ưu tiên ví dụ chưa từng hiện; hết ví dụ mới thì mới cho lặp lại.
-  if (excludeExamples && excludeExamples.size) {
-    const unseen = withEx.filter(x => !excludeExamples.has(x.example));
-    if (unseen.length) withEx = unseen;
-  }
-  return withEx.length
-    ? withEx[Math.floor(Math.random() * withEx.length)]
-    : (source[Math.floor(Math.random() * source.length)] || { example:'', definition:'', pos:'' });
-}
-
-// Người dùng đôi khi dán/gõ nguyên 1 CÂU vào ô "Từ tiếng Anh" (muốn lưu lại +
-// học nguyên câu đó) thay vì 1 từ/cụm từ — câu thì tra dictionaryapi.dev chắc
-// chắn không ra gì (API chỉ có từ/cụm cố định), và việc đoán từ loại/chủ đề
-// cũng vô nghĩa với cả câu. Nhận diện sớm để dịch thẳng nguyên câu, không tra
-// từ điển, không đoán từ loại.
-function looksLikeSentence(input) {
-  const trimmed = (input || '').trim();
-  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
-  if (wordCount >= 6) return true;
-  if (wordCount >= 2 && /[.!?]$/.test(trimmed)) return true;
-  return false;
+  } catch { /* browser doesn't support TTS */ }
 }
 
 async function doSentenceLookup(sentence, myGen) {
@@ -443,7 +169,7 @@ async function doSentenceLookup(sentence, myGen) {
 
   let meaningVI = '';
   try { meaningVI = await translateText(sentence, signal); }
-  catch (e) { /* thử tiếp ở dưới, không throw */ }
+  catch { /* thử tiếp ở dưới, không throw */ }
   clearTimeout(guardTimer);
   if (myGen !== lookupGen || signal.aborted || isStale(sentence)) return;
 
@@ -545,7 +271,7 @@ async function doAutoLookup(word) {
       // Kiểm tra lại ngay sau await — người dùng có thể đã gõ từ mới trong lúc chờ dịch
       if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
       meaningVI = translated;
-    } catch(e) {
+    } catch {
       if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
     }
   }
@@ -558,7 +284,7 @@ async function doAutoLookup(word) {
     try {
       meaningVI = await translateText(word, signal);
       if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
-    } catch (e) {
+    } catch {
       if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
     }
   }
@@ -572,7 +298,7 @@ async function doAutoLookup(word) {
   const category = guessCategory(enDefinition, finalPos, meaningVI);
 
   const others = dictEntries.filter(e => mapPartOfSpeech(e.pos) !== finalPos).slice(0, 3);
-  const parts = others.map(e => `<b>${POS_LABEL_VI[mapPartOfSpeech(e.pos)] || e.pos}</b>: ${escHtml(e.terms.slice(0, 2).join(', '))}`).filter(Boolean);
+  const parts = others.map(e => `<b>${escHtml(POS_LABEL_VI[mapPartOfSpeech(e.pos)] || e.pos)}</b>: ${escHtml(e.terms.slice(0, 2).join(', '))}`).filter(Boolean);
   const altHtml = parts.length ? 'Nghĩa khác — ' + parts.join('  •  ') : '';
 
   // Chờ luôn bản dịch câu ví dụ ở đây (không chạy ngầm không await) để có thể
@@ -582,7 +308,7 @@ async function doAutoLookup(word) {
     try {
       exampleVi = await translateText(exampleEn, signal);
       if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
-    } catch(e) {
+    } catch {
       if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
     }
   }
@@ -645,7 +371,7 @@ async function rerollExample() {
     const vi = await translateText(picked);
     if (isStale(wordAtPick)) { updateRerollButtonLabel(); return; }
     if (exViEl) exViEl.innerHTML = vi ? '→ ' + escHtml(vi) : '';
-  } catch (e) {
+  } catch {
     if (!isStale(wordAtPick) && exViEl) exViEl.innerHTML = '';
   }
   updateRerollButtonLabel();

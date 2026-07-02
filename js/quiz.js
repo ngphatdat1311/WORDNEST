@@ -19,15 +19,15 @@ function saveQuizSession() {
       wrong: qzWrongWords.map(w => w.word),
       answered: qzAnswered
     }));
-  } catch(e) { /* sessionStorage bị chặn/đầy — bỏ qua, không ảnh hưởng chức năng chính */ }
+  } catch { /* sessionStorage bị chặn/đầy — bỏ qua, không ảnh hưởng chức năng chính */ }
 }
 function clearQuizSession() {
-  try { sessionStorage.removeItem(QUIZ_SESSION_KEY); } catch(e) {}
+  try { sessionStorage.removeItem(QUIZ_SESSION_KEY); } catch { /* bỏ qua */ }
 }
 // Trả về true nếu khôi phục thành công (đã render lại câu hỏi/kết quả tương ứng)
 function tryRestoreQuizSession() {
   let raw;
-  try { raw = JSON.parse(sessionStorage.getItem(QUIZ_SESSION_KEY)); } catch(e) { raw = null; }
+  try { raw = JSON.parse(sessionStorage.getItem(QUIZ_SESSION_KEY)); } catch { raw = null; }
   if (!raw || !Array.isArray(raw.words) || !raw.words.length) return false;
   // Map lại theo từ hiện có — đề phòng từ đã bị xoá/đổi tên giữa lúc làm bài
   const resolved = raw.words.map(ws => words.find(x => x.word === ws)).filter(Boolean);
@@ -83,6 +83,14 @@ function startQuiz() {
 
 function renderQuizQ() {
   if (!qzWords.length) return;
+  // Từ có thể bị xóa/ẩn giữa lúc đang quiz (đa cửa sổ, hoặc vừa restore từ đồng bộ) —
+  // nếu kho từ đang hoạt động tụt dưới 4, dừng quiz an toàn thay vì hiện thiếu đáp án.
+  if (activeWords().length < 4) {
+    showToast('⚠️ Không đủ từ để tiếp tục Quiz (đã bị xóa/ẩn bớt)!', 'error');
+    qzWords = [];
+    document.getElementById('quiz-area').style.display = 'none';
+    return;
+  }
   const w = qzWords[qzIndex];
   qzAnswered = false;
   const pct = (qzIndex / qzWords.length * 100).toFixed(0);
@@ -97,12 +105,14 @@ function renderQuizQ() {
   qzOptions = shuffleArr([w, ...wrong]); // store globally
   const letters = ['A','B','C','D'];
 
-  document.getElementById('qz-options').innerHTML = qzOptions.map((o, i) =>
-    `<div class="quiz-option" data-idx="${i}" onclick="answerQuiz(${i})">
+  const qzOptionsEl = document.getElementById('qz-options');
+  qzOptionsEl.innerHTML = qzOptions.map((o, i) =>
+    `<div class="quiz-option" data-idx="${i}">
       <div class="opt-letter">${letters[i]}</div>
       <div>${escHtml(o.meaning)}</div>
     </div>`
   ).join('');
+  qzOptionsEl.querySelectorAll('.quiz-option').forEach(el => el.addEventListener('click', () => answerQuiz(Number(el.dataset.idx))));
 
   document.getElementById('qz-feedback').className = 'quiz-feedback';
   document.getElementById('qz-feedback').innerHTML = '';
@@ -187,7 +197,7 @@ function showQuizResult() {
           <div style="font-size:0.85rem;font-weight:600;color:var(--text2);margin-bottom:10px;">📋 Từ cần ôn lại (${qzWrongWords.length}):</div>
           ${qzWrongWords.map(w => `
             <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
-              <button class="speak-btn" onclick="speak('${escAttr(w.word)}')" title="Phát âm" style="flex-shrink:0;width:30px;height:30px;font-size:0.85rem;">🔊</button>
+              <button class="speak-btn" data-word="${escAttr(w.word)}" title="Phát âm" style="flex-shrink:0;width:30px;height:30px;font-size:0.85rem;">🔊</button>
               <div>
                 <span style="font-weight:600;color:var(--text);font-family:'Lora',serif;">${escHtml(w.word)}</span>
                 <span style="color:var(--text3);font-size:0.8rem;margin-left:6px;">${escHtml(w.phonetic||'')}</span>
@@ -195,6 +205,7 @@ function showQuizResult() {
               </div>
             </div>`).join('')}
         </div>`;
+      wrongEl.querySelectorAll('.speak-btn').forEach(btn => btn.addEventListener('click', () => speak(btn.dataset.word)));
     } else {
       wrongEl.innerHTML = '<div style="margin-top:1rem;font-size:0.88rem;color:var(--green);">🎯 Hoàn hảo! Bạn không sai câu nào.</div>';
     }

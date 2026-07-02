@@ -23,6 +23,15 @@ function clampStr(str, max) {
   return String(str || '').slice(0, max);
 }
 
+// Ngày hiện tại (hoặc ngày bất kỳ) dạng "YYYY-MM-DD" theo GIỜ ĐỊA PHƯƠNG của máy.
+// Không dùng toISOString().slice(0,10) cho việc này vì nó luôn trả theo giờ UTC —
+// với múi giờ dương (VN, UTC+7), gần nửa đêm sẽ tính nhầm "hôm nay" thành "hôm qua",
+// gây lệch streak/ngày ôn SRS/heatmap hoạt động.
+function localDateKey(d = new Date()) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 // Định dạng timestamp thêm từ (ms) -> "28/06/2026 14:32"
 function formatAddedAt(ts) {
   if (!ts) return '';

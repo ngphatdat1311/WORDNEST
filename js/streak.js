@@ -20,7 +20,7 @@ function loadDailyActivity() {
 function saveDailyActivity(map) { storeSet(DAILY_ACTIVITY_KEY, JSON.stringify(map)); }
 function bumpDailyActivity() {
   const map = loadDailyActivity();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateKey();
   map[today] = (map[today] || 0) + 1;
   const keys = Object.keys(map);
   if (keys.length > DAILY_ACTIVITY_MAX_DAYS) {
@@ -33,9 +33,9 @@ function bumpDailyActivity() {
 function recordLearningActivity() {
   bumpDailyActivity();
   const s = loadStreak();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateKey();
   if (s.last !== today) {
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const yesterday = localDateKey(new Date(Date.now() - 86400000));
     s.count = (s.last === yesterday) ? s.count + 1 : 1;
     s.last = today;
     s.history = [...(s.history || []).slice(-29), today];
@@ -61,7 +61,7 @@ let streak = loadStreak(); // Chỉ đọc, không ghi
 function srsInit(word) {
   if (word.srsInterval === undefined || word.srsInterval === null) word.srsInterval = 1;
   if (word.srsEF === undefined || word.srsEF === null) word.srsEF = 2.5;
-  if (!word.srsDue) word.srsDue = new Date().toISOString().slice(0,10);
+  if (!word.srsDue) word.srsDue = localDateKey();
   return word;
 }
 
@@ -76,16 +76,16 @@ function srsUpdate(word, correct) {
   }
   const due = new Date();
   due.setDate(due.getDate() + word.srsInterval);
-  word.srsDue = due.toISOString().slice(0,10);
+  word.srsDue = localDateKey(due);
   return word;
 }
 
 function srsDueCount() {
-  const today = new Date().toISOString().slice(0,10);
+  const today = localDateKey();
   return activeWords().filter(w => !w.srsDue || w.srsDue <= today).length;
 }
 
 function getSrsDueWords() {
-  const today = new Date().toISOString().slice(0,10);
+  const today = localDateKey();
   return activeWords().filter(w => !w.srsDue || w.srsDue <= today);
 }

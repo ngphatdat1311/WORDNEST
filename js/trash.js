@@ -120,12 +120,13 @@ function deleteTrashEntryConfirm(trashId) {
       <div class="cb-word">${entry.type === 'folder' ? '📁 ' : ''}${escHtml(name)}</div>
       <div class="cb-sub">Mục này sẽ biến mất hoàn toàn, không thể khôi phục lại.</div>
       <div class="cb-btns">
-        <button class="cb-cancel" onclick="closeConfirm()">Hủy</button>
+        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
         <button class="cb-confirm" id="cb-confirm-btn">Xóa vĩnh viễn</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
   document.getElementById('cb-confirm-btn').addEventListener('click', () => deleteTrashEntry(trashId));
+  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
   setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
 }
@@ -155,12 +156,13 @@ function confirmEmptyTrash() {
       <div class="cb-word">${trash.length} mục</div>
       <div class="cb-sub">Toàn bộ từ/thư mục trong thùng rác sẽ biến mất vĩnh viễn, không thể khôi phục.</div>
       <div class="cb-btns">
-        <button class="cb-cancel" onclick="closeConfirm()">Hủy</button>
+        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
         <button class="cb-confirm" id="cb-confirm-all-btn">Đổ rác</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
   document.getElementById('cb-confirm-all-btn').addEventListener('click', emptyTrash);
+  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
   setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
 }

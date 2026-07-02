@@ -56,7 +56,8 @@ function renderHome() {
   // Dùng data-word attribute thay vì escape thủ công trong onclick string
   const recent = words.slice().sort((a, b) => (b.seen || 0) - (a.seen || 0)).slice(0, 10);
   chips.innerHTML = recent.map(w => {
-    return `<span class="word-chip" data-word="${escAttr(w.word)}" onclick="speak(this.dataset.word)">${escHtml(w.word)}</span>`;
+    return `<span class="word-chip" data-word="${escAttr(w.word)}">${escHtml(w.word)}</span>`;
   }).join('');
+  chips.querySelectorAll('.word-chip').forEach(el => el.addEventListener('click', () => speak(el.dataset.word)));
   document.getElementById('recent-section').style.display = recent.length ? '' : 'none';
 }

@@ -82,7 +82,7 @@ async function sendToDesktopApp(word, pageUrl) {
       body: JSON.stringify({ word, pageUrl }),
     });
     return resp.ok;
-  } catch (e) {
+  } catch {
     return false; // app desktop không chạy — đây là tình huống bình thường, không phải lỗi
   }
 }

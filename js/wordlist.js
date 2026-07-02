@@ -102,13 +102,18 @@ function renderWordList(resetPage = false) {
   const paginated = list.slice((wlPage - 1) * WL_PAGE_SIZE, wlPage * WL_PAGE_SIZE);
 
   tbody.innerHTML = paginated.map(w => wlRowHtml(w)).join('');
+  wireWlRowActions(tbody);
 
   // Render pagination controls
   if (pagEl && totalPages > 1) {
     let pagHtml = `<span style="font-size:0.8rem;color:var(--text3);align-self:center;">${list.length} từ — Trang ${wlPage}/${totalPages}</span>`;
-    if (wlPage > 1) pagHtml += `<button class="btn btn-outline" onclick="wlPage--;renderWordList()" style="padding:5px 12px;font-size:0.8rem;">← Trước</button>`;
-    if (wlPage < totalPages) pagHtml += `<button class="btn btn-outline" onclick="wlPage++;renderWordList()" style="padding:5px 12px;font-size:0.8rem;">Tiếp →</button>`;
+    if (wlPage > 1) pagHtml += `<button class="btn btn-outline" id="wl-page-prev-btn" style="padding:5px 12px;font-size:0.8rem;">← Trước</button>`;
+    if (wlPage < totalPages) pagHtml += `<button class="btn btn-outline" id="wl-page-next-btn" style="padding:5px 12px;font-size:0.8rem;">Tiếp →</button>`;
     pagEl.innerHTML = pagHtml;
+    const prevBtn = document.getElementById('wl-page-prev-btn');
+    if (prevBtn) prevBtn.addEventListener('click', () => { wlPage--; renderWordList(); });
+    const nextBtn = document.getElementById('wl-page-next-btn');
+    if (nextBtn) nextBtn.addEventListener('click', () => { wlPage++; renderWordList(); });
   } else if (pagEl) {
     pagEl.innerHTML = '';
   }
@@ -144,14 +149,24 @@ function wlRowHtml(w) {
     <td><div class="wl-mastery">${dots}</div></td>
     <td>
       <div class="wl-actions">
-        <button class="wl-folder-btn${folder ? ' active' : ''}" data-word="${esc}" onclick="openFolderPicker(this.dataset.word)" title="${folder ? '📁 ' + escAttr(folder.name) : 'Thêm vào thư mục'}" aria-label="Gán thư mục cho ${escAttr(w.word)}">📁</button>
-        <button class="wl-suspend${w.suspended ? ' active' : ''}" data-word="${esc}" onclick="toggleSuspend(this.dataset.word)" title="${w.suspended ? 'Bỏ ẩn — đưa lại vào ôn tập' : 'Đã thuộc hẳn — ẩn khỏi ôn tập'}" aria-label="Ẩn/bỏ ẩn ${escAttr(w.word)}">${w.suspended ? '🔒' : '📌'}</button>
-        <button class="wl-speak" data-word="${esc}" onclick="speak(this.dataset.word)" aria-label="Phát âm ${escAttr(w.word)}">🔊</button>
-        <button class="wl-edit" data-word="${esc}" onclick="openEditModal(this.dataset.word)" title="Sửa" aria-label="Sửa từ ${escAttr(w.word)}">✏️</button>
-        <button class="wl-delete" data-word="${esc}" onclick="confirmDelete(this.dataset.word)" title="Xóa" aria-label="Xóa từ ${escAttr(w.word)}">🗑️</button>
+        <button class="wl-folder-btn${folder ? ' active' : ''}" data-word="${esc}" title="${folder ? '📁 ' + escAttr(folder.name) : 'Thêm vào thư mục'}" aria-label="Gán thư mục cho ${escAttr(w.word)}">📁</button>
+        <button class="wl-suspend${w.suspended ? ' active' : ''}" data-word="${esc}" title="${w.suspended ? 'Bỏ ẩn — đưa lại vào ôn tập' : 'Đã thuộc hẳn — ẩn khỏi ôn tập'}" aria-label="Ẩn/bỏ ẩn ${escAttr(w.word)}">${w.suspended ? '🔒' : '📌'}</button>
+        <button class="wl-speak" data-word="${esc}" aria-label="Phát âm ${escAttr(w.word)}">🔊</button>
+        <button class="wl-edit" data-word="${esc}" title="Sửa" aria-label="Sửa từ ${escAttr(w.word)}">✏️</button>
+        <button class="wl-delete" data-word="${esc}" title="Xóa" aria-label="Xóa từ ${escAttr(w.word)}">🗑️</button>
       </div>
     </td>
   </tr>`;
+}
+
+// Gán listener cho các nút hành động trong 1 <tbody> bảng từ vựng — dùng chung
+// cho cả bảng "Tất cả" (#wl-body) và bảng chi tiết thư mục (#wl-folder-body).
+function wireWlRowActions(tbody) {
+  tbody.querySelectorAll('.wl-folder-btn').forEach(btn => btn.addEventListener('click', () => openFolderPicker(btn.dataset.word)));
+  tbody.querySelectorAll('.wl-suspend').forEach(btn => btn.addEventListener('click', () => toggleSuspend(btn.dataset.word)));
+  tbody.querySelectorAll('.wl-speak').forEach(btn => btn.addEventListener('click', () => speak(btn.dataset.word)));
+  tbody.querySelectorAll('.wl-edit').forEach(btn => btn.addEventListener('click', () => openEditModal(btn.dataset.word)));
+  tbody.querySelectorAll('.wl-delete').forEach(btn => btn.addEventListener('click', () => confirmDelete(btn.dataset.word)));
 }
 
 function setWlFilter(cat) { wlFilter = cat; wlPage = 1; renderWordList(true); }

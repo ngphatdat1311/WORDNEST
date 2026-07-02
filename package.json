@@ -7,6 +7,11 @@
   "private": true,
   "scripts": {
     "start": "electron .",
+    "test": "node --test",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "dist": "electron-builder",
     "dist:dir": "electron-builder --dir"
   },
@@ -14,8 +19,13 @@
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {
-    "electron": "^32.3.3",
-    "electron-builder": "^25.1.8"
+    "@eslint/js": "^10.0.1",
+    "electron": "^43.0.0",
+    "electron-builder": "^26.15.3",
+    "eslint": "^10.6.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.7.0",
+    "prettier": "^3.9.4"
   },
   "build": {
     "appId": "com.wordnest.app",

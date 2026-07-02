@@ -9,7 +9,7 @@ function storeGet(key) {
 function storeSet(key, val) {
   if (window.electronAPI?.storeWrite) {
     const ok = window.electronAPI.storeWrite(key, val) !== false;
-    if (!ok) { try { showToast('⚠️ Không ghi được file dữ liệu!', 'error'); } catch {} }
+    if (!ok) { try { showToast('⚠️ Không ghi được file dữ liệu!', 'error'); } catch { /* toast chưa sẵn sàng — bỏ qua */ } }
     return ok;
   }
   try { localStorage.setItem(key, val); return true; } catch(e) {
@@ -23,7 +23,7 @@ function storeSet(key, val) {
 function migrateKeyIfNeeded(key) {
   if (!window.electronAPI?.storeRead || !window.electronAPI?.storeWrite) return;
   if (window.electronAPI.storeRead(key) !== null) return; // đã có file rồi
-  try { const v = localStorage.getItem(key); if (v !== null) window.electronAPI.storeWrite(key, v); } catch {}
+  try { const v = localStorage.getItem(key); if (v !== null) window.electronAPI.storeWrite(key, v); } catch { /* bỏ qua */ }
 }
 
 // ════════════════════════════════════════════════════════
@@ -57,7 +57,11 @@ const DEFAULT_WORDS = [
 function loadWords() {
   try {
     const saved = storeGet(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [...DEFAULT_WORDS];
+    if (!saved) return [...DEFAULT_WORDS];
+    const parsed = JSON.parse(saved);
+    // Dữ liệu đọc được nhưng sai kiểu (object/số/chuỗi thay vì mảng) -> coi như hỏng,
+    // không trả thẳng ra ngoài vì các module khác gọi .filter/.map sẽ crash ngay.
+    return Array.isArray(parsed) ? parsed : [...DEFAULT_WORDS];
   } catch { return [...DEFAULT_WORDS]; }
 }
 function saveWords() {
@@ -72,7 +76,9 @@ function saveWords() {
 function loadFolders() {
   try {
     const saved = storeGet(FOLDERS_KEY);
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
   } catch { return []; }
 }
 function saveFolders() {
@@ -89,7 +95,9 @@ function saveFolders() {
 function loadTrash() {
   try {
     const saved = storeGet(TRASH_KEY);
-    return saved ? JSON.parse(saved) : [];
+    if (!saved) return [];
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
   } catch { return []; }
 }
 function saveTrash() {

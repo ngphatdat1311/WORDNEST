@@ -22,11 +22,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # electron@43 yêu cầu Node >= 22.12.0 để cài đặt/build (không phải version
+      # Node CHẠY BÊN TRONG app — Electron tự mang theo Node runtime riêng).
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - run: npm ci
+
+      # Chặn sớm nếu lint/test fail — đỡ tốn phút CI cho việc build multi-OS
+      # (Windows + macOS) một bản chắc chắn có lỗi.
+      - run: npm run lint
+      - run: npm test
 
       # --publish never: chỉ build ra file, không để electron-builder tự upload
       # (việc đính vào Release đã có bước riêng "softprops/action-gh-release" ở dưới).

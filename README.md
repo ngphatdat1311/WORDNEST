@@ -127,17 +127,22 @@ js/
   spelling.js      Luyện chính tả
   wordlist.js      Từ điển cá nhân
   progress.js      Thống kê tiến độ + heatmap
-  lookup.js        Tra từ điển + dịch tự động + cache
+  lookup.js            Điều phối tra từ điển + dịch tự động (UI wiring)
+  lookup-cache.js      Cache kết quả tra từ điển
+  lookup-classify.js   Đoán từ loại / độ khó CEFR / chủ đề
+  lookup-providers.js  Gọi API dịch + dictionaryapi.dev, parse kết quả
   export-import.js Xuất JSON / CSV / Anki, Nhập JSON
   word-crud.js     Thêm/sửa/xóa từ + undo
   folders.js       Quản lý thư mục
   trash.js         Thùng rác
   backup.js        Nhắc nhở sao lưu định kỳ
   streak.js        Streak + heatmap hoạt động + SRS
+  event-wiring.js  Nối các nút/tab tĩnh tới hàm xử lý (addEventListener)
 electron/
   main.js          Main process: cửa sổ, IPC handlers, auto-update, bridge server
   preload.js       IPC bridge an toàn (contextBridge)
 extension/         Tiện ích Chrome "WordNest Capture"
+tests/             Unit test (node:test) cho logic thuần: SRS, streak, sync, lookup
 .github/workflows/ CI tự build .exe/.dmg + kèm metadata cập nhật mỗi khi đẩy tag vX.Y.Z
 ```
 
@@ -146,6 +151,8 @@ extension/         Tiện ích Chrome "WordNest Capture"
 ```
 npm install
 npm start        # chạy thử ở chế độ dev
+npm test         # chạy unit test
+npm run lint     # kiểm tra lỗi/style bằng ESLint
 npm run dist     # build installer cho hệ điều hành hiện tại, ra trong dist/
 ```
 
