@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
@@ -27,6 +27,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    setupAppMenu();
     createWindow();
     startBridgeServer();
     setupAutoUpdater();
@@ -37,6 +38,52 @@ if (!gotLock) {
   });
 }
 
+// Electron tự gắn 1 menu mặc định (File/Edit/View/Window/Help, tiếng Anh, có cả
+// "Reload"/"Toggle Developer Tools") nếu không tự set — trên Windows thì
+// `autoHideMenuBar` ẩn được menu này, nhưng trên macOS thanh menu KHÔNG nằm
+// trong cửa sổ mà là thanh hệ thống trên cùng màn hình, `autoHideMenuBar` không
+// có tác dụng gì, nên Mac vẫn luôn hiện đủ menu mặc định đó — khiến 2 nền tảng
+// trông khác hẳn nhau. Set menu tối giản ở đây cho cả 2 nền tảng để đồng bộ:
+// Windows/Linux không có menu bar nào cả (giống ý định của autoHideMenuBar
+// nhưng chắc chắn hơn), macOS chỉ còn menu tên app + Edit (giữ lại Edit để các
+// phím tắt sao chép/dán/undo trong ô nhập liệu hoạt động đúng theo chuẩn macOS
+// — đây là menu tối thiểu bắt buộc phải có trên Mac, không thể bỏ hoàn toàn).
+function setupAppMenu() {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
+    return;
+  }
+  const template = [
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -45,7 +92,6 @@ function createWindow() {
     minHeight: 600,
     icon: path.join(__dirname, '..', 'assets', 'icons', 'icon-512.png'),
     backgroundColor: '#F5F0E8',
-    autoHideMenuBar: true,
     show: false, // chỉ hiện cửa sổ khi trang đã render xong — tránh nhấp nháy/khung trắng lúc mở app
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

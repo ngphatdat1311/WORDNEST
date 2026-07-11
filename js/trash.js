@@ -28,13 +28,13 @@ function renderTrash() {
 
 function trashEntryHtml(t) {
   const when = formatAddedAt(t.deletedAt);
-  if (t.type === 'word') {
+  if (t.type === 'word' && t.word && typeof t.word.word === 'string') {
     const w = t.word;
     return `<div class="trash-item">
       <div class="trash-icon">🔤</div>
       <div class="trash-info">
         <div class="trash-name">${escHtml(w.word)}</div>
-        <div class="trash-sub">${escHtml(w.meaning)} • Đã xóa ${escHtml(when)}</div>
+        <div class="trash-sub">${escHtml(w.meaning || '')} • Đã xóa ${escHtml(when)}</div>
       </div>
       <div class="trash-actions">
         <button class="btn btn-outline" data-restore="${escAttr(t.id)}" style="padding:6px 12px;font-size:0.8rem;">↩️ Khôi phục</button>
@@ -42,14 +42,29 @@ function trashEntryHtml(t) {
       </div>
     </div>`;
   }
+  if (t.type === 'folder' && t.folder && typeof t.folder.name === 'string') {
+    const wordCount = Array.isArray(t.words) ? t.words.length : 0;
+    return `<div class="trash-item">
+      <div class="trash-icon">📁</div>
+      <div class="trash-info">
+        <div class="trash-name">${escHtml(t.folder.name)}</div>
+        <div class="trash-sub">${wordCount} từ bên trong • Đã xóa ${escHtml(when)}</div>
+      </div>
+      <div class="trash-actions">
+        <button class="btn btn-outline" data-restore="${escAttr(t.id)}" style="padding:6px 12px;font-size:0.8rem;">↩️ Khôi phục</button>
+        <button class="btn btn-outline" data-purge="${escAttr(t.id)}" style="padding:6px 12px;font-size:0.8rem;color:var(--red);border-color:var(--red);">🗑️ Xóa vĩnh viễn</button>
+      </div>
+    </div>`;
+  }
+  // Entry hỏng (vd từ file import không hợp lệ) — vẫn cho xóa vĩnh viễn để dọn
+  // đi, không cho "Khôi phục" vì không đủ dữ liệu để khôi phục đúng.
   return `<div class="trash-item">
-    <div class="trash-icon">📁</div>
+    <div class="trash-icon">⚠️</div>
     <div class="trash-info">
-      <div class="trash-name">${escHtml(t.folder.name)}</div>
-      <div class="trash-sub">${t.words.length} từ bên trong • Đã xóa ${escHtml(when)}</div>
+      <div class="trash-name">Mục dữ liệu bị lỗi</div>
+      <div class="trash-sub">Không đọc được nội dung • Đã xóa ${escHtml(when)}</div>
     </div>
     <div class="trash-actions">
-      <button class="btn btn-outline" data-restore="${escAttr(t.id)}" style="padding:6px 12px;font-size:0.8rem;">↩️ Khôi phục</button>
       <button class="btn btn-outline" data-purge="${escAttr(t.id)}" style="padding:6px 12px;font-size:0.8rem;color:var(--red);border-color:var(--red);">🗑️ Xóa vĩnh viễn</button>
     </div>
   </div>`;
@@ -104,7 +119,9 @@ function restoreTrashFolder(trashId) {
 function deleteTrashEntryConfirm(trashId) {
   const entry = trash.find(t => t.id === trashId);
   if (!entry) return;
-  const name = entry.type === 'word' ? entry.word.word : entry.folder.name;
+  const name = entry.type === 'word' && entry.word ? entry.word.word
+    : entry.type === 'folder' && entry.folder ? entry.folder.name
+    : 'mục dữ liệu bị lỗi';
   const old = document.getElementById('delete-overlay');
   if (old) old.remove();
   const overlay = document.createElement('div');

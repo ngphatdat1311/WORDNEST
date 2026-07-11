@@ -27,6 +27,10 @@ function importWords(event) {
   reader.onload = (e) => {
     try {
       const data = JSON.parse(e.target.result);
+      // File JSON hợp lệ nhưng nội dung là null/số/chuỗi (vd file chỉ có "null")
+      // thay vì mảng từ hay { words: [...] } — coi như không có gì để nhập,
+      // tránh crash khi đọc data.words/data.folders bên dưới trên 1 giá trị null.
+      if (data === null || typeof data !== 'object') throw new Error('Không có từ nào');
       let imported = Array.isArray(data) ? data : (data.words || []);
       // folderId trong file là id của thư mục ở MÁY KHÁC -> chỉ map được qua tên,
       // không thể dùng trực tiếp (id có thể trùng tình cờ với 1 thư mục khác ở đây).
@@ -101,9 +105,17 @@ function importWords(event) {
         words = [...words];
         folders = [...folders];
         // Thùng rác chỉ gộp thêm (best-effort), không khôi phục tự động — đổi id mới
-        // để tránh đụng id trùng với thùng rác hiện có trên máy này.
+        // để tránh đụng id trùng với thùng rác hiện có trên máy này. Lọc bỏ entry
+        // không đúng cấu trúc (file import hỏng/thiếu field) — nếu lọt vào sẽ làm
+        // vỡ cả tab Thùng rác khi render (trashEntryHtml() giả định cấu trúc này).
         if (Array.isArray(data.trash)) {
-          trash = [...trash, ...data.trash.map(t => ({ ...t, id: genTrashId() }))];
+          const validTrash = data.trash.filter(t =>
+            t && (
+              (t.type === 'word' && t.word && typeof t.word.word === 'string') ||
+              (t.type === 'folder' && t.folder && typeof t.folder.name === 'string')
+            )
+          );
+          trash = [...trash, ...validTrash.map(t => ({ ...t, id: genTrashId() }))];
         }
         // Map id thư mục bên file -> id thư mục cục bộ (ghép theo tên, trùng tên thì dùng lại,
         // chưa có thì tạo mới) — cache lại để 1 thư mục chỉ phải tra/tạo 1 lần dù nhiều từ dùng chung.
