@@ -36,16 +36,28 @@ function initFlashcard(shuffle = false) {
   fcWords = shuffle ? shuffleArr(pool) : pool;
   fcIndex = 0;
   fcSeenThisSession = new Set();
-  const fc = document.getElementById('flashcard');
-  fc.classList.remove('flipped');
-  document.getElementById('fc-know-row').style.display = 'none';
-  renderFlashcard();
+  renderFlashcard(); // tự reset flip state + ẩn know-row
   markSeenCurrent();
 }
 
 function shuffleFlashcard() { initFlashcard(true); showToast('Đã xáo trộn thẻ!'); }
 
+// Bỏ 'flipped' NGAY LẬP TỨC (không animation) trước khi đổi nội dung thẻ —
+// nếu để animation lật chạy bình thường (550ms) lúc chuyển sang thẻ khác, mặt
+// sau (đang hiện nghĩa) sẽ kịp đổi sang nội dung của từ MỚI trước khi xoay
+// xong, gây flash: thấy nghĩa của từ tiếp theo lóe lên trước khi thẻ xoay hết
+// về mặt trước. Tắt transition tạm thời, xoay tức khắc, rồi bật lại transition
+// để lần user tự bấm lật thẻ vẫn có animation mượt như cũ.
+function resetFlipInstant() {
+  const fc = document.getElementById('flashcard');
+  const inner = document.getElementById('fc-inner');
+  if (inner) inner.style.transition = 'none';
+  fc.classList.remove('flipped');
+  if (inner) { void inner.offsetWidth; inner.style.transition = ''; } // force reflow trước khi bật lại transition
+}
+
 function renderFlashcard() {
+  resetFlipInstant();
   const fcKnowRow = document.getElementById('fc-know-row');
   if (!fcWords.length) {
     document.getElementById('fc-word').textContent = 'Chưa có từ nào';
@@ -59,7 +71,6 @@ function renderFlashcard() {
     document.getElementById('fc-prog-text').textContent = '0 / 0';
     document.getElementById('fc-prev').disabled = true;
     document.getElementById('fc-next').disabled = true;
-    document.getElementById('flashcard').classList.remove('flipped');
     fcKnowRow.style.display = 'none';
     return;
   }
@@ -94,9 +105,6 @@ function renderFlashcard() {
   document.getElementById('fc-prog-text').textContent = `${fcIndex + 1} / ${fcWords.length}`;
   document.getElementById('fc-prev').disabled = fcIndex === 0;
   document.getElementById('fc-next').disabled = fcIndex === fcWords.length - 1;
-
-  // Reset flip state on navigation
-  document.getElementById('flashcard').classList.remove('flipped');
   document.getElementById('fc-know-row').style.display = 'none';
 }
 

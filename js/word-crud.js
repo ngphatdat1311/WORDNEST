@@ -34,23 +34,47 @@ function addWord() {
   renderWordList(); // đồng bộ luôn danh sách từ, tránh hiển thị stale nếu user quay lại tab Danh sách
 }
 
-// Tách 1 dòng "từ | phiên âm | nghĩa | ví dụ" (hoặc định dạng cũ "từ | nghĩa |
-// ví dụ" không phiên âm, nhận diện qua số lượng phần tách được) thành object.
-// Tách riêng khỏi bulkAdd() để test được logic nhận diện định dạng độc lập,
-// không phụ thuộc DOM/state toàn cục.
+// Chuẩn hoá "loại từ" gõ tay trong form Thêm hàng loạt — chấp nhận cả nhãn
+// tiếng Việt ngắn gọn (vd "danh từ") lẫn mã tiếng Anh (vd "noun"), không phân
+// biệt hoa/thường hay khoảng trắng thừa. Không nhận diện được thì trả về null
+// để parseBulkLine() tự đoán qua khoảng trắng trong từ như trước đây (giữ
+// tương thích ngược với các dòng không có phần loại từ).
+const BULK_TYPE_ALIASES = {
+  noun: 'noun', n: 'noun', 'danh từ': 'noun', danhtu: 'noun',
+  verb: 'verb', v: 'verb', 'động từ': 'verb', dongtu: 'verb',
+  adj: 'adj', adjective: 'adj', 'tính từ': 'adj', tinhtu: 'adj',
+  adv: 'adv', adverb: 'adv', 'trạng từ': 'adv', trangtu: 'adv',
+  phrase: 'phrase', 'cụm từ': 'phrase', cumtu: 'phrase',
+  other: 'other', khác: 'other', khac: 'other',
+};
+function parseBulkType(raw) {
+  const key = (raw || '').trim().toLowerCase();
+  return BULK_TYPE_ALIASES[key] || null;
+}
+
+// Tách 1 dòng "từ | phiên âm | nghĩa | ví dụ | loại từ" (hoặc định dạng cũ
+// "từ | nghĩa | ví dụ" không phiên âm/loại từ, nhận diện qua số lượng phần
+// tách được) thành object. Tách riêng khỏi bulkAdd() để test được logic nhận
+// diện định dạng độc lập, không phụ thuộc DOM/state toàn cục.
 function parseBulkLine(line) {
   const parts = line.split('|').map(s => s.trim());
-  let word, phonetic, meaning, example;
-  if (parts.length >= 4) {
+  let word, phonetic, meaning, example, typeRaw;
+  if (parts.length >= 5) {
+    [word, phonetic, meaning, example, typeRaw] = parts;
+  } else if (parts.length >= 4) {
     [word, phonetic, meaning, example] = parts;
   } else {
     word = parts[0]; phonetic = ''; meaning = parts[1]; example = parts[2] || '';
   }
+  word = clampStr(word, 60);
+  // Không gõ loại từ (hoặc gõ sai) -> đoán qua khoảng trắng trong từ, giống hành vi cũ.
+  const type = parseBulkType(typeRaw) || (/\s/.test(word) ? 'phrase' : 'other');
   return {
-    word: clampStr(word, 60),
+    word,
     phonetic: clampStr(phonetic, 80),
     meaning: clampStr(meaning, 200),
     example: clampStr(example, 300),
+    type,
   };
 }
 
@@ -63,13 +87,9 @@ function bulkAdd() {
   words = [...words];
   let added = 0;
   lines.forEach(line => {
-    const { word, phonetic, meaning, example } = parseBulkLine(line);
+    const { word, phonetic, meaning, example, type } = parseBulkLine(line);
     if (!word || !meaning) return;
     if (words.find(w => w.word.toLowerCase() === word.toLowerCase())) return;
-    // Có khoảng trắng (vd "give up", "be fond of ...") -> tự nhận là cụm từ,
-    // khác với từ đơn (vd "apple") — trước đây mọi từ thêm hàng loạt đều bị gán
-    // cứng "other", mất luôn ý nghĩa phân loại cụm từ/từ đơn.
-    const type = /\s/.test(word) ? 'phrase' : 'other';
     words.push(srsInit({ word, phonetic, meaning, example, type, category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0, addedAt: Date.now(), folderId }));
     added++;
   });
