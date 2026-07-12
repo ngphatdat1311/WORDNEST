@@ -291,14 +291,39 @@ function confirmResetProgress() {
     dailyActivity: loadDailyActivity(),
   };
 
+  // Kiểm tra đủ cả 4 phần (không chỉ riêng mastery như trước) — 1 thao tác "đặt
+  // lại" nên coi là trọn gói, lỡ 1 phần ghi lỗi (đầy đĩa, mất quyền...) mà vẫn
+  // báo "thành công" thì user sẽ tưởng nhầm đã đặt lại trong khi dữ liệu trên
+  // đĩa không đổi thật, dễ gây hiểu lầm khi mở lại app sau này.
   const backupWords = words;
+  const backupStreak = streak;
+  let ok = true;
+
   if (checked['rp-mastery']) {
     words = words.map(resetWordMastery);
-    if (!saveWords()) { words = backupWords; showToast('⚠️ Không đặt lại được — lỗi lưu dữ liệu!', 'error'); return; }
+    if (!saveWords()) ok = false;
   }
-  if (checked['rp-quiz']) { saveQuizStats({ sessions: 0, totalQ: 0, totalCorrect: 0 }); storeSet('qs_best_score', '0'); }
-  if (checked['rp-streak']) { streak = { count: 0, last: null, history: [] }; saveStreak(streak); }
-  if (checked['rp-heatmap']) { saveDailyActivity({}); }
+  if (ok && checked['rp-quiz']) {
+    if (!saveQuizStats({ sessions: 0, totalQ: 0, totalCorrect: 0 }) || !storeSet('qs_best_score', '0')) ok = false;
+  }
+  if (ok && checked['rp-streak']) {
+    const newStreak = { count: 0, last: null, history: [] };
+    if (saveStreak(newStreak)) streak = newStreak; else ok = false;
+  }
+  if (ok && checked['rp-heatmap']) {
+    if (!saveDailyActivity({})) ok = false;
+  }
+
+  if (!ok) {
+    // Rollback toàn bộ, kể cả phần đã lỡ ghi thành công trước khi gặp lỗi.
+    words = backupWords; saveWords();
+    streak = backupStreak; saveStreak(streak);
+    saveQuizStats(snapshot.quizStats);
+    storeSet('qs_best_score', snapshot.bestScore || '0');
+    saveDailyActivity(snapshot.dailyActivity);
+    showToast('⚠️ Không đặt lại được — lỗi lưu dữ liệu!', 'error');
+    return;
+  }
 
   closeConfirm();
   renderProgress();

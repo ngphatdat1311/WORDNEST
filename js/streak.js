@@ -5,7 +5,7 @@ function loadStreak() {
   try { return JSON.parse(storeGet(STREAK_KEY)) || { count:0, last:null, history:[] }; }
   catch { return { count:0, last:null, history:[] }; }
 }
-function saveStreak(s) { storeSet(STREAK_KEY, JSON.stringify(s)); }
+function saveStreak(s) { return storeSet(STREAK_KEY, JSON.stringify(s)); }
 
 // Lưu số lượt học theo từng ngày (date -> count) để vẽ heatmap kiểu GitHub.
 // Tách riêng khỏi streak vì streak chỉ cần biết "có học hay không" mỗi ngày,
@@ -17,7 +17,7 @@ function loadDailyActivity() {
   try { return JSON.parse(storeGet(DAILY_ACTIVITY_KEY)) || {}; }
   catch { return {}; }
 }
-function saveDailyActivity(map) { storeSet(DAILY_ACTIVITY_KEY, JSON.stringify(map)); }
+function saveDailyActivity(map) { return storeSet(DAILY_ACTIVITY_KEY, JSON.stringify(map)); }
 function bumpDailyActivity() {
   const map = loadDailyActivity();
   const today = localDateKey();

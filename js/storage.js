@@ -155,4 +155,4 @@ function loadQuizStats() {
     return saved ? JSON.parse(saved) : { sessions: 0, totalQ: 0, totalCorrect: 0 };
   } catch { return { sessions: 0, totalQ: 0, totalCorrect: 0 }; }
 }
-function saveQuizStats(stats) { storeSet(QUIZ_STATS_KEY, JSON.stringify(stats)); }
+function saveQuizStats(stats) { return storeSet(QUIZ_STATS_KEY, JSON.stringify(stats)); }
