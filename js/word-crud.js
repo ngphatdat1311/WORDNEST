@@ -366,7 +366,7 @@ function confirmReclassifyUnclearWords() {
     <div class="confirm-box">
       <div class="cb-icon">🔍</div>
       <div class="cb-title" id="cb-dialog-title">Phân loại lại từ chưa rõ?</div>
-      <div class="cb-sub">Tìm thấy <strong>${targets.length}</strong> từ chưa rõ loại từ. App sẽ tự tra từ điển để xác định đúng danh từ/động từ/tính từ/trạng từ — chỉ sửa loại từ, không đổi nghĩa/phiên âm/ví dụ bạn đã nhập. Cần có mạng, có thể mất vài chục giây tùy số lượng từ.</div>
+      <div class="cb-sub">Tìm thấy <strong>${targets.length}</strong> từ chưa rõ loại từ. App sẽ tự tra từ điển để xác định đúng danh từ/động từ/tính từ/trạng từ — chỉ sửa loại từ, không đổi nghĩa/phiên âm/ví dụ bạn đã nhập. Tra chậm rãi từng từ (đỡ bị nguồn tra từ giới hạn tốc độ), có thể mất khoảng ${Math.ceil(targets.length * 0.7 / 60) || 1} phút với ${targets.length} từ. Nếu có từ bị giới hạn tốc độ giữa chừng, bấm lại nút này sau vài phút để tra nốt.</div>
       <div class="cb-btns">
         <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
         <button class="cb-confirm" id="cb-confirm-btn">Bắt đầu</button>
@@ -378,24 +378,38 @@ function confirmReclassifyUnclearWords() {
   overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
 }
 
+// Tra 1 từ, tự thử lại (nghỉ tăng dần) nếu bị giới hạn tốc độ — dictionaryapi.dev
+// giới hạn khá thấp, giới hạn ngắn hạn nên chờ 1 chút rồi thử lại thường qua được.
+async function fetchWordTypeWithRetry(word) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const result = await fetchWordType(word, controller.signal);
+    clearTimeout(timer);
+    if (result !== 'rate-limited') return result;
+    if (attempt < 2) await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); // 2s rồi 4s
+  }
+  return 'rate-limited';
+}
+
 async function reclassifyUnclearWords(targets) {
-  showToast(`⏳ Đang tra ${targets.length} từ, đợi chút nhé...`);
-  const CONCURRENCY = 2; // tra song song ít từ 1 lúc + nghỉ giữa các lô (bên dưới) — đỡ bị dictionaryapi.dev giới hạn tốc độ khi tra nhiều từ liên tiếp
+  const total = targets.length;
+  showToast(`⏳ Đang tra ${total} từ, đợi chút nhé...`);
   let fixed = 0, notFound = 0, rateLimited = 0;
-  for (let i = 0; i < targets.length; i += CONCURRENCY) {
-    const batch = targets.slice(i, i + CONCURRENCY);
-    await Promise.all(batch.map(async (target) => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8000);
-      const result = await fetchWordType(target.word, controller.signal);
-      clearTimeout(timer);
-      const idx = words.findIndex(x => x.word === target.word);
-      if (idx === -1) return; // từ đã bị xóa giữa lúc đang chạy
+  // Tra TUẦN TỰ (không song song) + nghỉ giữa mỗi từ — dictionaryapi.dev giới
+  // hạn tốc độ khá thấp, tra dồn dập (kể cả chỉ 2 luồng song song) với batch lớn
+  // (100+ từ) vẫn dễ chạm trần ngay từ đầu. Chậm hơn nhưng tra được nhiều hơn hẳn.
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i];
+    const result = await fetchWordTypeWithRetry(target.word);
+    const idx = words.findIndex(x => x.word === target.word);
+    if (idx !== -1) {
       if (result === 'rate-limited') rateLimited++;
       else if (result) { words[idx].type = result; fixed++; }
       else notFound++;
-    }));
-    if (i + CONCURRENCY < targets.length) await new Promise(r => setTimeout(r, 300));
+    }
+    if ((i + 1) % 10 === 0 && i + 1 < total) showToast(`⏳ Đã tra ${i + 1}/${total} từ...`);
+    if (i < targets.length - 1) await new Promise(r => setTimeout(r, 400));
   }
   if (fixed) saveWords();
   refreshWlView();

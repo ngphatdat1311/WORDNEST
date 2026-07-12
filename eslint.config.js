@@ -31,7 +31,7 @@ const appGlobals = Object.fromEntries(
     'emptyTrash', 'escAttr', 'escHtml', 'estimateLevel',
     'exportAnkiTxt', 'exportCSV', 'exportWords', 'extensionInboxWords', 'fcWords', 'fcIndex',
     'fcSeenThisSession', 'fillField',
-    'fetchWordType', 'filterByFolderSel', 'flipCard', 'folderOptionsHtml', 'folders', 'formatAddedAt',
+    'fetchWordType', 'fetchWordTypeWithRetry', 'filterByFolderSel', 'flipCard', 'folderOptionsHtml', 'folders', 'formatAddedAt',
     'genFolderId', 'genTrashId', 'getAllCategories', 'getAllExamples', 'getCachedLookup',
     'getSrsDueWords', 'getSyncFolder', 'giveHint', 'guessCategory', 'hasUnsavedChanges',
     'hideBackupBanner', 'hideSyncRestoreBanner', 'importWords', 'initFlashcard', 'initSpelling',
