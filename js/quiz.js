@@ -13,10 +13,10 @@ const QUIZ_SESSION_KEY = 'wordnest_quiz_session';
 function saveQuizSession() {
   try {
     sessionStorage.setItem(QUIZ_SESSION_KEY, JSON.stringify({
-      words: qzWords.map(w => w.word),
+      wordIds: qzWords.map(w => w.id),
       index: qzIndex,
       score: qzScore,
-      wrong: qzWrongWords.map(w => w.word),
+      wrongIds: qzWrongWords.map(w => w.id),
       answered: qzAnswered
     }));
   } catch { /* sessionStorage bị chặn/đầy — bỏ qua, không ảnh hưởng chức năng chính */ }
@@ -28,14 +28,15 @@ function clearQuizSession() {
 function tryRestoreQuizSession() {
   let raw;
   try { raw = JSON.parse(sessionStorage.getItem(QUIZ_SESSION_KEY)); } catch { raw = null; }
-  if (!raw || !Array.isArray(raw.words) || !raw.words.length) return false;
-  // Map lại theo từ hiện có — đề phòng từ đã bị xoá/đổi tên giữa lúc làm bài
-  const resolved = raw.words.map(ws => words.find(x => x.word === ws)).filter(Boolean);
-  if (resolved.length !== raw.words.length) { clearQuizSession(); return false; }
+  if (!raw || !Array.isArray(raw.wordIds) || !raw.wordIds.length) return false;
+  // Map lại theo từ hiện có — đề phòng từ đã bị xoá giữa lúc làm bài (so khớp theo
+  // id nên đổi tên từ giữa lúc làm bài vẫn resume đúng, không bị coi là "đã xoá")
+  const resolved = raw.wordIds.map(id => words.find(x => x.id === id)).filter(Boolean);
+  if (resolved.length !== raw.wordIds.length) { clearQuizSession(); return false; }
   qzWords = resolved;
   qzIndex = Math.min(raw.index || 0, qzWords.length - 1);
   qzScore = raw.score || 0;
-  qzWrongWords = (raw.wrong || []).map(ws => words.find(x => x.word === ws)).filter(Boolean);
+  qzWrongWords = (raw.wrongIds || []).map(id => words.find(x => x.id === id)).filter(Boolean);
   document.getElementById('quiz-area').style.display = '';
   document.getElementById('quiz-result').style.display = 'none';
   if (raw.answered) {
@@ -123,8 +124,8 @@ function renderQuizQ() {
 function answerQuiz(chosenIdx) {
   if (qzAnswered) return;
   qzAnswered = true;
-  const correctWord = qzWords[qzIndex].word;
-  const correctIdx = qzOptions.findIndex(o => o.word === correctWord);
+  const correctId = qzWords[qzIndex].id;
+  const correctIdx = qzOptions.findIndex(o => o.id === correctId);
   const opts = document.querySelectorAll('.quiz-option');
   opts.forEach(o => o.style.pointerEvents = 'none');
 

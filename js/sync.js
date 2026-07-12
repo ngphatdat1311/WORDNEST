@@ -118,6 +118,7 @@ function doRestoreFromSync(syncData) {
   words   = imported;
   folders = Array.isArray(syncData.folders) ? syncData.folders : folders;
   trash   = Array.isArray(syncData.trash)   ? syncData.trash   : trash;
+  ensureWordIds(); // file đồng bộ từ bản app cũ hơn (trước khi có field id) vẫn được backfill
   if (!saveWords() || !saveFolders() || !saveTrash()) {
     showToast('⚠️ Không khôi phục được — lỗi lưu file!', 'error'); return;
   }

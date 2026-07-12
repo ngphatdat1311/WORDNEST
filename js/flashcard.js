@@ -8,7 +8,7 @@ function markSeenCurrent() {
   const w = fcWords[fcIndex];
   if (fcSeenThisSession.has(fcIndex)) return; // đã xem trong phiên này
   fcSeenThisSession.add(fcIndex);
-  const origIdx = words.findIndex(x => x.word === w.word);
+  const origIdx = words.findIndex(x => x.id === w.id);
   if (origIdx !== -1) { words[origIdx].seen = (words[origIdx].seen || 0) + 1; saveWords(); }
 }
 
@@ -120,7 +120,7 @@ function nextCard() { if (fcIndex < fcWords.length - 1) { fcIndex++; renderFlash
 function markCard(known) {
   if (!fcWords.length) return;
   const w = fcWords[fcIndex];
-  const idx = words.findIndex(x => x.word === w.word);
+  const idx = words.findIndex(x => x.id === w.id);
   if (idx !== -1) {
     if (known) { words[idx].known = (words[idx].known || 0) + 1; words[idx].mastery = Math.min(3, (words[idx].mastery || 0) + 1); }
     else { words[idx].mastery = Math.max(0, (words[idx].mastery || 0) - 1); }

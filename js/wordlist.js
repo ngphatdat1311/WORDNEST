@@ -133,7 +133,8 @@ function wlRowHtml(w) {
   // mastery chạy 0-3 (3 mức tăng dần) -> 3 chấm là vừa đủ để "Đã thuộc (3)" lấp đầy
   // toàn bộ thanh chấm; 4 chấm sẽ khiến mức cao nhất luôn dở dang (3/4), gây hiểu lầm.
   const dots = [0,1,2].map(i => `<div class="wl-dot${i < w.mastery ? ' filled' : ''}"></div>`).join('');
-  const esc = escAttr(w.word);
+  const escId = escAttr(w.id);
+  const escWord = escAttr(w.word);
   const folder = w.folderId ? folders.find(f => f.id === w.folderId) : null;
   const pos = typeAbbr(w.type);
   return `<tr class="${w.suspended ? 'wl-row-suspended' : ''}">
@@ -150,11 +151,11 @@ function wlRowHtml(w) {
     <td><div class="wl-mastery">${dots}</div></td>
     <td>
       <div class="wl-actions">
-        <button class="wl-folder-btn${folder ? ' active' : ''}" data-word="${esc}" title="${folder ? '📁 ' + escAttr(folder.name) : 'Thêm vào thư mục'}" aria-label="Gán thư mục cho ${escAttr(w.word)}">📁</button>
-        <button class="wl-suspend${w.suspended ? ' active' : ''}" data-word="${esc}" title="${w.suspended ? 'Bỏ ẩn — đưa lại vào ôn tập' : 'Đã thuộc hẳn — ẩn khỏi ôn tập'}" aria-label="Ẩn/bỏ ẩn ${escAttr(w.word)}">${w.suspended ? '🔒' : '📌'}</button>
-        <button class="wl-speak" data-word="${esc}" aria-label="Phát âm ${escAttr(w.word)}">🔊</button>
-        <button class="wl-edit" data-word="${esc}" title="Sửa" aria-label="Sửa từ ${escAttr(w.word)}">✏️</button>
-        <button class="wl-delete" data-word="${esc}" title="Xóa" aria-label="Xóa từ ${escAttr(w.word)}">🗑️</button>
+        <button class="wl-folder-btn${folder ? ' active' : ''}" data-id="${escId}" title="${folder ? '📁 ' + escAttr(folder.name) : 'Thêm vào thư mục'}" aria-label="Gán thư mục cho ${escAttr(w.word)}">📁</button>
+        <button class="wl-suspend${w.suspended ? ' active' : ''}" data-id="${escId}" title="${w.suspended ? 'Bỏ ẩn — đưa lại vào ôn tập' : 'Đã thuộc hẳn — ẩn khỏi ôn tập'}" aria-label="Ẩn/bỏ ẩn ${escAttr(w.word)}">${w.suspended ? '🔒' : '📌'}</button>
+        <button class="wl-speak" data-word="${escWord}" aria-label="Phát âm ${escAttr(w.word)}">🔊</button>
+        <button class="wl-edit" data-id="${escId}" title="Sửa" aria-label="Sửa từ ${escAttr(w.word)}">✏️</button>
+        <button class="wl-delete" data-id="${escId}" title="Xóa" aria-label="Xóa từ ${escAttr(w.word)}">🗑️</button>
       </div>
     </td>
   </tr>`;
@@ -163,11 +164,11 @@ function wlRowHtml(w) {
 // Gán listener cho các nút hành động trong 1 <tbody> bảng từ vựng — dùng chung
 // cho cả bảng "Tất cả" (#wl-body) và bảng chi tiết thư mục (#wl-folder-body).
 function wireWlRowActions(tbody) {
-  tbody.querySelectorAll('.wl-folder-btn').forEach(btn => btn.addEventListener('click', () => openFolderPicker(btn.dataset.word)));
-  tbody.querySelectorAll('.wl-suspend').forEach(btn => btn.addEventListener('click', () => toggleSuspend(btn.dataset.word)));
+  tbody.querySelectorAll('.wl-folder-btn').forEach(btn => btn.addEventListener('click', () => openFolderPicker(btn.dataset.id)));
+  tbody.querySelectorAll('.wl-suspend').forEach(btn => btn.addEventListener('click', () => toggleSuspend(btn.dataset.id)));
   tbody.querySelectorAll('.wl-speak').forEach(btn => btn.addEventListener('click', () => speak(btn.dataset.word)));
-  tbody.querySelectorAll('.wl-edit').forEach(btn => btn.addEventListener('click', () => openEditModal(btn.dataset.word)));
-  tbody.querySelectorAll('.wl-delete').forEach(btn => btn.addEventListener('click', () => confirmDelete(btn.dataset.word)));
+  tbody.querySelectorAll('.wl-edit').forEach(btn => btn.addEventListener('click', () => openEditModal(btn.dataset.id)));
+  tbody.querySelectorAll('.wl-delete').forEach(btn => btn.addEventListener('click', () => confirmDelete(btn.dataset.id)));
 }
 
 function setWlFilter(cat) { wlFilter = cat; wlPage = 1; renderWordList(true); }

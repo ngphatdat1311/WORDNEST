@@ -11,7 +11,7 @@ function saveSpellingSession() {
   if (!spSessionStarted) return;
   try {
     sessionStorage.setItem(SPELLING_SESSION_KEY, JSON.stringify({
-      words: spWords.map(w => w.word),
+      wordIds: spWords.map(w => w.id),
       index: spIndex,
       correct: spCorrect,
       wrong: spWrong,
@@ -26,9 +26,9 @@ function clearSpellingSession() {
 function tryRestoreSpellingSession() {
   let raw;
   try { raw = JSON.parse(sessionStorage.getItem(SPELLING_SESSION_KEY)); } catch { raw = null; }
-  if (!raw || !Array.isArray(raw.words) || !raw.words.length) return false;
-  const resolved = raw.words.map(ws => words.find(x => x.word === ws)).filter(Boolean);
-  if (resolved.length !== raw.words.length || (raw.index || 0) >= resolved.length) { clearSpellingSession(); return false; }
+  if (!raw || !Array.isArray(raw.wordIds) || !raw.wordIds.length) return false;
+  const resolved = raw.wordIds.map(id => words.find(x => x.id === id)).filter(Boolean);
+  if (resolved.length !== raw.wordIds.length || (raw.index || 0) >= resolved.length) { clearSpellingSession(); return false; }
   spWords = resolved;
   spIndex = raw.index || 0;
   spCorrect = raw.correct || 0;
@@ -167,7 +167,8 @@ function giveHint() {
 
 function revealWord() {
   if (!spWords.length) return;
-  const w = spWords[spIndex].word;
+  const current = spWords[spIndex];
+  const w = current.word;
   document.getElementById('sp-input').value = w;
   updateBlanks();
   if (!spRevealed) {
@@ -179,7 +180,7 @@ function revealWord() {
     fb.innerHTML = `👁️ Đã hiện từ — tính là sai. Từ đúng: <strong>${escHtml(w)}</strong>`;
     document.getElementById('sp-next').style.display = 'block';
     document.getElementById('sp-input').className = 'spell-input wrong';
-    const idx = words.findIndex(x => x.word === w);
+    const idx = words.findIndex(x => x.id === current.id);
     if (idx !== -1) { words[idx].mastery = Math.max(0, words[idx].mastery - 1); saveWords(); }
     recordLearningActivity();
   }
@@ -194,7 +195,8 @@ function checkSpelling() {
   const checkBtn = document.getElementById('sp-check-btn');
   if (checkBtn && checkBtn.disabled) return;
   const typed = document.getElementById('sp-input').value.trim();
-  const w = spWords[spIndex].word;
+  const current = spWords[spIndex];
+  const w = current.word;
   const inp = document.getElementById('sp-input');
   const fb = document.getElementById('sp-feedback');
   if (!typed) { showToast('Vui lòng nhập từ!'); return; }
@@ -204,7 +206,7 @@ function checkSpelling() {
     fb.className = 'quiz-feedback correct show';
     fb.textContent = '✅ Đúng rồi! Tuyệt vời!';
     spCorrect++; spStreak++;
-    const idx = words.findIndex(x => x.word === w);
+    const idx = words.findIndex(x => x.id === current.id);
     if (idx !== -1) { words[idx].mastery = Math.min(3, words[idx].mastery + 1); words[idx].known = (words[idx].known || 0) + 1; saveWords(); }
     // Ghi nhận học khi chính tả đúng
     recordLearningActivity();
@@ -214,7 +216,7 @@ function checkSpelling() {
     fb.innerHTML = `❌ Sai! Từ đúng là: <strong>${escHtml(w)}</strong>`;
     spWrong++; spStreak = 0;
     // Giảm mastery khi sai — nhất quán với revealWord()
-    const idxW = words.findIndex(x => x.word === w);
+    const idxW = words.findIndex(x => x.id === current.id);
     if (idxW !== -1) { words[idxW].mastery = Math.max(0, words[idxW].mastery - 1); saveWords(); }
     // Ghi nhận hoạt động học bất kể đúng hay sai — học từ sai cũng là học
     // (trước đây chỉ ghi nhận khi đúng, khiến người mới học sai nhiều bị mất hẳn streak/heatmap dù đã học thật)

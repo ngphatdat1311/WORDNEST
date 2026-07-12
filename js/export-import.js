@@ -131,8 +131,10 @@ function importWords(event) {
         }
         let added = 0;
         toAdd.forEach(w => {
+          // Không dùng w.id của file gốc — id đó thuộc máy khác, có thể trùng tình
+          // cờ với 1 từ khác ở đây (giống cách trash id đã luôn được gán lại ở trên).
           words.push(srsInit({
-            word: w.word, phonetic: w.phonetic||'', meaning: w.meaning,
+            id: genWordId(), word: w.word, phonetic: w.phonetic||'', meaning: w.meaning,
             example: w.example||'', type: w.type||'other', category: w.category||'Nhập',
             level: w.level||'medium', mastery: w.mastery||0, known: w.known||0, seen: w.seen||0,
             addedAt: w.addedAt || Date.now(), folderId: resolveImportedFolder(w.folderId)

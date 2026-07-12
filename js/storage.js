@@ -70,6 +70,28 @@ function saveWords() {
   return ok;
 }
 
+// id ổn định cho 1 từ vựng — dùng để định danh 1 dòng cụ thể trong CRUD (sửa/xóa/
+// ẩn/gán thư mục, khôi phục phiên Quiz/Chính tả...) thay vì so khớp chuỗi `word`.
+// Chuỗi `word` chỉ đảm bảo DUY NHẤT (kiểm tra ở addWord/bulkAdd/importWords...),
+// không đảm bảo ỔN ĐỊNH khi user đổi tên từ — so khớp theo `id` không bị vỡ khi đó.
+function genWordId() {
+  return 'w_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// Gán id cho các từ chưa có (dữ liệu cũ trước khi có field này, hoặc từ import/
+// đồng bộ chưa qua đường ghi có gán id) — trả về true nếu có gì thay đổi để caller
+// tự quyết định có ghi lại file hay không.
+function ensureWordIds() {
+  let changed = false;
+  words.forEach((w) => {
+    if (!w.id) {
+      w.id = genWordId();
+      changed = true;
+    }
+  });
+  return changed;
+}
+
 // ════════════════════════════════════════════════════════
 // FOLDERS — nhóm từ thủ công (khác Chủ đề), kiểu thư mục
 // ════════════════════════════════════════════════════════
@@ -119,6 +141,10 @@ migrateKeyIfNeeded('wordnest_backup_dismiss_until');
 let words   = loadWords();
 let folders = loadFolders();
 let trash   = loadTrash();
+
+// Migration: backfill id cho từ chưa có (dữ liệu cũ, hoặc DEFAULT_WORDS vốn không
+// gán id sẵn trong literal) — chỉ ghi lại file nếu thực sự có thay đổi.
+if (ensureWordIds()) saveWords();
 
 // ════════════════════════════════════════════════════════
 // QUIZ STATS — thống kê tích lũy qua nhiều phiên quiz

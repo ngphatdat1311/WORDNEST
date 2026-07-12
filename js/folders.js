@@ -267,8 +267,8 @@ function deleteFolder(id) {
 // ════════════════════════════════════════════════════════
 // GÁN 1 TỪ VÀO THƯ MỤC — nút 📁 trên mỗi dòng trong bảng Từ điển
 // ════════════════════════════════════════════════════════
-function openFolderPicker(word) {
-  const w = words.find(x => x.word === word);
+function openFolderPicker(id) {
+  const w = words.find(x => x.id === id);
   if (!w) return;
   const old = document.getElementById('folder-pick-overlay');
   if (old) old.remove();
@@ -297,7 +297,7 @@ function openFolderPicker(word) {
     </div>`;
   document.body.appendChild(overlay);
   document.getElementById('fp-close-btn').addEventListener('click', closeFolderPicker);
-  overlay.querySelectorAll('.folder-pick-item').forEach(btn => btn.addEventListener('click', () => { assignWordToFolder(word, btn.dataset.id); closeFolderPicker(); }));
+  overlay.querySelectorAll('.folder-pick-item').forEach(btn => btn.addEventListener('click', () => { assignWordToFolder(id, btn.dataset.id); closeFolderPicker(); }));
   document.getElementById('fp-create-btn').addEventListener('click', () => {
     const name = clampStr(document.getElementById('fp-new-name').value.trim(), 40);
     if (!name) { showToast('Nhập tên thư mục!', 'error'); return; }
@@ -305,19 +305,19 @@ function openFolderPicker(word) {
     const f = { id: genFolderId(), name, createdAt: Date.now() };
     folders.push(f);
     if (!saveFolders()) { folders.pop(); showToast('⚠️ Không lưu được!', 'error'); return; }
-    assignWordToFolder(word, f.id);
+    assignWordToFolder(id, f.id);
     closeFolderPicker();
     showToast(`✅ Đã tạo thư mục "${name}" và thêm từ vào!`, 'success');
   });
   const removeBtn = document.getElementById('fp-remove-btn');
-  if (removeBtn) removeBtn.addEventListener('click', () => { assignWordToFolder(word, null); closeFolderPicker(); });
+  if (removeBtn) removeBtn.addEventListener('click', () => { assignWordToFolder(id, null); closeFolderPicker(); });
   overlay.addEventListener('click', e => { if (e.target === overlay) closeFolderPicker(); });
   setTimeout(() => { const el = document.getElementById('fp-new-name'); if (el) el.focus(); }, 50);
 }
 function closeFolderPicker() { const el = document.getElementById('folder-pick-overlay'); if (el) el.remove(); }
 
-function assignWordToFolder(word, folderId) {
-  const idx = words.findIndex(x => x.word === word);
+function assignWordToFolder(id, folderId) {
+  const idx = words.findIndex(x => x.id === id);
   if (idx === -1) return;
   const old = words[idx].folderId;
   words[idx].folderId = folderId || null;
@@ -344,7 +344,7 @@ function openAddWordsToFolderModal(folderId) {
   const sortedWords = words.slice().sort((a, b) => a.word.localeCompare(b.word));
   const rows = sortedWords.map(w => `
     <label class="folder-bulk-row" data-word="${escAttr(w.word.toLowerCase())}">
-      <input type="checkbox" class="fb-check" value="${escAttr(w.word)}"${w.folderId === folderId ? ' checked' : ''}>
+      <input type="checkbox" class="fb-check" value="${escAttr(w.id)}"${w.folderId === folderId ? ' checked' : ''}>
       <span class="fb-word">${escHtml(w.word)}</span>
       <span class="fb-meaning">${escHtml(w.meaning)}</span>
       ${w.folderId && w.folderId !== folderId ? `<span class="fb-other-folder">📁 ${escHtml((folders.find(f => f.id === w.folderId) || {}).name || '')}</span>` : ''}
@@ -373,7 +373,7 @@ function openAddWordsToFolderModal(folderId) {
     let changed = 0;
     const backup = words;
     words = words.map(w => {
-      const inChecked = checked.has(w.word);
+      const inChecked = checked.has(w.id);
       if (inChecked && w.folderId !== folderId) { changed++; return { ...w, folderId }; }
       if (!inChecked && w.folderId === folderId) { changed++; return { ...w, folderId: null }; }
       return w;

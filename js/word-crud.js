@@ -7,6 +7,7 @@ function addWord() {
   if (!word || !meaning) { showToast('Cần nhập từ và nghĩa!', 'error'); return; }
   if (words.find(w => w.word.toLowerCase() === word.toLowerCase())) { showToast('Từ này đã tồn tại!', 'error'); return; }
   words.push(srsInit({
+    id: genWordId(),
     word,
     phonetic: clampStr(document.getElementById('aw-phonetic').value.trim(), 80),
     meaning,
@@ -92,7 +93,7 @@ function bulkAdd() {
     const { word, phonetic, meaning, example, type } = parseBulkLine(line);
     if (!word || !meaning) return;
     if (words.find(w => w.word.toLowerCase() === word.toLowerCase())) return;
-    words.push(srsInit({ word, phonetic, meaning, example, type, category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0, addedAt: Date.now(), folderId }));
+    words.push(srsInit({ id: genWordId(), word, phonetic, meaning, example, type, category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0, addedAt: Date.now(), folderId }));
     added++;
   });
   if (!added) { showToast('Không có từ hợp lệ nào để thêm (trùng tên hoặc thiếu nghĩa)!', 'error'); return; }
@@ -106,8 +107,8 @@ function bulkAdd() {
 // ════════════════════════════════════════════════════════
 // DELETE WORD
 // ════════════════════════════════════════════════════════
-function confirmDelete(word) {
-  const w = words.find(x => x.word === word);
+function confirmDelete(id) {
+  const w = words.find(x => x.id === id);
   if (!w) return;
   const old = document.getElementById('delete-overlay');
   if (old) old.remove();
@@ -130,7 +131,7 @@ function confirmDelete(word) {
     </div>`;
   document.body.appendChild(overlay);
   // Dùng event listener, không nối chuỗi từ vào onclick inline
-  document.getElementById('cb-confirm-btn').addEventListener('click', () => deleteWord(word));
+  document.getElementById('cb-confirm-btn').addEventListener('click', () => deleteWord(id));
   document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
   // Focus vào nút đầu tiên khi modal mở
@@ -177,24 +178,24 @@ function deleteAllWords() {
   refreshWlView(); renderHome();
 }
 
-function deleteWord(word) {
-  const idx = words.findIndex(w => w.word === word);
+function deleteWord(id) {
+  const idx = words.findIndex(w => w.id === id);
   if (idx === -1) { closeConfirm(); return; }
   const backupWords = words, backupTrash = trash;
   const snapshot = words[idx];
-  words = words.filter(w => w.word !== word);
+  words = words.filter(w => w.id !== id);
   trash = [...trash, { id: genTrashId(), type: 'word', deletedAt: Date.now(), word: snapshot }];
   closeConfirm();
   if (!saveWords() || !saveTrash()) { words = backupWords; trash = backupTrash; showToast('⚠️ Không xóa được — lỗi lưu dữ liệu!', 'error'); return; }
-  showToast('🗑️ Đã chuyển "' + word + '" vào Thùng rác');
+  showToast('🗑️ Đã chuyển "' + snapshot.word + '" vào Thùng rác');
   refreshWlView(); renderHome();
 }
 
 // ════════════════════════════════════════════════════════
 // SUSPEND — đánh dấu từ đã thuộc hẳn, loại khỏi Flashcard/Quiz/Chính tả/SRS
 // ════════════════════════════════════════════════════════
-function toggleSuspend(word) {
-  const idx = words.findIndex(x => x.word === word);
+function toggleSuspend(id) {
+  const idx = words.findIndex(x => x.id === id);
   if (idx === -1) return;
   words[idx].suspended = !words[idx].suspended;
   if (!saveWords()) { words[idx].suspended = !words[idx].suspended; showToast('⚠️ Không lưu được thay đổi!', 'error'); return; }
@@ -206,8 +207,8 @@ function toggleSuspend(word) {
 // ════════════════════════════════════════════════════════
 // EDIT WORD
 // ════════════════════════════════════════════════════════
-function openEditModal(word) {
-  const w = words.find(x => x.word === word);
+function openEditModal(id) {
+  const w = words.find(x => x.id === id);
   if (!w) return;
   const old = document.getElementById('edit-overlay');
   if (old) old.remove();
@@ -265,7 +266,7 @@ function openEditModal(word) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  document.getElementById('eb-save-btn').addEventListener('click', () => saveEditWord(word));
+  document.getElementById('eb-save-btn').addEventListener('click', () => saveEditWord(id));
   document.getElementById('eb-close-btn').addEventListener('click', closeEditModal);
   document.getElementById('eb-cancel-btn').addEventListener('click', closeEditModal);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeEditModal(); });
@@ -290,9 +291,10 @@ function showUndoToast(msg, onUndo) {
   _undoTimer = setTimeout(() => t.classList.remove('show'), 5000);
 }
 
-function saveEditWord(originalWord) {
-  const idx = words.findIndex(x => x.word === originalWord);
+function saveEditWord(id) {
+  const idx = words.findIndex(x => x.id === id);
   if (idx === -1) return;
+  const originalWord = words[idx].word;
   const newWord    = clampStr(document.getElementById('ew-word').value.trim(), 60);
   const newMeaning = clampStr(document.getElementById('ew-meaning').value.trim(), 200);
   if (!newWord || !newMeaning) { showToast('Cần có từ và nghĩa!', 'error'); return; }
@@ -316,9 +318,10 @@ function saveEditWord(originalWord) {
   if (!saveWords()) { words[idx] = backup; showToast('⚠️ Không lưu được thay đổi!', 'error'); return; }
   closeEditModal();
   refreshWlView(); renderHome();
-  // Undo: khôi phục lại trạng thái cũ trong vòng 5 giây
+  // Undo: khôi phục lại trạng thái cũ trong vòng 5 giây — tìm lại theo id (ổn định
+  // dù đã đổi tên), không cần tìm theo word MỚI như trước.
   showUndoToast('✅ Đã sửa "' + newWord + '"', () => {
-    const ri = words.findIndex(x => x.word === newWord);
+    const ri = words.findIndex(x => x.id === id);
     if (ri === -1) { showToast('⚠️ Không hoàn tác được — từ đã bị xóa', 'error'); return; }
     words[ri] = { ...backup };
     if (!saveWords()) { showToast('⚠️ Hoàn tác thất bại!', 'error'); return; }
@@ -439,7 +442,7 @@ async function runReclassifyLoop(targets) {
     const target = targets[i];
     const result = await fetchWordTypeWithRetry(target.word);
     if (reclassifyCancelRequested) break; // user bấm Dừng lại trong lúc đang chờ kết quả từ này
-    const idx = words.findIndex(x => x.word === target.word);
+    const idx = words.findIndex(x => x.id === target.id);
     if (idx !== -1) {
       if (result === 'rate-limited') rateLimited++;
       else if (result) { words[idx].type = result; fixed++; }
