@@ -326,3 +326,81 @@ function saveEditWord(originalWord) {
     refreshWlView(); renderHome();
   });
 }
+
+// ════════════════════════════════════════════════════════
+// PHÂN LOẠI LẠI TỪ CHƯA RÕ LOẠI — quét toàn bộ từ đang có type 'other' (thường
+// do Thêm hàng loạt không ghi loại từ), tự tra dictionaryapi.dev để xác định
+// đúng danh/động/tính/trạng từ. CHỈ sửa field `type` — không đụng tới nghĩa/
+// phiên âm/ví dụ/chủ đề người dùng đã nhập, tôn trọng dữ liệu có sẵn.
+// ════════════════════════════════════════════════════════
+// Trả về: mã loại từ ('noun'/'verb'/...) nếu tra được, null nếu từ điển không
+// có/không xác định được (khác hẳn với bị giới hạn tốc độ — xem 'rate-limited'
+// bên dưới, để reclassifyUnclearWords() báo đúng nguyên nhân cho người dùng).
+async function fetchWordType(word, signal) {
+  try {
+    const resp = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`, { signal });
+    if (resp.status === 429) return 'rate-limited'; // dictionaryapi.dev giới hạn tốc độ — KHÁC với "không tìm thấy"
+    if (!resp.ok) return null;
+    const entries = await resp.json();
+    const entry = Array.isArray(entries) && entries.length ? entries[0] : null;
+    if (!entry) return null;
+    const pos = pickDominantPos(entry);
+    return pos && pos !== 'other' ? pos : null; // null = từ điển không xác định được, giữ nguyên 'other'
+  } catch {
+    return null; // mất mạng/timeout — bỏ qua từ này, không chặn cả lô
+  }
+}
+
+function confirmReclassifyUnclearWords() {
+  const targets = words.filter(w => w.type === 'other');
+  if (!targets.length) { showToast('Không có từ nào chưa rõ loại từ!'); return; }
+  const old = document.getElementById('delete-overlay');
+  if (old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.id = 'delete-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'cb-dialog-title');
+  overlay.innerHTML = `
+    <div class="confirm-box">
+      <div class="cb-icon">🔍</div>
+      <div class="cb-title" id="cb-dialog-title">Phân loại lại từ chưa rõ?</div>
+      <div class="cb-sub">Tìm thấy <strong>${targets.length}</strong> từ chưa rõ loại từ. App sẽ tự tra từ điển để xác định đúng danh từ/động từ/tính từ/trạng từ — chỉ sửa loại từ, không đổi nghĩa/phiên âm/ví dụ bạn đã nhập. Cần có mạng, có thể mất vài chục giây tùy số lượng từ.</div>
+      <div class="cb-btns">
+        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
+        <button class="cb-confirm" id="cb-confirm-btn">Bắt đầu</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('cb-confirm-btn').addEventListener('click', () => { closeConfirm(); reclassifyUnclearWords(targets); });
+  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
+}
+
+async function reclassifyUnclearWords(targets) {
+  showToast(`⏳ Đang tra ${targets.length} từ, đợi chút nhé...`);
+  const CONCURRENCY = 2; // tra song song ít từ 1 lúc + nghỉ giữa các lô (bên dưới) — đỡ bị dictionaryapi.dev giới hạn tốc độ khi tra nhiều từ liên tiếp
+  let fixed = 0, notFound = 0, rateLimited = 0;
+  for (let i = 0; i < targets.length; i += CONCURRENCY) {
+    const batch = targets.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(async (target) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const result = await fetchWordType(target.word, controller.signal);
+      clearTimeout(timer);
+      const idx = words.findIndex(x => x.word === target.word);
+      if (idx === -1) return; // từ đã bị xóa giữa lúc đang chạy
+      if (result === 'rate-limited') rateLimited++;
+      else if (result) { words[idx].type = result; fixed++; }
+      else notFound++;
+    }));
+    if (i + CONCURRENCY < targets.length) await new Promise(r => setTimeout(r, 300));
+  }
+  if (fixed) saveWords();
+  refreshWlView();
+  const extras = [];
+  if (notFound) extras.push(`${notFound} từ điển không tìm thấy`);
+  if (rateLimited) extras.push(`${rateLimited} bị giới hạn tốc độ tra cứu — thử lại sau vài phút`);
+  showToast(`✅ Đã phân loại lại ${fixed}/${targets.length} từ${extras.length ? ` (${extras.join(', ')})` : ''}!`, 'success');
+}

@@ -23,7 +23,7 @@ const appGlobals = Object.fromEntries(
     'checkSyncOnStartup', 'clampStr', 'clearExtensionInbox', 'clearQuizSession',
     'clearSpellingSession', 'closeConfirm', 'closeEditModal', 'closeFolderBulkModal',
     'closeFolderNameModal', 'closeFolderPicker', 'closeImportConfirm', 'closeWlMoreMenu',
-    'confirmDelete', 'confirmDeleteAll', 'confirmEmptyTrash', 'createFolderPrompt',
+    'confirmDelete', 'confirmDeleteAll', 'confirmEmptyTrash', 'confirmReclassifyUnclearWords', 'createFolderPrompt',
     'currentLookupWord', 'daysSince', 'debouncedRenderWordList', 'deleteAllWords', 'deleteFolder',
     'deleteFolderConfirm', 'deleteTrashEntry', 'deleteTrashEntryConfirm', 'deleteWord',
     'disableSync', 'dismissAppUpdateBanner', 'dismissBackupBanner', 'doAutoLookup',
@@ -31,7 +31,7 @@ const appGlobals = Object.fromEntries(
     'emptyTrash', 'escAttr', 'escHtml', 'estimateLevel',
     'exportAnkiTxt', 'exportCSV', 'exportWords', 'extensionInboxWords', 'fcWords', 'fcIndex',
     'fcSeenThisSession', 'fillField',
-    'filterByFolderSel', 'flipCard', 'folderOptionsHtml', 'folders', 'formatAddedAt',
+    'fetchWordType', 'filterByFolderSel', 'flipCard', 'folderOptionsHtml', 'folders', 'formatAddedAt',
     'genFolderId', 'genTrashId', 'getAllCategories', 'getAllExamples', 'getCachedLookup',
     'getSrsDueWords', 'getSyncFolder', 'giveHint', 'guessCategory', 'hasUnsavedChanges',
     'hideBackupBanner', 'hideSyncRestoreBanner', 'importWords', 'initFlashcard', 'initSpelling',
@@ -46,7 +46,7 @@ const appGlobals = Object.fromEntries(
     'openFolderGrid', 'openFolderNameModal', 'openFolderPicker', 'parseBulkLine', 'parseBulkType', 'BULK_TYPE_ALIASES', 'pickAudio', 'pickDominantPos',
     'pickRandomExample', 'pickSyncFolder', 'playPronunciation', 'populateAwFolderSelects', 'populateCategorySelect',
     'populateFolderSelect', 'prevCard', 'qzOptions', 'qzWords', 'qzWrongWords',
-    'recordLearningActivity', 'refreshRerollVisibility', 'refreshWlView', 'removeInboxWord',
+    'reclassifyUnclearWords', 'recordLearningActivity', 'refreshRerollVisibility', 'refreshWlView', 'removeInboxWord',
     'renameFolderPrompt', 'renderActivityHeatmap', 'renderBlanks', 'renderDifficultWords',
     'renderExtensionInbox', 'renderFlashcard', 'renderFolderDetail', 'renderFolderGrid',
     'renderHome', 'renderProgress', 'renderQuizQ', 'renderQuizStats', 'renderSyncStatus',
@@ -74,7 +74,9 @@ const appGlobals = Object.fromEntries(
 );
 
 module.exports = [
-  { ignores: ['node_modules/**', 'assets/**', 'css/**', 'docs/**'] },
+  // tmp-*.mjs/.js ở thư mục gốc: script Playwright dùng tạm để test app thật rồi
+  // xóa ngay sau — không phải code của dự án, không cần lint.
+  { ignores: ['node_modules/**', 'assets/**', 'css/**', 'docs/**', 'tmp-*.mjs', 'tmp-*.js'] },
   js.configs.recommended,
   {
     files: ['js/**/*.js'],

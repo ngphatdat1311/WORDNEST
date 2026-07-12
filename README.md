@@ -6,8 +6,8 @@ App học từ vựng tiếng Anh cá nhân: Flashcard (SRS kiểu SM-2), Quiz t
 
 | Hệ điều hành | Tải về |
 |---|---|
-| Windows | [WordNest-Setup-1.0.15.exe](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.15/WordNest-Setup-1.0.15.exe) |
-| macOS (Intel & Apple Silicon) | [WordNest-1.0.15-universal.dmg](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.15/WordNest-1.0.15-universal.dmg) |
+| Windows | [WordNest-Setup-1.0.16.exe](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.16/WordNest-Setup-1.0.16.exe) |
+| macOS (Intel & Apple Silicon) | [WordNest-1.0.16-universal.dmg](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.16/WordNest-1.0.16-universal.dmg) |
 
 Xem tất cả bản phát hành tại [Releases](https://github.com/ngphatdat1311/WORDNEST/releases).
 
@@ -48,7 +48,9 @@ Chọn số câu và lọc theo mức độ/chủ đề/thư mục, mỗi câu 4
 
 ![Từ điển](docs/screenshots/06-wordlist.png)
 
-Xem toàn bộ từ vựng, tìm kiếm, lọc theo chủ đề, sắp xếp theo A-Z/độ thuộc/mới xem. Mỗi từ có nút: 📌 *tạm ẩn khỏi ôn tập* (đánh dấu "đã thuộc hẳn"), 🔊 phát âm, ✏️ sửa, 🗑️ xóa. Khi **sửa từ**, hiện toast "Hoàn tác" trong 5 giây để khôi phục lại nếu lỡ tay.
+Xem toàn bộ từ vựng, tìm kiếm, lọc theo chủ đề, sắp xếp theo A-Z/độ thuộc/mới xem. Mỗi từ hiện thêm ký hiệu loại từ ngắn gọn (n/v/adj/adv/phr) cạnh tên từ. Mỗi từ có nút: 📌 *tạm ẩn khỏi ôn tập* (đánh dấu "đã thuộc hẳn"), 🔊 phát âm, ✏️ sửa, 🗑️ xóa. Khi **sửa từ**, hiện toast "Hoàn tác" trong 5 giây để khôi phục lại nếu lỡ tay.
+
+Trong menu **⋯ Khác**, nút **🔍 Phân loại lại từ chưa rõ** tự tra từ điển để xác định đúng loại từ (n/v/adj/adv) cho những từ đang hiện "khác" — thường do Thêm hàng loạt không ghi loại từ. Chỉ sửa loại từ, không đụng tới nghĩa/phiên âm/ví dụ đã nhập.
 
 Menu **⋯ Khác** cung cấp nhiều tùy chọn:
 - **Xuất JSON** — sao lưu toàn bộ (kèm thư mục, thùng rác)

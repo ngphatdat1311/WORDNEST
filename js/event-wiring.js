@@ -78,6 +78,7 @@ function wireStaticEvents() {
   on('wl-export-csv-btn', 'click', () => { exportCSV(); closeWlMoreMenu(); });
   on('wl-export-anki-btn', 'click', () => { exportAnkiTxt(); closeWlMoreMenu(); });
   on('import-file', 'change', (e) => { importWords(e); closeWlMoreMenu(); });
+  on('wl-reclassify-btn', 'click', () => { confirmReclassifyUnclearWords(); closeWlMoreMenu(); });
   on('wl-delete-all-btn', 'click', () => { confirmDeleteAll(); closeWlMoreMenu(); });
   on('wl-folder-back-btn', 'click', openFolderGrid);
   on('wl-folder-sort', 'change', renderFolderDetail);
