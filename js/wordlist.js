@@ -39,7 +39,7 @@ function toggleWlMasteredOnly() {
   localStorage.setItem(WL_MASTERED_ONLY_KEY, wlShowMasteredOnly ? '1' : '0');
   document.querySelectorAll('.wl-mastered-only-btn').forEach(b => b.classList.toggle('active', wlShowMasteredOnly));
   if (wlView === 'all') { wlPage = 1; renderWordList(); }
-  else refreshWlView();
+  else { wlFolderPage = 1; refreshWlView(); }
 }
 
 // Comparator dùng chung cho cả bảng "Tất cả" và bảng chi tiết thư mục — từ đã

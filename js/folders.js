@@ -3,6 +3,7 @@
 // (dữ liệu folders[]/loadFolders()/saveFolders() ở storage.js)
 // ════════════════════════════════════════════════════════
 let wlActiveFolder = null;
+let wlFolderPage = 1;
 
 function genFolderId() {
   return 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -111,12 +112,13 @@ function renderFolderGrid() {
 // ════════════════════════════════════════════════════════
 // DETAIL — danh sách từ bên trong 1 thư mục (hoặc "Chưa phân loại")
 // ════════════════════════════════════════════════════════
-function openFolder(id) { wlActiveFolder = id; renderFolderDetail(); }
+function openFolder(id) { wlActiveFolder = id; wlFolderPage = 1; renderFolderDetail(true); }
 
-function renderFolderDetail() {
+function renderFolderDetail(resetPage = false) {
   const gridEl = document.getElementById('wl-folder-grid');
   const detailEl = document.getElementById('wl-folder-detail');
   if (!gridEl || !detailEl) return;
+  if (resetPage) wlFolderPage = 1;
   const isUnfiled = wlActiveFolder === '__unfiled__';
   const folder = isUnfiled ? null : folders.find(f => f.id === wlActiveFolder);
   if (!isUnfiled && !folder) { openFolderGrid(); return; } // thư mục đã bị xóa từ nơi khác
@@ -125,6 +127,12 @@ function renderFolderDetail() {
   detailEl.style.display = '';
   document.getElementById('wl-folder-detail-name').textContent = isUnfiled ? '📂 Chưa phân loại' : `📁 ${folder.name}`;
   document.getElementById('wl-folder-detail-actions').style.display = isUnfiled ? 'none' : 'flex';
+  if (!isUnfiled) {
+    // .onclick = ... (không addEventListener) để tránh chồng listener mỗi lần render lại
+    document.getElementById('wl-folder-add-btn').onclick = () => openAddWordsToFolderModal(folder.id);
+    document.getElementById('wl-folder-rename-btn').onclick = () => renameFolderPrompt(folder.id);
+    document.getElementById('wl-folder-del-btn').onclick = () => deleteFolderConfirm(folder.id);
+  }
 
   let list = isUnfiled ? words.filter(w => !w.folderId) : words.filter(w => w.folderId === wlActiveFolder);
   if (wlShowMasteredOnly) list = list.filter(w => w.suspended);
@@ -132,17 +140,33 @@ function renderFolderDetail() {
   list = list.slice().sort(wlComparator(folderSortVal));
   renderWlTableHead('wl-folder-thead');
   const tbody = document.getElementById('wl-folder-body');
+  const pagEl = document.getElementById('wl-folder-pagination');
   const colCount = 5;
-  tbody.innerHTML = list.length
-    ? list.map(w => wlRowHtml(w)).join('')
-    : `<tr><td colspan="${colCount}" style="text-align:center;padding:2rem;color:var(--text3)">Chưa có từ nào ở đây 📭</td></tr>`;
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="${colCount}" style="text-align:center;padding:2rem;color:var(--text3)">Chưa có từ nào ở đây 📭</td></tr>`;
+    if (pagEl) pagEl.innerHTML = '';
+    return;
+  }
+
+  // Phân trang 30 từ/trang (WL_PAGE_SIZE, định nghĩa ở wordlist.js) — cùng cơ chế
+  // với danh sách "Tất cả", tránh render chậm nếu 1 thư mục gom quá nhiều từ.
+  const totalPages = Math.ceil(list.length / WL_PAGE_SIZE);
+  if (wlFolderPage > totalPages) wlFolderPage = totalPages;
+  const paginated = list.slice((wlFolderPage - 1) * WL_PAGE_SIZE, wlFolderPage * WL_PAGE_SIZE);
+  tbody.innerHTML = paginated.map(w => wlRowHtml(w)).join('');
   wireWlRowActions(tbody);
 
-  if (!isUnfiled) {
-    // .onclick = ... (không addEventListener) để tránh chồng listener mỗi lần render lại
-    document.getElementById('wl-folder-add-btn').onclick = () => openAddWordsToFolderModal(folder.id);
-    document.getElementById('wl-folder-rename-btn').onclick = () => renameFolderPrompt(folder.id);
-    document.getElementById('wl-folder-del-btn').onclick = () => deleteFolderConfirm(folder.id);
+  if (pagEl && totalPages > 1) {
+    let pagHtml = `<span style="font-size:0.8rem;color:var(--text3);align-self:center;">${list.length} từ — Trang ${wlFolderPage}/${totalPages}</span>`;
+    if (wlFolderPage > 1) pagHtml += `<button class="btn btn-outline" id="wl-folder-page-prev-btn" style="padding:5px 12px;font-size:0.8rem;">← Trước</button>`;
+    if (wlFolderPage < totalPages) pagHtml += `<button class="btn btn-outline" id="wl-folder-page-next-btn" style="padding:5px 12px;font-size:0.8rem;">Tiếp →</button>`;
+    pagEl.innerHTML = pagHtml;
+    const prevBtn = document.getElementById('wl-folder-page-prev-btn');
+    if (prevBtn) prevBtn.addEventListener('click', () => { wlFolderPage--; renderFolderDetail(); });
+    const nextBtn = document.getElementById('wl-folder-page-next-btn');
+    if (nextBtn) nextBtn.addEventListener('click', () => { wlFolderPage++; renderFolderDetail(); });
+  } else if (pagEl) {
+    pagEl.innerHTML = '';
   }
 }
 

@@ -81,7 +81,10 @@ function wireStaticEvents() {
   on('wl-reclassify-btn', 'click', () => { confirmReclassifyUnclearWords(); closeWlMoreMenu(); });
   on('wl-delete-all-btn', 'click', () => { confirmDeleteAll(); closeWlMoreMenu(); });
   on('wl-folder-back-btn', 'click', openFolderGrid);
-  on('wl-folder-sort', 'change', renderFolderDetail);
+  // renderFolderDetail(resetPage=false) — không truyền tham chiếu hàm trực tiếp vì
+  // addEventListener tự truyền Event làm đối số đầu (sẽ bị hiểu nhầm là resetPage=true
+  // một cách ngẫu nhiên); đổi sort cũng nên về trang 1 nên gọi tường minh resetPage=true.
+  on('wl-folder-sort', 'change', () => { wlFolderPage = 1; renderFolderDetail(true); });
   on('wl-trash-empty-btn', 'click', confirmEmptyTrash);
 
   on('sync-pick-folder-btn', 'click', pickSyncFolder);
