@@ -143,7 +143,8 @@ function wlRowHtml(w) {
   const pos = typeAbbr(w.type);
   return `<tr class="${w.suspended ? 'wl-row-suspended' : ''}">
     <td>
-      <div class="wl-word">${escHtml(w.word)}${pos ? ` <span class="wl-pos">${escHtml(pos)}</span>` : ''}</div>
+      <div class="wl-word">${escHtml(w.word)}</div>
+      ${pos ? `<span class="wl-pos">${escHtml(pos)}</span>` : ''}
       <div class="wl-phon">${escHtml(w.phonetic || '')}</div>
       ${wlShowDate ? `<div class="wl-added">🕒 ${w.addedAt ? escHtml(formatAddedAt(w.addedAt)) : 'Không rõ (từ cũ)'}</div>` : ''}
     </td>

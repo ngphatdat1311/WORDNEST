@@ -585,8 +585,13 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 }
 .wl-table tr:last-child td { border-bottom: none; }
 .wl-table tr:hover td { background: var(--bg2); }
-.wl-word { font-family: 'Lora', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', serif; font-size: 1rem; color: var(--text); font-weight: 500; overflow-wrap: anywhere; text-wrap: balance; }
-.wl-pos { display: inline-block; font-family: 'Inter', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; font-style: italic; font-weight: 400; font-size: 0.68rem; color: var(--text3); background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 0px 5px; vertical-align: middle; }
+.wl-word { font-family: 'Lora', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', serif; font-size: 1rem; color: var(--text); font-weight: 500; overflow-wrap: anywhere; }
+/* .wl-pos giờ là sibling của .wl-word (không còn nằm chung dòng chữ trong cùng 1
+   div) — cố ý, để nó luôn tự xuống dòng riêng bên dưới thay vì đôi khi bị cuốn
+   theo chỗ ngắt dòng của từ/cụm từ dài (kéo cả từ cuối cụm hoặc chính nó xuống
+   dòng lẻ loi trông như lỗi). display: inline-block để chỉ chiếm đúng bề rộng
+   nội dung (giống 1 "chip" nhỏ), không phải để nằm cạnh chữ như trước. */
+.wl-pos { display: inline-block; margin-top: 3px; font-family: 'Inter', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; font-style: italic; font-weight: 400; font-size: 0.68rem; color: var(--text3); background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 0px 5px; }
 .wl-phon { font-size: 0.78rem; color: var(--text3); font-style: italic; overflow-wrap: anywhere; }
 .wl-meaning { color: var(--text2); overflow-wrap: anywhere; text-wrap: balance; }
 .wl-example { font-style: italic; color: var(--text3); font-size: 0.82rem; margin-top: 2px; overflow-wrap: anywhere; }
