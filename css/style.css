@@ -680,6 +680,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .folder-card:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-2px); }
 .folder-card-body { cursor: pointer; text-align: center; padding: 1.4rem 0.8rem 1rem; }
 .folder-card-icon { font-size: 2.2rem; margin-bottom: 8px; }
+.folder-card-icon svg { width: 1em; height: 1em; vertical-align: middle; }
 .folder-card-name { font-family: 'Lora', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', serif; font-size: 0.95rem; color: var(--text); font-weight: 500; overflow-wrap: anywhere; margin-bottom: 4px; }
 .folder-card-count { font-size: 0.76rem; color: var(--text3); }
 .folder-card-del, .folder-card-rename {

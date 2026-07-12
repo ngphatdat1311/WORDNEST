@@ -55,6 +55,15 @@ function refreshWlView() {
 // ════════════════════════════════════════════════════════
 function openFolderGrid() { wlActiveFolder = null; renderFolderGrid(); }
 
+// Icon thư mục vẽ tay bằng SVG (thay emoji 📁/📂) — màu xanh dương cố định, giống
+// hệt nhau trên mọi nền tảng/hệ điều hành. Emoji màu là glyph "khắc chết" màu sắc
+// ngay trong font hệ thống (macOS/Windows/Linux mỗi nơi một màu khác nhau, CSS
+// không recolor được), nên chỉ cách này mới đảm bảo đúng 1 màu xanh mong muốn ở
+// mọi nơi. Dùng var(--blue) cho phần thân (tự đổi sắc độ theo theme sáng/tối có
+// sẵn), phần "nắp" phía sau tô cố định 1 xanh đậm hơn để tạo chiều sâu — không
+// cần theo theme vì chỉ là chi tiết bóng nhỏ, không phải màu chủ đạo.
+const FOLDER_ICON_SVG = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M3 5.5C3 4.67 3.67 4 4.5 4H9.17C9.57 4 9.95 4.16 10.23 4.44L11.79 6H19.5C20.33 6 21 6.67 21 7.5V9H3V5.5Z" fill="#39587D"/><path d="M2 8.5C2 7.67 2.67 7 3.5 7H20.5C21.33 7 22 7.67 22 8.5V18C22 18.83 21.33 19.5 20.5 19.5H3.5C2.67 19.5 2 18.83 2 18V8.5Z" fill="var(--blue)"/></svg>';
+
 function renderFolderGrid() {
   const gridEl = document.getElementById('wl-folder-grid');
   const detailEl = document.getElementById('wl-folder-detail');
@@ -78,7 +87,7 @@ function renderFolderGrid() {
       <button class="folder-card-del" data-action="delete" data-id="${escAttr(f.id)}" title="Xóa thư mục" aria-label="Xóa thư mục ${escAttr(f.name)}">✕</button>
       <button class="folder-card-rename" data-action="rename" data-id="${escAttr(f.id)}" title="Đổi tên" aria-label="Đổi tên thư mục ${escAttr(f.name)}">✏️</button>
       <div class="folder-card-body" data-action="open" data-id="${escAttr(f.id)}">
-        <div class="folder-card-icon">📁</div>
+        <div class="folder-card-icon">${FOLDER_ICON_SVG}</div>
         <div class="folder-card-name">${escHtml(f.name)}</div>
         <div class="folder-card-count">${count} từ</div>
       </div>
@@ -88,7 +97,7 @@ function renderFolderGrid() {
   gridEl.innerHTML = `
     <div class="folder-card folder-card-unfiled">
       <div class="folder-card-body" data-action="open-unfiled">
-        <div class="folder-card-icon">📂</div>
+        <div class="folder-card-icon">${FOLDER_ICON_SVG}</div>
         <div class="folder-card-name">Chưa phân loại</div>
         <div class="folder-card-count">${unfiledCount} từ</div>
       </div>
