@@ -1,5 +1,14 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Mọi khai báo font-family trong file này đều thêm 'Apple Color Emoji'/'Segoe UI
+   Emoji'/'Noto Color Emoji' sau font chữ chính (Inter/Lora, self-hosted, không có
+   glyph emoji). UI dùng emoji (📁🔥✅...) trộn lẫn với chữ khắp nơi, không tách
+   riêng — nếu chỉ để 'sans-serif'/'serif' làm fallback, Electron trên macOS có
+   thể chọn nhầm 1 font hệ thống đơn sắc cho các ký tự emoji thay vì font emoji
+   màu thật, khiến icon hiện xám/đen thay vì đúng màu gốc (bug đã gặp thực tế,
+   không xảy ra trên Windows nên dễ lọt qua nếu chỉ test 1 nền tảng). Đừng xóa
+   phần fallback này dù trông "thừa". */
+
 /* ══ LIGHT THEME ══ */
 :root, [data-theme="light"] {
   --bg:       #F5F0E8;
@@ -80,7 +89,7 @@
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -104,13 +113,13 @@ header {
 .logo { display: flex; align-items: center; gap: 10px; }
 .logo-icon { width: 34px; height: 34px; flex-shrink: 0; border-radius: 9px; box-shadow: 0 1px 3px rgba(90,70,40,.25); }
 .logo-text {
-  font-family: 'Lora', serif;
+  font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   font-size: 1.4rem;
   font-weight: 600;
   color: var(--accent);
   letter-spacing: -.5px;
 }
-.logo-text span { color: var(--text3); font-weight: 400; font-size: 0.85rem; margin-left: 6px; font-family: 'Inter', sans-serif; }
+.logo-text span { color: var(--text3); font-weight: 400; font-size: 0.85rem; margin-left: 6px; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; }
 .streak-badge {
   display: flex; align-items: center; gap: 6px;
   background: var(--bg2); border: 1px solid var(--border);
@@ -176,7 +185,7 @@ nav::-webkit-scrollbar { display: none; }
 nav button {
   background: none; border: none; cursor: pointer;
   padding: 14px 18px;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--text2);
@@ -207,7 +216,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 }
 
 .section-title {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   font-size: 1.5rem;
   color: var(--text);
   margin-bottom: 0.4rem;
@@ -240,7 +249,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   transition: background .25s, border-color .25s;
 }
 .home-stat .label { font-size: 0.78rem; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
-.home-stat .val { font-size: 1.9rem; font-weight: 600; color: var(--accent); font-family: 'Lora', serif; }
+.home-stat .val { font-size: 1.9rem; font-weight: 600; color: var(--accent); font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; }
 .home-stat .sub { font-size: 0.78rem; color: var(--text3); margin-top: 2px; }
 .home-actions {
   display: grid;
@@ -254,7 +263,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   padding: 1.3rem 1.2rem;
   cursor: pointer;
   text-align: left;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   transition: box-shadow .2s, transform .15s, border-color .2s, background .25s;
   box-shadow: var(--shadow);
 }
@@ -264,7 +273,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .action-btn .ab-title { font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 3px; }
 .action-btn .ab-desc { font-size: 0.78rem; color: var(--text3); }
 .recent-words { margin-top: 2rem; }
-.recent-words h3 { font-family: 'Inter', sans-serif; font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 1rem; }
+.recent-words h3 { font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 1rem; }
 .word-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .word-chip {
   background: var(--bg2); border: 1px solid var(--border);
@@ -282,7 +291,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .fc-controls select {
   background: var(--card); border: 1px solid var(--border);
   border-radius: 8px; padding: 7px 12px;
-  font-family: 'Inter', sans-serif; font-size: 0.85rem; color: var(--text);
+  font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 0.85rem; color: var(--text);
   cursor: pointer; outline: none;
   transition: background .25s, border-color .2s, color .25s;
 }
@@ -301,7 +310,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .qz-field select {
   background: var(--card); border: 1px solid var(--border);
   border-radius: 8px; padding: 7px 12px; min-width: 150px;
-  font-family: 'Inter', sans-serif; font-size: 0.85rem; color: var(--text);
+  font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 0.85rem; color: var(--text);
   cursor: pointer; outline: none;
   transition: background .25s, border-color .2s, color .25s;
 }
@@ -312,7 +321,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   background: var(--accent); color: #fff;
   border: none; border-radius: 8px;
   padding: 8px 18px; font-size: 0.85rem; font-weight: 500;
-  cursor: pointer; font-family: 'Inter', sans-serif;
+  cursor: pointer; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   transition: background .2s, transform .1s, opacity .2s;
 }
 .btn:hover { background: var(--accent2); }
@@ -368,7 +377,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .fc-back { transform: rotateY(180deg); }
 .fc-face .hint { font-size: 0.75rem; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem; }
 .fc-face .word {
-  font-family: 'Lora', serif;
+  font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   font-size: 2.6rem;
   font-weight: 600;
   color: var(--text);
@@ -379,7 +388,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .fc-face .phonetic { font-size: 1rem; color: var(--text3); margin-bottom: 0.8rem; font-style: italic; }
 .fc-face .meaning {
   font-size: 1.1rem; color: var(--text2);
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   text-align: center; line-height: 1.6;
   margin-bottom: 1rem;
   overflow-wrap: anywhere;
@@ -421,7 +430,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .know-btn {
   flex: 1; max-width: 160px;
   padding: 10px; border-radius: 10px; font-size: 0.88rem; font-weight: 500;
-  cursor: pointer; font-family: 'Inter', sans-serif; border: 1.5px solid;
+  cursor: pointer; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; border: 1.5px solid;
   transition: background .15s, transform .1s;
 }
 .know-btn:active { transform: scale(.97); }
@@ -433,7 +442,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 /* ── QUIZ ── */
 .quiz-question-num { font-size: 0.82rem; color: var(--text3); margin-bottom: 0.5rem; }
 .quiz-q {
-  font-family: 'Lora', serif;
+  font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   font-size: 1.6rem; font-weight: 500;
   color: var(--text); margin-bottom: 0.5rem;
   overflow-wrap: anywhere;
@@ -446,7 +455,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   cursor: pointer; font-size: 0.92rem; color: var(--text2);
   transition: border-color .15s, background .15s, color .15s;
   display: flex; align-items: flex-start; gap: 12px;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   overflow-wrap: anywhere;
 }
 /* Neo vòng tròn A/B/C/D theo đỉnh, không center theo cả khối — tránh lệch
@@ -477,15 +486,15 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 
 .quiz-result { text-align: center; padding: 2.5rem; }
 .quiz-result .big-score {
-  font-family: 'Lora', serif;
+  font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   font-size: 3.5rem; font-weight: 600; color: var(--accent);
 }
 .quiz-result .score-label { color: var(--text3); font-size: 0.9rem; margin-bottom: 1.5rem; }
-.quiz-result .result-msg { font-size: 1.05rem; color: var(--text2); margin-bottom: 2rem; font-family: 'Inter', sans-serif; }
+.quiz-result .result-msg { font-size: 1.05rem; color: var(--text2); margin-bottom: 2rem; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; }
 
 /* ── SPELLING ── */
 .spell-word-display { text-align: center; margin-bottom: 2rem; }
-.spell-word-display .sp-meaning { font-size: 1.2rem; color: var(--text2); margin-bottom: 0.4rem; font-family: 'Inter', sans-serif; overflow-wrap: anywhere; }
+.spell-word-display .sp-meaning { font-size: 1.2rem; color: var(--text2); margin-bottom: 0.4rem; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; overflow-wrap: anywhere; }
 .spell-word-display .sp-phonetic { font-size: 0.9rem; color: var(--text3); margin-bottom: 1.2rem; font-style: italic; }
 .spell-word-display .sp-example { font-size: 0.85rem; color: var(--text3); font-style: italic; }
 .spell-blanks {
@@ -496,7 +505,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   width: 40px; height: 52px;
   border-bottom: 2.5px solid var(--border2);
   display: flex; align-items: flex-end; justify-content: center;
-  font-family: 'Lora', serif; font-size: 1.5rem;
+  font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 1.5rem;
   color: var(--accent); padding-bottom: 4px;
   transition: border-color .2s;
 }
@@ -508,7 +517,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .spell-input {
   border: 1.5px solid var(--border);
   border-radius: 10px; padding: 12px 18px;
-  font-size: 1.05rem; font-family: 'Inter', sans-serif;
+  font-size: 1.05rem; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   background: var(--card); color: var(--text);
   outline: none; width: 100%; text-align: center;
   transition: border-color .2s, background .25s, color .25s;
@@ -530,7 +539,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .wl-search {
   flex: 1; border: 1.5px solid var(--border);
   border-radius: 10px; padding: 10px 16px;
-  font-size: 0.9rem; font-family: 'Inter', sans-serif;
+  font-size: 0.9rem; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   background: var(--card); color: var(--text); outline: none;
   transition: border-color .2s, background .25s, color .25s;
 }
@@ -541,7 +550,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   border-radius: 999px; padding: 5px 14px;
   font-size: 0.8rem; color: var(--text2);
   cursor: pointer; transition: background .15s, border-color .15s, color .15s;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   white-space: nowrap; flex-shrink: 0;
 }
 .wl-filter-btn:hover, .wl-filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -569,8 +578,8 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 }
 .wl-table tr:last-child td { border-bottom: none; }
 .wl-table tr:hover td { background: var(--bg2); }
-.wl-word { font-family: 'Lora', serif; font-size: 1rem; color: var(--text); font-weight: 500; overflow-wrap: anywhere; text-wrap: balance; }
-.wl-pos { display: inline-block; font-family: 'Inter', sans-serif; font-style: italic; font-weight: 400; font-size: 0.68rem; color: var(--text3); background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 0px 5px; vertical-align: middle; }
+.wl-word { font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 1rem; color: var(--text); font-weight: 500; overflow-wrap: anywhere; text-wrap: balance; }
+.wl-pos { display: inline-block; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-style: italic; font-weight: 400; font-size: 0.68rem; color: var(--text3); background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 0px 5px; vertical-align: middle; }
 .wl-phon { font-size: 0.78rem; color: var(--text3); font-style: italic; overflow-wrap: anywhere; }
 .wl-meaning { color: var(--text2); overflow-wrap: anywhere; text-wrap: balance; }
 .wl-example { font-style: italic; color: var(--text3); font-size: 0.82rem; margin-top: 2px; overflow-wrap: anywhere; }
@@ -605,7 +614,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .wl-toolbar-sort select {
   background: var(--card); border: 1px solid var(--border);
   border-radius: 8px; padding: 6px 10px;
-  font-family: 'Inter', sans-serif; font-size: 0.82rem; color: var(--text);
+  font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 0.82rem; color: var(--text);
   cursor: pointer; outline: none;
 }
 .wl-toolbar-spacer { flex: 1; }
@@ -631,7 +640,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   display: flex; align-items: center; gap: 8px; width: 100%;
   padding: 8px 10px; border-radius: 6px; background: none; border: none;
   font-size: 0.85rem; color: var(--text2); text-align: left;
-  cursor: pointer; font-family: 'Inter', sans-serif; transition: background .15s;
+  cursor: pointer; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; transition: background .15s;
 }
 .wl-more-menu button:hover, .wl-more-menu label:hover { background: var(--bg2); }
 .wl-more-menu button.danger { color: var(--red); }
@@ -644,7 +653,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .wl-tab {
   background: none; border: none; cursor: pointer;
   padding: 9px 18px; font-size: 0.88rem; font-weight: 500;
-  color: var(--text3); font-family: 'Inter', sans-serif;
+  color: var(--text3); font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   border-bottom: 2.5px solid transparent; transition: color .15s, border-color .15s;
 }
 .wl-tab:hover { color: var(--text); }
@@ -659,7 +668,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .folder-card:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-2px); }
 .folder-card-body { cursor: pointer; text-align: center; padding: 1.4rem 0.8rem 1rem; }
 .folder-card-icon { font-size: 2.2rem; margin-bottom: 8px; }
-.folder-card-name { font-family: 'Lora', serif; font-size: 0.95rem; color: var(--text); font-weight: 500; overflow-wrap: anywhere; margin-bottom: 4px; }
+.folder-card-name { font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 0.95rem; color: var(--text); font-weight: 500; overflow-wrap: anywhere; margin-bottom: 4px; }
 .folder-card-count { font-size: 0.76rem; color: var(--text3); }
 .folder-card-del, .folder-card-rename {
   position: absolute; top: 6px; background: var(--bg2); border: 1px solid var(--border);
@@ -680,7 +689,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .folder-card-unfiled .folder-card-icon { opacity: .8; }
 
 .folder-detail-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 1.4rem; }
-.folder-detail-name { font-family: 'Lora', serif; font-size: 1.1rem; color: var(--text); flex: 1; overflow-wrap: anywhere; }
+.folder-detail-name { font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 1.1rem; color: var(--text); flex: 1; overflow-wrap: anywhere; }
 .folder-detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ── FOLDER PICK / BULK MODALS ── */
@@ -689,7 +698,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .folder-pick-item {
   background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
   padding: 9px 12px; font-size: 0.85rem; color: var(--text2); text-align: left;
-  cursor: pointer; font-family: 'Inter', sans-serif; transition: background .15s, border-color .15s;
+  cursor: pointer; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; transition: background .15s, border-color .15s;
 }
 .folder-pick-item:hover { border-color: var(--accent); }
 .folder-pick-item.active { color: var(--accent); border-color: var(--accent); font-weight: 600; }
@@ -703,7 +712,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .folder-bulk-row:last-child { border-bottom: none; }
 .folder-bulk-row:hover { background: var(--bg2); }
 .folder-bulk-row .fb-check { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
-.folder-bulk-row .fb-word { font-family: 'Lora', serif; color: var(--text); font-weight: 500; flex-shrink: 0; }
+.folder-bulk-row .fb-word { font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; color: var(--text); font-weight: 500; flex-shrink: 0; }
 .folder-bulk-row .fb-meaning { color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .folder-bulk-row .fb-other-folder { font-size: 0.74rem; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
 
@@ -715,7 +724,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 }
 .trash-icon { font-size: 1.5rem; flex-shrink: 0; }
 .trash-info { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.trash-name { font-family: 'Lora', serif; font-size: 0.98rem; color: var(--text); font-weight: 500; }
+.trash-name { font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 0.98rem; color: var(--text); font-weight: 500; }
 .trash-sub { font-size: 0.8rem; color: var(--text3); margin-top: 2px; }
 .trash-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
 
@@ -736,7 +745,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 }
 @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 .edit-box .eb-title {
-  font-family: 'Lora',serif; font-size: 1.15rem;
+  font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 1.15rem;
   color: var(--text); margin-bottom: 1.4rem;
   display: flex; align-items: center; justify-content: space-between;
 }
@@ -759,15 +768,15 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   text-align: center; animation: slideUp .25s ease;
 }
 .confirm-box .cb-icon { font-size: 2rem; margin-bottom: .6rem; }
-.confirm-box .cb-title { font-family: 'Lora',serif; font-size: 1.1rem; color: var(--text); margin-bottom: .4rem; }
-.confirm-box .cb-word { font-size: 1.3rem; font-weight: 600; color: var(--accent); font-family: 'Lora',serif; margin-bottom: .8rem; }
+.confirm-box .cb-title { font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 1.1rem; color: var(--text); margin-bottom: .4rem; }
+.confirm-box .cb-word { font-size: 1.3rem; font-weight: 600; color: var(--accent); font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; margin-bottom: .8rem; }
 .confirm-box .cb-sub { font-size: .82rem; color: var(--text3); margin-bottom: 1.4rem; }
 .reclassify-progress { margin: 0 0 1.4rem; }
 .reclassify-progress .prog-bar { height: 8px; background: var(--bg3); border-radius: 999px; overflow: hidden; }
 .reclassify-progress .prog-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
 .reclassify-progress .prog-text { font-size: .78rem; color: var(--text3); margin-top: 8px; text-align: center; }
 .confirm-box .cb-btns { display: flex; gap: 10px; }
-.confirm-box .cb-btns button { flex: 1; padding: 10px; border-radius: 8px; font-size: .88rem; font-weight: 500; cursor: pointer; font-family: 'Inter',sans-serif; }
+.confirm-box .cb-btns button { flex: 1; padding: 10px; border-radius: 8px; font-size: .88rem; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; }
 .cb-cancel { background: var(--bg2); border: 1px solid var(--border); color: var(--text2); transition: background .2s; }
 .cb-cancel:hover { background: var(--bg3); }
 .cb-confirm { background: var(--red); border: 1px solid var(--red); color: #fff; transition: opacity .2s; }
@@ -781,10 +790,10 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   box-shadow: var(--shadow); transition: background .25s;
 }
 .prog-card .pc-icon { font-size: 1.4rem; margin-bottom: 6px; }
-.prog-card .pc-val { font-size: 1.8rem; font-weight: 600; color: var(--accent); font-family: 'Lora', serif; }
+.prog-card .pc-val { font-size: 1.8rem; font-weight: 600; color: var(--accent); font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; }
 .prog-card .pc-label { font-size: 0.78rem; color: var(--text3); }
 .prog-section { margin-bottom: 2rem; }
-.prog-section h3 { font-family: 'Inter', sans-serif; font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 1rem; }
+.prog-section h3 { font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: 1rem; }
 .activity-heatmap {
   display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 14px);
   gap: 3px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 0.5rem;
@@ -814,8 +823,8 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
   padding: 10px 0; border-bottom: 1px solid var(--border);
 }
 .diff-word-row:last-child { border-bottom: none; }
-.diff-word-name { font-weight: 600; color: var(--text); font-family: 'Lora', serif; font-size: 0.95rem; }
-.diff-phonetic { font-size: 0.78rem; color: var(--text3); font-family: 'Inter', sans-serif; font-weight: 400; margin-left: 4px; }
+.diff-word-name { font-weight: 600; color: var(--text); font-family: 'Lora', serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-size: 0.95rem; }
+.diff-phonetic { font-size: 0.78rem; color: var(--text3); font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'; font-weight: 400; margin-left: 4px; }
 .diff-word-meaning { font-size: 0.82rem; color: var(--text2); margin-top: 2px; }
 .diff-word-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
 .diff-seen { font-size: 0.75rem; color: var(--text3); }
@@ -832,7 +841,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .form-input {
   width: 100%; border: 1.5px solid var(--border);
   border-radius: 8px; padding: 10px 14px;
-  font-size: 0.9rem; font-family: 'Inter', sans-serif;
+  font-size: 0.9rem; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   background: var(--card); color: var(--text); outline: none;
   transition: border-color .2s, background .25s, color .25s;
 }
@@ -840,7 +849,7 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .form-select {
   width: 100%; border: 1.5px solid var(--border);
   border-radius: 8px; padding: 10px 14px;
-  font-size: 0.9rem; font-family: 'Inter', sans-serif;
+  font-size: 0.9rem; font-family: 'Inter', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
   background: var(--card); color: var(--text); outline: none; cursor: pointer;
   transition: border-color .2s, background .25s, color .25s;
 }
