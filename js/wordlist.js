@@ -64,6 +64,7 @@ function renderWordList(resetPage = false) {
   if (resetPage) wlPage = 1;
   const search = (document.getElementById('wl-search').value || '').toLowerCase();
   const sortVal = (document.getElementById('wl-sort') || {}).value || 'default';
+  const typeVal = (document.getElementById('wl-type-filter') || {}).value || 'all';
   const cats = [...new Set(words.map(w => w.category || 'Khác'))].sort();
   const filtersEl = document.getElementById('wl-filters');
   filtersEl.innerHTML = ['all', ...cats].map(c =>
@@ -79,7 +80,10 @@ function renderWordList(resetPage = false) {
   let list = words.filter(w => {
     const matchSearch = !search || w.word.toLowerCase().includes(search) || w.meaning.toLowerCase().includes(search);
     const matchCat = wlFilter === 'all' || (w.category || 'Khác') === wlFilter;
-    return matchSearch && matchCat;
+    // 'other' đóng vai "chưa phân loại" — nhất quán với tool "Phân loại lại từ chưa
+    // rõ loại" (word-crud.js), vốn đã coi type === 'other' là chưa xác định được loại từ.
+    const matchType = typeVal === 'all' || (w.type || 'other') === typeVal;
+    return matchSearch && matchCat && matchType;
   });
   if (wlShowMasteredOnly) list = list.filter(w => w.suspended);
 

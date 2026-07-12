@@ -71,6 +71,7 @@ function wireStaticEvents() {
   on('wl-search', 'input', debouncedRenderWordList);
   on('wl-add-word-btn', 'click', () => showSection('add'));
   on('wl-sort', 'change', () => { wlPage = 1; renderWordList(true); });
+  on('wl-type-filter', 'change', () => { wlPage = 1; renderWordList(true); });
   on('wl-showdate-btn', 'click', toggleWlShowDate);
   document.querySelectorAll('.wl-mastered-only-btn').forEach(el => el.addEventListener('click', toggleWlMasteredOnly));
   on('wl-more-btn', 'click', toggleWlMoreMenu); // toggleWlMoreMenu(e) tự dùng e.stopPropagation()
