@@ -6,6 +6,31 @@ function genTrashId() {
   return 't_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
+// ════════════════════════════════════════════════════════
+// TỰ DỌN THÙNG RÁC — entry quá hạn (mặc định 30 ngày, giống TTL của
+// lookup-cache.js) coi như user đã chắc chắn không cần khôi phục nữa, xóa
+// vĩnh viễn để tránh file dữ liệu phình to vô thời hạn với user dùng lâu năm.
+// ════════════════════════════════════════════════════════
+const TRASH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Hàm thuần (không đụng biến toàn cục/DOM) để unit test độc lập việc phán đoán
+// hạn — entry thiếu/hỏng deletedAt bị coi như đã rất cũ (expired), nhất quán với
+// trashEntryHtml() vốn đã coi entry hỏng dạng đó là chỉ có thể xóa, không khôi phục được.
+function isTrashEntryExpired(entry, now, ttlMs = TRASH_TTL_MS) {
+  return (entry.deletedAt || 0) < now - ttlMs;
+}
+
+// Gọi 1 lần khi mở app (xem app.js) — không cần chạy lại trong phiên vì deletedAt
+// không đổi giữa các lần render.
+function purgeExpiredTrash() {
+  const now = Date.now();
+  const kept = trash.filter(t => !isTrashEntryExpired(t, now));
+  if (kept.length === trash.length) return;
+  const purgedCount = trash.length - kept.length;
+  trash = kept;
+  if (saveTrash()) showToast(`🗑️ Đã tự dọn ${purgedCount} mục cũ (quá 30 ngày) trong Thùng rác`);
+}
+
 function renderTrash() {
   const el = document.getElementById('wl-trash-list');
   const emptyBtn = document.getElementById('wl-trash-empty-btn');
