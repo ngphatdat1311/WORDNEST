@@ -351,6 +351,27 @@ async function fetchWordType(word, signal) {
   }
 }
 
+// Tra 1 từ, tự thử lại (nghỉ tăng dần) nếu bị giới hạn tốc độ — dictionaryapi.dev
+// giới hạn khá thấp, giới hạn ngắn hạn nên chờ 1 chút rồi thử lại thường qua được.
+async function fetchWordTypeWithRetry(word) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const result = await fetchWordType(word, controller.signal);
+    clearTimeout(timer);
+    if (result !== 'rate-limited') return result;
+    if (attempt < 2) await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); // 2s rồi 4s
+  }
+  return 'rate-limited';
+}
+
+function formatDuration(ms) {
+  const totalSec = Math.max(0, Math.round(ms / 1000));
+  if (totalSec < 60) return `${totalSec} giây`;
+  const min = Math.floor(totalSec / 60), sec = totalSec % 60;
+  return sec ? `${min} phút ${sec} giây` : `${min} phút`;
+}
+
 function confirmReclassifyUnclearWords() {
   const targets = words.filter(w => w.type === 'other');
   if (!targets.length) { showToast('Không có từ nào chưa rõ loại từ!'); return; }
@@ -366,55 +387,103 @@ function confirmReclassifyUnclearWords() {
     <div class="confirm-box">
       <div class="cb-icon">🔍</div>
       <div class="cb-title" id="cb-dialog-title">Phân loại lại từ chưa rõ?</div>
-      <div class="cb-sub">Tìm thấy <strong>${targets.length}</strong> từ chưa rõ loại từ. App sẽ tự tra từ điển để xác định đúng danh từ/động từ/tính từ/trạng từ — chỉ sửa loại từ, không đổi nghĩa/phiên âm/ví dụ bạn đã nhập. Tra chậm rãi từng từ (đỡ bị nguồn tra từ giới hạn tốc độ), có thể mất khoảng ${Math.ceil(targets.length * 0.7 / 60) || 1} phút với ${targets.length} từ. Nếu có từ bị giới hạn tốc độ giữa chừng, bấm lại nút này sau vài phút để tra nốt.</div>
+      <div class="cb-sub" id="reclassify-msg">Tìm thấy <strong>${targets.length}</strong> từ chưa rõ loại từ. App sẽ tự tra từ điển để xác định đúng danh từ/động từ/tính từ/trạng từ — chỉ sửa loại từ, không đổi nghĩa/phiên âm/ví dụ bạn đã nhập. Tra chậm rãi từng từ (đỡ bị nguồn tra từ giới hạn tốc độ), dự kiến khoảng ${formatDuration(targets.length * 700)}.</div>
+      <div class="reclassify-progress" id="reclassify-progress" style="display:none;">
+        <div class="prog-bar"><div class="prog-fill" id="reclassify-prog-fill" style="width:0%"></div></div>
+        <div class="prog-text" id="reclassify-prog-text">0 / ${targets.length} từ</div>
+      </div>
       <div class="cb-btns">
         <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
         <button class="cb-confirm" id="cb-confirm-btn">Bắt đầu</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  document.getElementById('cb-confirm-btn').addEventListener('click', () => { closeConfirm(); reclassifyUnclearWords(targets); });
+  document.getElementById('cb-confirm-btn').addEventListener('click', () => startReclassifyProgress(targets));
   document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
 }
 
-// Tra 1 từ, tự thử lại (nghỉ tăng dần) nếu bị giới hạn tốc độ — dictionaryapi.dev
-// giới hạn khá thấp, giới hạn ngắn hạn nên chờ 1 chút rồi thử lại thường qua được.
-async function fetchWordTypeWithRetry(word) {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const result = await fetchWordType(word, controller.signal);
-    clearTimeout(timer);
-    if (result !== 'rate-limited') return result;
-    if (attempt < 2) await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); // 2s rồi 4s
-  }
-  return 'rate-limited';
+let reclassifyCancelRequested = false;
+
+// Chuyển hộp thoại xác nhận sang chế độ hiện THANH TIẾN ĐỘ ngay trong hộp thoại
+// đó — thay vì bắn hàng loạt toast (mỗi toast tự ẩn sau ~2.6s rồi toast mới lại
+// hiện, tạo cảm giác nhấp nháy khó chịu khi cập nhật liên tục trong quá trình
+// chạy dài cả phút).
+function startReclassifyProgress(targets) {
+  reclassifyCancelRequested = false;
+  const msgEl = document.getElementById('reclassify-msg');
+  const progressEl = document.getElementById('reclassify-progress');
+  const btnsEl = document.querySelector('#delete-overlay .cb-btns');
+  if (msgEl) msgEl.textContent = 'Đang tra từ điển, xin đợi chút...';
+  if (progressEl) progressEl.style.display = '';
+  if (btnsEl) btnsEl.innerHTML = '<button class="cb-cancel" id="reclassify-stop-btn">⏹ Dừng lại</button>';
+  const stopBtn = document.getElementById('reclassify-stop-btn');
+  if (stopBtn) stopBtn.addEventListener('click', () => {
+    reclassifyCancelRequested = true;
+    stopBtn.disabled = true;
+    stopBtn.textContent = 'Đang dừng...';
+  });
+  runReclassifyLoop(targets);
 }
 
-async function reclassifyUnclearWords(targets) {
+async function runReclassifyLoop(targets) {
   const total = targets.length;
-  showToast(`⏳ Đang tra ${total} từ, đợi chút nhé...`);
-  let fixed = 0, notFound = 0, rateLimited = 0;
+  const startedAt = performance.now();
+  let fixed = 0, notFound = 0, rateLimited = 0, processed = 0;
+
   // Tra TUẦN TỰ (không song song) + nghỉ giữa mỗi từ — dictionaryapi.dev giới
   // hạn tốc độ khá thấp, tra dồn dập (kể cả chỉ 2 luồng song song) với batch lớn
   // (100+ từ) vẫn dễ chạm trần ngay từ đầu. Chậm hơn nhưng tra được nhiều hơn hẳn.
   for (let i = 0; i < targets.length; i++) {
+    if (reclassifyCancelRequested) break;
     const target = targets[i];
     const result = await fetchWordTypeWithRetry(target.word);
+    if (reclassifyCancelRequested) break; // user bấm Dừng lại trong lúc đang chờ kết quả từ này
     const idx = words.findIndex(x => x.word === target.word);
     if (idx !== -1) {
       if (result === 'rate-limited') rateLimited++;
       else if (result) { words[idx].type = result; fixed++; }
       else notFound++;
     }
-    if ((i + 1) % 10 === 0 && i + 1 < total) showToast(`⏳ Đã tra ${i + 1}/${total} từ...`);
+    processed++;
+
+    const fillEl = document.getElementById('reclassify-prog-fill');
+    const textEl = document.getElementById('reclassify-prog-text');
+    if (fillEl) fillEl.style.width = Math.round((processed / total) * 100) + '%';
+    if (textEl) {
+      const elapsedMs = performance.now() - startedAt;
+      const remainingMs = (elapsedMs / processed) * (total - processed);
+      textEl.textContent = processed < total
+        ? `${processed} / ${total} từ — còn khoảng ${formatDuration(remainingMs)}`
+        : `${processed} / ${total} từ`;
+    }
+
     if (i < targets.length - 1) await new Promise(r => setTimeout(r, 400));
   }
+
   if (fixed) saveWords();
   refreshWlView();
+  showReclassifyResult({ fixed, notFound, rateLimited, total, processed, cancelled: reclassifyCancelRequested });
+}
+
+// Hiện kết quả cuối NGAY TRONG hộp thoại (thay thanh tiến độ) — nếu user đã tự
+// đóng hộp thoại giữa chừng thì bỏ qua phần UI (việc tra vẫn chạy ngầm và lưu
+// bình thường, chỉ là không còn gì để cập nhật lên màn hình nữa).
+function showReclassifyResult({ fixed, notFound, rateLimited, total, processed, cancelled }) {
+  const overlay = document.getElementById('delete-overlay');
+  if (!overlay) return;
+  const msgEl = document.getElementById('reclassify-msg');
+  const progressEl = document.getElementById('reclassify-progress');
+  const btnsEl = overlay.querySelector('.cb-btns');
+  const titleEl = document.getElementById('cb-dialog-title');
+  if (titleEl) titleEl.textContent = cancelled ? 'Đã dừng lại' : 'Hoàn tất!';
+  if (progressEl) progressEl.style.display = 'none';
   const extras = [];
   if (notFound) extras.push(`${notFound} từ điển không tìm thấy`);
-  if (rateLimited) extras.push(`${rateLimited} bị giới hạn tốc độ tra cứu — thử lại sau vài phút`);
-  showToast(`✅ Đã phân loại lại ${fixed}/${targets.length} từ${extras.length ? ` (${extras.join(', ')})` : ''}!`, 'success');
+  if (rateLimited) extras.push(`${rateLimited} bị giới hạn tốc độ — thử lại sau vài phút`);
+  if (cancelled && processed < total) extras.push(`${total - processed} từ chưa kịp tra`);
+  if (msgEl) msgEl.innerHTML = `Đã phân loại lại <strong>${fixed}/${total}</strong> từ.${extras.length ? '<br>' + escHtml(extras.join(', ')) + '.' : ''}`;
+  if (btnsEl) btnsEl.innerHTML = '<button class="cb-confirm" id="reclassify-close-btn">Đóng</button>';
+  const closeBtn = document.getElementById('reclassify-close-btn');
+  if (closeBtn) closeBtn.addEventListener('click', closeConfirm);
 }

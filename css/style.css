@@ -762,6 +762,10 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .confirm-box .cb-title { font-family: 'Lora',serif; font-size: 1.1rem; color: var(--text); margin-bottom: .4rem; }
 .confirm-box .cb-word { font-size: 1.3rem; font-weight: 600; color: var(--accent); font-family: 'Lora',serif; margin-bottom: .8rem; }
 .confirm-box .cb-sub { font-size: .82rem; color: var(--text3); margin-bottom: 1.4rem; }
+.reclassify-progress { margin: 0 0 1.4rem; }
+.reclassify-progress .prog-bar { height: 8px; background: var(--bg3); border-radius: 999px; overflow: hidden; }
+.reclassify-progress .prog-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
+.reclassify-progress .prog-text { font-size: .78rem; color: var(--text3); margin-top: 8px; text-align: center; }
 .confirm-box .cb-btns { display: flex; gap: 10px; }
 .confirm-box .cb-btns button { flex: 1; padding: 10px; border-radius: 8px; font-size: .88rem; font-weight: 500; cursor: pointer; font-family: 'Inter',sans-serif; }
 .cb-cancel { background: var(--bg2); border: 1px solid var(--border); color: var(--text2); transition: background .2s; }
