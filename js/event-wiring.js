@@ -80,6 +80,7 @@ function wireStaticEvents() {
   on('wl-export-anki-btn', 'click', () => { exportAnkiTxt(); closeWlMoreMenu(); });
   on('import-file', 'change', (e) => { importWords(e); closeWlMoreMenu(); });
   on('wl-reclassify-btn', 'click', () => { confirmReclassifyUnclearWords(); closeWlMoreMenu(); });
+  on('wl-auto-phonetic-btn', 'click', () => { confirmAutoPhonetic(); closeWlMoreMenu(); });
   on('wl-delete-all-btn', 'click', () => { confirmDeleteAll(); closeWlMoreMenu(); });
   on('wl-folder-back-btn', 'click', openFolderGrid);
   // renderFolderDetail(resetPage=false) — không truyền tham chiếu hàm trực tiếp vì
@@ -90,6 +91,7 @@ function wireStaticEvents() {
 
   on('sync-pick-folder-btn', 'click', pickSyncFolder);
   on('sync-disable-btn', 'click', disableSync);
+  on('reset-progress-btn', 'click', openResetProgressModal);
 
   on('inbox-clear-btn', 'click', clearExtensionInbox);
 

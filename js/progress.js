@@ -220,3 +220,104 @@ function renderActivityHeatmap() {
   grid.innerHTML = '';
   grid.appendChild(frag);
 }
+
+// ════════════════════════════════════════════════════════
+// ĐẶT LẠI TIẾN ĐỘ HỌC TẬP — reset có chọn lọc từng mảng số liệu, không đụng
+// tới danh sách từ vựng/thư mục/thùng rác. Có Hoàn tác 5 giây như sửa từ.
+// ════════════════════════════════════════════════════════
+
+// Hàm thuần: trả về bản sao 1 từ đã đặt lại mastery/known/seen + lịch ôn SRS
+// về trạng thái ban đầu (giống srsInit() cho từ mới) — tách riêng để test độc lập.
+function resetWordMastery(w) {
+  return { ...w, mastery: 0, known: 0, seen: 0, srsInterval: 1, srsEF: 2.5, srsDue: localDateKey() };
+}
+
+const RESET_PROGRESS_OPTIONS = [
+  { id: 'rp-mastery', label: 'Mức độ thành thạo từ vựng (kèm lịch ôn SRS)' },
+  { id: 'rp-quiz', label: 'Thống kê & điểm cao nhất Quiz' },
+  { id: 'rp-streak', label: 'Chuỗi ngày học liên tiếp' },
+  { id: 'rp-heatmap', label: 'Hoạt động trong năm (heatmap)' },
+];
+
+function openResetProgressModal() {
+  const old = document.getElementById('delete-overlay');
+  if (old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.id = 'delete-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'cb-dialog-title');
+  const rowsHtml = RESET_PROGRESS_OPTIONS.map(o => `
+    <label class="ew-suspend-label" style="margin-bottom:8px;">
+      <input type="checkbox" id="${o.id}">
+      <span>${escHtml(o.label)}</span>
+    </label>`).join('');
+  overlay.innerHTML = `
+    <div class="confirm-box">
+      <div class="cb-icon">🔄</div>
+      <div class="cb-title" id="cb-dialog-title">Đặt lại tiến độ học tập</div>
+      <div class="cb-sub">Chọn phần muốn xóa sạch. Không đụng tới danh sách từ vựng/thư mục/thùng rác. Có thể hoàn tác trong 5 giây sau khi xác nhận.</div>
+      <div style="text-align:left;margin-bottom:1.2rem;">${rowsHtml}</div>
+      <div class="cb-btns">
+        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
+        <button class="cb-confirm" id="cb-confirm-btn">Đặt lại</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('cb-confirm-btn').addEventListener('click', confirmResetProgress);
+  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
+  setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
+}
+
+function confirmResetProgress() {
+  const checked = {};
+  let anyChecked = false;
+  RESET_PROGRESS_OPTIONS.forEach(o => {
+    const el = document.getElementById(o.id);
+    checked[o.id] = !!(el && el.checked);
+    if (checked[o.id]) anyChecked = true;
+  });
+  if (!anyChecked) { showToast('Chọn ít nhất 1 mục để đặt lại!', 'error'); return; }
+
+  // Snapshot toàn bộ (dù có chọn hay không) để Hoàn tác luôn khôi phục đúng —
+  // đơn giản hơn phải theo dõi riêng từng phần đã đổi.
+  const snapshot = {
+    words: words.map(w => ({ ...w })),
+    quizStats: loadQuizStats(),
+    bestScore: storeGet('qs_best_score'),
+    streak: loadStreak(),
+    dailyActivity: loadDailyActivity(),
+  };
+
+  const backupWords = words;
+  if (checked['rp-mastery']) {
+    words = words.map(resetWordMastery);
+    if (!saveWords()) { words = backupWords; showToast('⚠️ Không đặt lại được — lỗi lưu dữ liệu!', 'error'); return; }
+  }
+  if (checked['rp-quiz']) { saveQuizStats({ sessions: 0, totalQ: 0, totalCorrect: 0 }); storeSet('qs_best_score', '0'); }
+  if (checked['rp-streak']) { streak = { count: 0, last: null, history: [] }; saveStreak(streak); }
+  if (checked['rp-heatmap']) { saveDailyActivity({}); }
+
+  closeConfirm();
+  renderProgress();
+  renderHome();
+  const sc = document.getElementById('streak-count');
+  if (sc) sc.textContent = streak.count;
+
+  showUndoToast('✅ Đã đặt lại tiến độ đã chọn', () => {
+    words = snapshot.words;
+    saveWords();
+    saveQuizStats(snapshot.quizStats);
+    storeSet('qs_best_score', snapshot.bestScore || '0');
+    streak = snapshot.streak;
+    saveStreak(streak);
+    saveDailyActivity(snapshot.dailyActivity);
+    renderProgress();
+    renderHome();
+    const sc2 = document.getElementById('streak-count');
+    if (sc2) sc2.textContent = streak.count;
+    showToast('↩️ Đã hoàn tác!', 'success');
+  });
+}
