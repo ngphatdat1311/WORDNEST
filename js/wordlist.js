@@ -135,9 +135,10 @@ function wlRowHtml(w) {
   const dots = [0,1,2].map(i => `<div class="wl-dot${i < w.mastery ? ' filled' : ''}"></div>`).join('');
   const esc = escAttr(w.word);
   const folder = w.folderId ? folders.find(f => f.id === w.folderId) : null;
+  const pos = typeAbbr(w.type);
   return `<tr class="${w.suspended ? 'wl-row-suspended' : ''}">
     <td>
-      <div class="wl-word">${escHtml(w.word)}</div>
+      <div class="wl-word">${escHtml(w.word)}${pos ? ` <span class="wl-pos">${escHtml(pos)}</span>` : ''}</div>
       <div class="wl-phon">${escHtml(w.phonetic || '')}</div>
       ${wlShowDate ? `<div class="wl-added">🕒 ${w.addedAt ? escHtml(formatAddedAt(w.addedAt)) : 'Không rõ (từ cũ)'}</div>` : ''}
     </td>

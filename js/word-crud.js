@@ -48,7 +48,9 @@ const BULK_TYPE_ALIASES = {
   other: 'other', khác: 'other', khac: 'other',
 };
 function parseBulkType(raw) {
-  const key = (raw || '').trim().toLowerCase();
+  // Bỏ ngoặc/dấu chấm bao quanh (vd "(n)", "(adj)", "v.") trước khi tra bảng —
+  // người dùng hay ghi loại từ kiểu từ điển giấy như vậy.
+  const key = (raw || '').trim().toLowerCase().replace(/^[([]+/, '').replace(/[)\].]+$/, '').trim();
   return BULK_TYPE_ALIASES[key] || null;
 }
 

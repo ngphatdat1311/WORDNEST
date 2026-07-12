@@ -22,6 +22,22 @@ test('parseBulkLine type field accepts English codes as well as Vietnamese label
   assert.equal(ctx.parseBulkLine('slowly | | chậm rãi | | trạng từ').type, 'adv');
 });
 
+test('parseBulkLine type field accepts bare single-letter abbreviations n/v/adj/adv', () => {
+  assert.equal(ctx.parseBulkLine('cat | | con mèo | | n').type, 'noun');
+  assert.equal(ctx.parseBulkLine('run | | chạy | | v').type, 'verb');
+  assert.equal(ctx.parseBulkLine('happy | | vui | | adj').type, 'adj');
+  assert.equal(ctx.parseBulkLine('slowly | | chậm rãi | | adv').type, 'adv');
+});
+
+test('parseBulkLine type field accepts abbreviations wrapped in parentheses or with a trailing dot', () => {
+  assert.equal(ctx.parseBulkLine('cat | | con mèo | | (n)').type, 'noun');
+  assert.equal(ctx.parseBulkLine('run | | chạy | | (v)').type, 'verb');
+  assert.equal(ctx.parseBulkLine('happy | | vui | | (adj)').type, 'adj');
+  assert.equal(ctx.parseBulkLine('slowly | | chậm rãi | | (adv)').type, 'adv');
+  assert.equal(ctx.parseBulkLine('cat | | con mèo | | n.').type, 'noun');
+  assert.equal(ctx.parseBulkLine('run | | chạy | | [v]').type, 'verb');
+});
+
 test('parseBulkLine falls back to auto-detected type when the type field is empty or unrecognized', () => {
   assert.equal(ctx.parseBulkLine('apple | | quả táo | | ').type, 'other'); // empty type field
   assert.equal(ctx.parseBulkLine('give up | | từ bỏ | | ???').type, 'phrase'); // garbage type -> auto-detect (has space -> phrase)

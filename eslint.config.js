@@ -65,7 +65,7 @@ const appGlobals = Object.fromEntries(
     'startQuiz', 'statusBadge', 'storeGet', 'storeSet', 'streak', 'switchWlView', 'toastTimer',
     'toggleFullscreen', 'toggleSuspend', 'toggleTheme', 'toggleWlMasteredOnly',
     'toggleWlMoreMenu', 'toggleWlShowDate', 'translateText', 'translateWordLikeGoogle', 'trash', 'trashEntryHtml', 'triggerConfetti',
-    'tryRestoreQuizSession', 'tryRestoreSpellingSession', 'typeLabel', 'updateBlanks',
+    'tryRestoreQuizSession', 'tryRestoreSpellingSession', 'typeLabel', 'typeAbbr', 'updateBlanks',
     'updateRerollButtonLabel', 'updateSpScore', 'useInboxWord', 'wlActiveFolder', 'wlComparator',
     'wlFilter', 'wlPage', 'wlRowHtml', 'wlSearchDebounceTimer', 'wlShowDate', 'wlShowMasteredOnly',
     'wireWlRowActions', 'wireStaticEvents', 'on',

@@ -55,3 +55,17 @@ test('typeLabel maps known word types to Vietnamese, falls back to the raw value
   assert.equal(ctx.typeLabel('unknown'), 'unknown');
   assert.equal(ctx.typeLabel(''), '');
 });
+
+test('typeAbbr maps known word types to short dictionary-style abbreviations', () => {
+  assert.equal(ctx.typeAbbr('noun'), 'n');
+  assert.equal(ctx.typeAbbr('verb'), 'v');
+  assert.equal(ctx.typeAbbr('adj'), 'adj');
+  assert.equal(ctx.typeAbbr('adv'), 'adv');
+  assert.equal(ctx.typeAbbr('phrase'), 'phr');
+});
+
+test('typeAbbr has no abbreviation for "other" or unrecognized types', () => {
+  assert.equal(ctx.typeAbbr('other'), '');
+  assert.equal(ctx.typeAbbr('unknown'), '');
+  assert.equal(ctx.typeAbbr(''), '');
+});

@@ -45,6 +45,13 @@ function typeLabel(t) {
   return { noun:'danh từ', verb:'động từ', adj:'tính từ', adv:'trạng từ', phrase:'cụm từ', other:'khác' }[t] || t || '';
 }
 
+// Ký hiệu ngắn gọn kiểu từ điển giấy (n/v/adj/adv/phr) — hiện cạnh từ trong bảng
+// Từ điển cá nhân, gọn hơn nhãn tiếng Việt đầy đủ. "other" không có ký hiệu
+// chuẩn nên bỏ trống, không hiện gì.
+function typeAbbr(t) {
+  return { noun:'n', verb:'v', adj:'adj', adv:'adv', phrase:'phr' }[t] || '';
+}
+
 // Từ đã suspend (đã thuộc hẳn) bị loại khỏi Flashcard/Quiz/Chính tả/SRS,
 // nhưng vẫn hiển thị trong Từ điển cá nhân để có thể bỏ ẩn lại.
 function activeWords() { return words.filter(w => !w.suspended); }
