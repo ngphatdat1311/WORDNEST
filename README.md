@@ -6,14 +6,14 @@ App học từ vựng tiếng Anh cá nhân: Flashcard (SRS kiểu SM-2), Quiz t
 
 | Hệ điều hành | Tải về |
 |---|---|
-| Windows | [WordNest-Setup-1.0.23.exe](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.23/WordNest-Setup-1.0.23.exe) |
-| macOS (Intel & Apple Silicon) | [WordNest-1.0.23-universal.dmg](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.23/WordNest-1.0.23-universal.dmg) |
+| Windows | [WordNest-Setup-1.0.24.exe](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.24/WordNest-Setup-1.0.24.exe) |
+| macOS (Intel & Apple Silicon) | [WordNest-1.0.24-universal.dmg](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.24/WordNest-1.0.24-universal.dmg) |
 
 Xem tất cả bản phát hành tại [Releases](https://github.com/ngphatdat1311/WORDNEST/releases).
 
 App chưa có chữ ký số (tốn phí, không cần thiết cho dùng cá nhân) nên lần đầu mở:
 - **Windows:** SmartScreen báo "Unknown publisher" → bấm **More info → Run anyway**.
-- **macOS:** Gatekeeper báo "không xác định được nhà phát triển" → chuột phải (hoặc Control-click) vào app → **Open**.
+- **macOS:** Gatekeeper báo `"WordNest" chưa được mở` → mở **System Settings → Privacy & Security**, cuộn xuống mục Security tìm dòng "WordNest was blocked..." → bấm **Open Anyway** → mở lại app và xác nhận **Open** lần nữa. (Cách cũ "chuột phải → Open" không còn tác dụng trên các bản macOS gần đây.)
 
 Từ các bản sau, app sẽ tự báo trong giao diện khi có bản mới hơn — không cần gỡ cài đặt rồi tải lại (xem mục [Cập nhật app](#-cập-nhật-app)).
 
@@ -122,8 +122,13 @@ Cài riêng theo hướng dẫn trong [extension/README.md](extension/README.md)
 index.html         Markup chính (dùng chung cho app desktop)
 css/               Giao diện (sáng/tối, responsive) + font tự host
 js/
+  app.js           Khởi tạo app, gắn kết các module lại với nhau
   storage.js       Lưu trữ dữ liệu (file-based trong Electron, localStorage fallback)
   sync.js          Đồng bộ tự động vào thư mục cloud
+  auto-update.js   UI banner cập nhật app (electron-updater)
+  navigation.js    Điều hướng giữa các tab/chế độ học
+  theme.js         Giao diện sáng/tối
+  utils.js         Hàm tiện ích dùng chung (format, escape HTML...)
   flashcard.js     Chế độ Flashcard + SRS
   quiz.js          Quiz trắc nghiệm
   spelling.js      Luyện chính tả
@@ -140,6 +145,7 @@ js/
   backup.js        Nhắc nhở sao lưu định kỳ
   streak.js        Streak + heatmap hoạt động + SRS
   event-wiring.js  Nối các nút/tab tĩnh tới hàm xử lý (addEventListener)
+  extension-inbox.js  Nhận từ gửi vào từ tiện ích Chrome "WordNest Capture" (qua postMessage)
 electron/
   main.js          Main process: cửa sổ, IPC handlers, auto-update, bridge server
   preload.js       IPC bridge an toàn (contextBridge)
