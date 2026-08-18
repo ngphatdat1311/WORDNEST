@@ -47,7 +47,7 @@ const appGlobals = Object.fromEntries(
     'openFolderGrid', 'openFolderNameModal', 'openFolderPicker', 'openResetProgressModal', 'confirmResetProgress', 'resetWordMastery', 'RESET_PROGRESS_OPTIONS', 'parseBulkLine', 'parseBulkType', 'BULK_TYPE_ALIASES', 'pickAudio', 'pickDominantPos',
     'pickRandomExample', 'pickSyncFolder', 'playPronunciation', 'populateAwFolderSelects', 'populateCategorySelect',
     'populateFolderSelect', 'prevCard', 'purgeExpiredTrash', 'qzOptions', 'qzWords', 'qzWrongWords',
-    'confirmBatchFix', 'startBatchFixProgress', 'runBatchFixLoop', 'showBatchFixResult', 'batchFixCancelRequested',
+    'confirmBatchFix', 'startBatchFixProgress', 'runBatchFixLoop', 'showBatchFixResult', 'batchFixRunSeq', 'isBatchFixDialogActive',
     'confirmAutoPhonetic', 'fetchPhoneticForWord', 'fetchPhoneticWithRetry',
     'recordLearningActivity', 'refreshRerollVisibility', 'refreshWlView', 'removeInboxWord',
     'renameFolderPrompt', 'renderActivityHeatmap', 'renderBlanks', 'renderDifficultWords',

@@ -316,12 +316,23 @@ function confirmResetProgress() {
 
   if (!ok) {
     // Rollback toàn bộ, kể cả phần đã lỡ ghi thành công trước khi gặp lỗi.
-    words = backupWords; saveWords();
-    streak = backupStreak; saveStreak(streak);
-    saveQuizStats(snapshot.quizStats);
-    storeSet('qs_best_score', snapshot.bestScore || '0');
-    saveDailyActivity(snapshot.dailyActivity);
-    showToast('⚠️ Không đặt lại được — lỗi lưu dữ liệu!', 'error');
+    // Tự kiểm tra luôn KẾT QUẢ của chính các lần ghi rollback này — nếu lỗi đĩa
+    // vẫn còn đó, ghi rollback cũng có thể lỗi theo, và báo "không đặt lại được"
+    // trong khi thật ra 1 phần đã bị đổi thật trên đĩa sẽ gây hiểu lầm y hệt bug
+    // ban đầu. Không thể đảm bảo chắc chắn 100% (ghi lỗi thì rollback cũng có thể
+    // lỗi), nhưng ít nhất báo đúng khi phát hiện được.
+    words = backupWords; const rb1 = saveWords();
+    streak = backupStreak; const rb2 = saveStreak(streak);
+    const rb3 = saveQuizStats(snapshot.quizStats);
+    const rb4 = storeSet('qs_best_score', snapshot.bestScore || '0');
+    const rb5 = saveDailyActivity(snapshot.dailyActivity);
+    const rolledBackOk = rb1 && rb2 && rb3 && rb4 && rb5;
+    showToast(
+      rolledBackOk
+        ? '⚠️ Không đặt lại được — lỗi lưu dữ liệu!'
+        : '⚠️ Lỗi lưu dữ liệu — vài phần có thể chưa được khôi phục đúng, hãy khởi động lại app để kiểm tra!',
+      'error'
+    );
     return;
   }
 
@@ -332,17 +343,33 @@ function confirmResetProgress() {
   if (sc) sc.textContent = streak.count;
 
   showUndoToast('✅ Đã đặt lại tiến độ đã chọn', () => {
+    // Cùng nguyên tắc check-all-saves ở trên: đừng báo "Đã hoàn tác!" nếu ghi
+    // đĩa lỗi — nếu không app sẽ hiện đúng bug đã sửa ở nhánh đặt lại (giờ chỉ
+    // là bug xảy ra ở chiều ngược lại, lúc Hoàn tác thay vì lúc Đặt lại).
+    const resetWords = words, resetStreak = streak;
     words = snapshot.words;
-    saveWords();
-    saveQuizStats(snapshot.quizStats);
-    storeSet('qs_best_score', snapshot.bestScore || '0');
+    let uOk = saveWords();
+    uOk = saveQuizStats(snapshot.quizStats) && uOk;
+    uOk = storeSet('qs_best_score', snapshot.bestScore || '0') && uOk;
     streak = snapshot.streak;
-    saveStreak(streak);
-    saveDailyActivity(snapshot.dailyActivity);
+    uOk = saveStreak(streak) && uOk;
+    uOk = saveDailyActivity(snapshot.dailyActivity) && uOk;
+
+    if (!uOk) {
+      // Ghi lỗi giữa chừng -> thử ghi lại đúng trạng thái ĐÃ ĐẶT LẠI (trạng thái
+      // thật sự đang nằm trên đĩa trước khi bấm Hoàn tác), để bộ nhớ khớp đĩa —
+      // best-effort, không đảm bảo 100% nếu lỗi đĩa vẫn còn (xem comment rollback ở trên).
+      words = resetWords; saveWords();
+      streak = resetStreak; saveStreak(streak);
+      saveQuizStats({ sessions: 0, totalQ: 0, totalCorrect: 0 });
+      storeSet('qs_best_score', '0');
+      saveDailyActivity({});
+    }
+
     renderProgress();
     renderHome();
     const sc2 = document.getElementById('streak-count');
     if (sc2) sc2.textContent = streak.count;
-    showToast('↩️ Đã hoàn tác!', 'success');
+    showToast(uOk ? '↩️ Đã hoàn tác!' : '⚠️ Hoàn tác thất bại — lỗi lưu dữ liệu!', uOk ? 'success' : 'error');
   });
 }

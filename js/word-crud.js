@@ -346,7 +346,9 @@ function formatDuration(ms) {
   return sec ? `${min} phút ${sec} giây` : `${min} phút`;
 }
 
-let batchFixCancelRequested = false;
+// Đếm số lần confirmBatchFix() được mở, dùng làm "mã định danh" cho từng lượt
+// chạy (runId) — xem comment trong confirmBatchFix() bên dưới.
+let batchFixRunSeq = 0;
 
 // cfg: { icon, title, targets, emptyMsg, descriptionHtml, fetchFn, applyFn,
 //        doneLabel, notFoundLabel } — fetchFn(word) trả 'rate-limited' | falsy
@@ -356,9 +358,17 @@ function confirmBatchFix(cfg) {
   if (!cfg.targets.length) { showToast(cfg.emptyMsg); return; }
   const old = document.getElementById('delete-overlay');
   if (old) old.remove();
+  // runId gắn vào chính overlay (data-bf-run) — cả 2 tool batch-fix (phân loại
+  // lại + phiên âm) dùng CHUNG 1 bộ id DOM ('delete-overlay'/'bf-*'), nên nếu
+  // user đóng hộp thoại của tool A giữa chừng (loop vẫn chạy ngầm) rồi mở tool
+  // B, các lần cập nhật UI/kết quả TRỄ của tool A phải tự nhận ra dialog hiện
+  // tại không còn phải của mình nữa (runId không khớp) để bỏ qua, tránh ghi đè
+  // nhầm lên tiêu đề/nội dung/nút Dừng của tool B đang hiển thị.
+  const runId = ++batchFixRunSeq;
   const overlay = document.createElement('div');
   overlay.className = 'confirm-overlay';
   overlay.id = 'delete-overlay';
+  overlay.dataset.bfRun = String(runId);
   overlay.setAttribute('role', 'dialog');
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-labelledby', 'cb-dialog-title');
@@ -377,17 +387,28 @@ function confirmBatchFix(cfg) {
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  document.getElementById('cb-confirm-btn').addEventListener('click', () => startBatchFixProgress(cfg));
+  document.getElementById('cb-confirm-btn').addEventListener('click', () => startBatchFixProgress(cfg, runId));
   document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
+}
+
+// true nếu hộp thoại 'delete-overlay' hiện đang hiển thị trên trang vẫn đúng
+// là hộp thoại của lượt chạy runId này (chưa bị đóng/thay bằng 1 lượt batch-fix
+// khác) — dùng để chặn loop cũ ghi đè UI của loop mới hơn, xem confirmBatchFix().
+function isBatchFixDialogActive(runId) {
+  const overlay = document.getElementById('delete-overlay');
+  return !!overlay && overlay.dataset.bfRun === String(runId);
 }
 
 // Chuyển hộp thoại xác nhận sang chế độ hiện THANH TIẾN ĐỘ ngay trong hộp thoại
 // đó — thay vì bắn hàng loạt toast (mỗi toast tự ẩn sau ~2.6s rồi toast mới lại
 // hiện, tạo cảm giác nhấp nháy khó chịu khi cập nhật liên tục trong quá trình
 // chạy dài cả phút).
-function startBatchFixProgress(cfg) {
-  batchFixCancelRequested = false;
+function startBatchFixProgress(cfg, runId) {
+  // Cờ Dừng riêng cho TỪNG lượt chạy (không dùng biến module dùng chung nữa) —
+  // để bấm "Dừng lại" ở tool đang mở không lỡ dừng luôn 1 tool khác đang chạy
+  // ngầm phía sau (xem comment runId ở confirmBatchFix()).
+  const cancelFlag = { value: false };
   const msgEl = document.getElementById('bf-msg');
   const progressEl = document.getElementById('bf-progress');
   const btnsEl = document.querySelector('#delete-overlay .cb-btns');
@@ -396,14 +417,14 @@ function startBatchFixProgress(cfg) {
   if (btnsEl) btnsEl.innerHTML = '<button class="cb-cancel" id="bf-stop-btn">⏹ Dừng lại</button>';
   const stopBtn = document.getElementById('bf-stop-btn');
   if (stopBtn) stopBtn.addEventListener('click', () => {
-    batchFixCancelRequested = true;
+    cancelFlag.value = true;
     stopBtn.disabled = true;
     stopBtn.textContent = 'Đang dừng...';
   });
-  runBatchFixLoop(cfg);
+  runBatchFixLoop(cfg, runId, cancelFlag);
 }
 
-async function runBatchFixLoop(cfg) {
+async function runBatchFixLoop(cfg, runId, cancelFlag) {
   const { targets, fetchFn, applyFn } = cfg;
   const total = targets.length;
   const startedAt = performance.now();
@@ -413,10 +434,10 @@ async function runBatchFixLoop(cfg) {
   // độ khá thấp, tra dồn dập (kể cả chỉ 2 luồng song song) với batch lớn (100+
   // từ) vẫn dễ chạm trần ngay từ đầu. Chậm hơn nhưng tra được nhiều hơn hẳn.
   for (let i = 0; i < targets.length; i++) {
-    if (batchFixCancelRequested) break;
+    if (cancelFlag.value) break;
     const target = targets[i];
     const result = await fetchFn(target.word);
-    if (batchFixCancelRequested) break; // user bấm Dừng lại trong lúc đang chờ kết quả từ này
+    if (cancelFlag.value) break; // user bấm Dừng lại trong lúc đang chờ kết quả từ này
     const idx = words.findIndex(x => x.id === target.id);
     if (idx !== -1) {
       if (result === 'rate-limited') rateLimited++;
@@ -425,15 +446,20 @@ async function runBatchFixLoop(cfg) {
     }
     processed++;
 
-    const fillEl = document.getElementById('bf-prog-fill');
-    const textEl = document.getElementById('bf-prog-text');
-    if (fillEl) fillEl.style.width = Math.round((processed / total) * 100) + '%';
-    if (textEl) {
-      const elapsedMs = performance.now() - startedAt;
-      const remainingMs = (elapsedMs / processed) * (total - processed);
-      textEl.textContent = processed < total
-        ? `${processed} / ${total} từ — còn khoảng ${formatDuration(remainingMs)}`
-        : `${processed} / ${total} từ`;
+    // Chỉ đụng vào DOM nếu hộp thoại đang hiện vẫn là của lượt chạy này — nếu
+    // user đã đóng/mở tool batch-fix khác, bỏ qua phần UI (dữ liệu vẫn được
+    // tính/lưu đúng ở dưới, chỉ là không còn gì để cập nhật lên màn hình).
+    if (isBatchFixDialogActive(runId)) {
+      const fillEl = document.getElementById('bf-prog-fill');
+      const textEl = document.getElementById('bf-prog-text');
+      if (fillEl) fillEl.style.width = Math.round((processed / total) * 100) + '%';
+      if (textEl) {
+        const elapsedMs = performance.now() - startedAt;
+        const remainingMs = (elapsedMs / processed) * (total - processed);
+        textEl.textContent = processed < total
+          ? `${processed} / ${total} từ — còn khoảng ${formatDuration(remainingMs)}`
+          : `${processed} / ${total} từ`;
+      }
     }
 
     if (i < targets.length - 1) await new Promise(r => setTimeout(r, 400));
@@ -441,7 +467,9 @@ async function runBatchFixLoop(cfg) {
 
   if (fixed) saveWords();
   refreshWlView();
-  showBatchFixResult(cfg, { fixed, notFound, rateLimited, total, processed, cancelled: batchFixCancelRequested });
+  if (isBatchFixDialogActive(runId)) {
+    showBatchFixResult(cfg, { fixed, notFound, rateLimited, total, processed, cancelled: cancelFlag.value });
+  }
 }
 
 // Hiện kết quả cuối NGAY TRONG hộp thoại (thay thanh tiến độ) — nếu user đã tự
