@@ -12,7 +12,12 @@ function markSeenCurrent() {
   if (origIdx !== -1) { words[origIdx].seen = (words[origIdx].seen || 0) + 1; saveWords(); }
 }
 
-function initFlashcard(shuffle = false) {
+// silent=true: chỉ dựng lại bộ thẻ + render DOM, KHÔNG tính là "đã xem" thẻ đầu
+// tiên — dùng cho lượt gọi tiền tải lúc khởi động app (app.js), lúc đó tab
+// Flashcard còn chưa hiện ra, user chưa thực sự nhìn thấy thẻ nào cả. Mọi lượt
+// gọi khác (vào tab, đổi bộ lọc, xáo trộn, bấm "Học lại từ đầu") đều là user
+// chủ động xem thẻ đầu -> vẫn tính seen như cũ.
+function initFlashcard(shuffle = false, silent = false) {
   populateCategorySelect(document.getElementById('fc-tag'));
   populateFolderSelect(document.getElementById('fc-folder'));
   const filter = document.getElementById('fc-category').value;
@@ -37,7 +42,7 @@ function initFlashcard(shuffle = false) {
   fcIndex = 0;
   fcSeenThisSession = new Set();
   renderFlashcard(); // tự reset flip state + ẩn know-row
-  markSeenCurrent();
+  if (!silent) markSeenCurrent();
 }
 
 function shuffleFlashcard() { initFlashcard(true); showToast('Đã xáo trộn thẻ!'); }

@@ -5,7 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
   words = loadWords();
   purgeExpiredTrash();
   renderHome();
-  initFlashcard(false);
+  // silent=true: chỉ tiền tải dữ liệu/DOM cho tab Flashcard (chưa hiện ra lúc
+  // này) để chuyển tab sau này mượt hơn — KHÔNG tính là user đã "xem" thẻ đầu
+  // tiên, tránh cộng nhầm +1 vào "seen" của 1 từ ngẫu nhiên mỗi lần mở app.
+  initFlashcard(false, true);
   document.querySelectorAll('.wl-mastered-only-btn').forEach(b => b.classList.toggle('active', wlShowMasteredOnly));
   showBackupBannerIfNeeded();
   showMacUpdateHintIfNeeded();
