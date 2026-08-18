@@ -141,22 +141,46 @@ test('restoreTrashWord refuses to restore a word whose text already exists (case
   assert.equal(ctx.trash.length, 1); // vẫn còn trong thùng rác, chưa bị xóa
 });
 
-test('restoreTrashWord clears folderId if the original folder no longer exists', () => {
+test('restoreTrashWord drops folder ids that no longer exist, keeping the rest', () => {
   resetTrashState({
-    folders: [], // thư mục gốc đã bị xóa hẳn
-    trash: [{ id: 't1', type: 'word', deletedAt: Date.now(), word: { id: 'w1', word: 'apple', meaning: 'quả táo', folderId: 'gone' } }],
+    folders: [{ id: 'f-kept', name: 'Còn tồn tại' }], // 'gone' đã bị xóa hẳn, 'f-kept' vẫn còn
+    trash: [{ id: 't1', type: 'word', deletedAt: Date.now(), word: { id: 'w1', word: 'apple', meaning: 'quả táo', folderIds: ['gone', 'f-kept'] } }],
   });
   ctx.restoreTrashWord('t1');
-  assert.equal(ctx.words[0].folderId, null);
+  assert.deepEqual(ctx.words[0].folderIds, ['f-kept']);
 });
 
-test('restoreTrashWord keeps folderId if the original folder still exists', () => {
+test('restoreTrashWord clears folderIds to [] if no original folder still exists', () => {
+  resetTrashState({
+    folders: [], // thư mục gốc đã bị xóa hẳn
+    trash: [{ id: 't1', type: 'word', deletedAt: Date.now(), word: { id: 'w1', word: 'apple', meaning: 'quả táo', folderIds: ['gone'] } }],
+  });
+  ctx.restoreTrashWord('t1');
+  assert.deepEqual(ctx.words[0].folderIds, []);
+});
+
+test('restoreTrashWord keeps folderIds if the original folder still exists', () => {
+  resetTrashState({
+    folders: [{ id: 'f1', name: 'Du lịch' }],
+    trash: [{ id: 't1', type: 'word', deletedAt: Date.now(), word: { id: 'w1', word: 'apple', meaning: 'quả táo', folderIds: ['f1'] } }],
+  });
+  ctx.restoreTrashWord('t1');
+  assert.deepEqual(ctx.words[0].folderIds, ['f1']);
+});
+
+test('restoreTrashWord converts a legacy single-folderId snapshot (pre-multi-folder) to folderIds', () => {
   resetTrashState({
     folders: [{ id: 'f1', name: 'Du lịch' }],
     trash: [{ id: 't1', type: 'word', deletedAt: Date.now(), word: { id: 'w1', word: 'apple', meaning: 'quả táo', folderId: 'f1' } }],
   });
   ctx.restoreTrashWord('t1');
-  assert.equal(ctx.words[0].folderId, 'f1');
+  // [...x] chuẩn hoá về realm ngoài (test file) trước khi so sánh — mảng do
+  // chính code TRONG vm tạo mới (literal [w.folderId] ở nhánh legacy) mang
+  // Array constructor của vm sandbox, khác với Array của Node test runner nên
+  // assert.deepEqual (strict) coi 2 mảng cùng nội dung là KHÔNG bằng nhau
+  // (báo "not reference-equal") dù Array.isArray() vẫn đúng ở cả 2 phía.
+  assert.deepEqual([...ctx.words[0].folderIds], ['f1']);
+  assert.equal('folderId' in ctx.words[0], false);
 });
 
 test('restoreTrashWord rolls back words/trash if saving fails', () => {
@@ -181,7 +205,9 @@ test('restoreTrashFolder restores the folder and its words, reusing an existing 
   ctx.restoreTrashFolder('t1');
   assert.equal(ctx.folders.length, 1); // không tạo thư mục trùng, dùng lại cái local
   assert.equal(ctx.words.length, 1);
-  assert.equal(ctx.words[0].folderId, 'f-local');
+  // [...x] chuẩn hoá về realm ngoài trước khi so sánh — xem comment ở test
+  // "converts a legacy single-folderId snapshot" phía trên cùng file này.
+  assert.deepEqual([...ctx.words[0].folderIds], ['f-local']);
   assert.equal(ctx.trash.length, 0);
 });
 

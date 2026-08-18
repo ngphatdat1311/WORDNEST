@@ -39,8 +39,8 @@ function populateFolderSelect(selectEl) {
 // pool đã lọc theo các điều kiện khác -> lọc tiếp theo thư mục đã chọn
 function filterByFolderSel(pool, folderVal) {
   if (!folderVal || folderVal === 'all') return pool;
-  if (folderVal === '__unfiled__') return pool.filter(w => !w.folderId);
-  return pool.filter(w => w.folderId === folderVal);
+  if (folderVal === '__unfiled__') return pool.filter(w => !w.folderIds || !w.folderIds.length);
+  return pool.filter(w => w.folderIds && w.folderIds.includes(folderVal));
 }
 
 function refreshWlView() {
@@ -77,11 +77,16 @@ function renderFolderGrid() {
   const sorted = folders.slice().sort((a, b) => a.name.localeCompare(b.name));
   // Đếm số từ theo từng thư mục trong 1 lần lặp duy nhất qua words — tránh
   // chạy words.filter() riêng cho mỗi thư mục (O(n×m) khi có nhiều thư mục).
+  // 1 từ có thể thuộc NHIỀU thư mục cùng lúc nên được cộng vào từng thư mục nó
+  // thuộc, không chỉ 1 — vẫn O(n) tổng thể vì số thư mục/từ thường rất nhỏ.
   const countByFolder = {};
   let unfiledCount = 0;
   for (const w of words) {
-    if (w.folderId) countByFolder[w.folderId] = (countByFolder[w.folderId] || 0) + 1;
-    else unfiledCount++;
+    if (w.folderIds && w.folderIds.length) {
+      w.folderIds.forEach(fid => { countByFolder[fid] = (countByFolder[fid] || 0) + 1; });
+    } else {
+      unfiledCount++;
+    }
   }
 
   const cardsHtml = sorted.map(f => {
@@ -146,7 +151,9 @@ function renderFolderDetail(resetPage = false) {
     document.getElementById('wl-folder-del-btn').onclick = () => deleteFolderConfirm(folder.id);
   }
 
-  let list = isUnfiled ? words.filter(w => !w.folderId) : words.filter(w => w.folderId === wlActiveFolder);
+  let list = isUnfiled
+    ? words.filter(w => !w.folderIds || !w.folderIds.length)
+    : words.filter(w => w.folderIds && w.folderIds.includes(wlActiveFolder));
   if (wlShowMasteredOnly) list = list.filter(w => w.suspended);
   const folderSortVal = (document.getElementById('wl-folder-sort') || {}).value || 'default';
   list = list.slice().sort(wlComparator(folderSortVal));
@@ -251,12 +258,27 @@ function renameFolderPrompt(id) {
 }
 
 // ════════════════════════════════════════════════════════
-// XÓA THƯ MỤC — từ trong thư mục KHÔNG bị xóa, chỉ chuyển về "Chưa phân loại"
+// XÓA THƯ MỤC — từ CHỈ thuộc riêng thư mục này cùng chuyển vào Thùng rác với
+// nó (kiểu máy tính, khôi phục trả lại đúng như cũ). Từ còn thuộc THÊM thư mục
+// khác nữa thì được GIỮ LẠI, chỉ gỡ tag thư mục đang xóa — giống Gmail xóa 1
+// label không xóa mất email còn label khác.
 // ════════════════════════════════════════════════════════
 function deleteFolderConfirm(id) {
   const f = folders.find(x => x.id === id);
   if (!f) return;
-  const count = words.filter(w => w.folderId === id).length;
+  const inFolder = words.filter(w => w.folderIds && w.folderIds.includes(id));
+  const soleCount = inFolder.filter(w => w.folderIds.length === 1).length;
+  const sharedCount = inFolder.length - soleCount;
+  let sub;
+  if (!inFolder.length) {
+    sub = 'Thư mục đang trống sẽ chuyển vào 🗑️ Thùng rác';
+  } else if (!sharedCount) {
+    sub = `Thư mục cùng ${soleCount} từ bên trong sẽ chuyển vào 🗑️ Thùng rác`;
+  } else if (!soleCount) {
+    sub = `Cả ${sharedCount} từ bên trong đều còn thuộc thư mục khác nữa nên sẽ được GIỮ LẠI, chỉ gỡ khỏi thư mục này`;
+  } else {
+    sub = `${soleCount} từ chỉ thuộc riêng thư mục này sẽ chuyển vào 🗑️ Thùng rác; ${sharedCount} từ còn thuộc thư mục khác sẽ được giữ lại, chỉ gỡ khỏi thư mục này`;
+  }
   const old = document.getElementById('delete-overlay');
   if (old) old.remove();
   const overlay = document.createElement('div');
@@ -270,7 +292,7 @@ function deleteFolderConfirm(id) {
       <div class="cb-icon">🗑️</div>
       <div class="cb-title" id="cb-dialog-title">Xóa thư mục này?</div>
       <div class="cb-word">📁 ${escHtml(f.name)}</div>
-      <div class="cb-sub">${count ? `Thư mục cùng ${count} từ bên trong sẽ chuyển vào 🗑️ Thùng rác` : 'Thư mục đang trống sẽ chuyển vào 🗑️ Thùng rác'} — khôi phục sẽ trả lại đúng như cũ.</div>
+      <div class="cb-sub">${sub} — khôi phục sẽ trả lại đúng như cũ.</div>
       <div class="cb-btns">
         <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
         <button class="cb-confirm" id="cb-confirm-btn">Xóa thư mục</button>
@@ -287,23 +309,34 @@ function deleteFolder(id) {
   const f = folders.find(x => x.id === id);
   if (!f) return;
   const backupWords = words, backupFolders = folders, backupTrash = trash;
-  // Xóa thư mục kiểu máy tính: cả thư mục + từ bên trong cùng chuyển vào Thùng rác,
-  // khôi phục sẽ trả lại đúng như cũ (không phải chỉ "bỏ thư mục" như trước đây).
-  const bundledWords = words.filter(w => w.folderId === id);
-  words = words.filter(w => w.folderId !== id);
+  // Từ chỉ thuộc DUY NHẤT thư mục này -> xóa hẳn, gộp vào cùng 1 trash entry với
+  // thư mục (khôi phục sẽ trả lại đúng như cũ). Từ còn thuộc thư mục KHÁC nữa ->
+  // chỉ gỡ tag thư mục này ra, bản thân từ vẫn được giữ nguyên trong từ điển.
+  const soleWords = words.filter(w => w.folderIds && w.folderIds.includes(id) && w.folderIds.length === 1);
+  const soleIds = new Set(soleWords.map(w => w.id));
+  words = words
+    .filter(w => !soleIds.has(w.id))
+    .map(w => (w.folderIds && w.folderIds.includes(id))
+      ? { ...w, folderIds: w.folderIds.filter(x => x !== id) }
+      : w);
   folders = folders.filter(x => x.id !== id);
-  trash = [...trash, { id: genTrashId(), type: 'folder', deletedAt: Date.now(), folder: f, words: bundledWords }];
+  trash = [...trash, { id: genTrashId(), type: 'folder', deletedAt: Date.now(), folder: f, words: soleWords }];
   closeConfirm();
   if (!saveWords() || !saveFolders() || !saveTrash()) { words = backupWords; folders = backupFolders; trash = backupTrash; showToast('⚠️ Không xóa được — lỗi lưu dữ liệu!', 'error'); return; }
-  showToast(`🗑️ Đã chuyển thư mục "${f.name}"${bundledWords.length ? ' và ' + bundledWords.length + ' từ' : ''} vào Thùng rác`);
+  showToast(`🗑️ Đã chuyển thư mục "${f.name}"${soleWords.length ? ' và ' + soleWords.length + ' từ' : ''} vào Thùng rác`);
   if (wlActiveFolder === id) wlActiveFolder = null;
   refreshWlView();
 }
 
 // ════════════════════════════════════════════════════════
-// GÁN 1 TỪ VÀO THƯ MỤC — nút 📁 trên mỗi dòng trong bảng Từ điển
+// GÁN 1 TỪ VÀO NHIỀU THƯ MỤC — nút 📁 trên mỗi dòng trong bảng Từ điển.
+// Danh sách thư mục dạng checkbox (không phải chọn 1) + nút Lưu để xác nhận
+// hàng loạt cùng lúc, thay vì gán ngay khi bấm như trước (khi đó chỉ chọn được 1).
 // ════════════════════════════════════════════════════════
-function openFolderPicker(id) {
+// forceChecked: Set các folderId cần tick sẵn thay vì đọc từ w.folderIds — dùng
+// khi reopen dialog ngay sau khi tạo thư mục mới giữa chừng, để không mất các
+// lựa chọn đang tick dở trước đó (xem handler fp-create-btn bên dưới).
+function openFolderPicker(id, forceChecked = null) {
   const w = words.find(x => x.id === id);
   if (!w) return;
   const old = document.getElementById('folder-pick-overlay');
@@ -315,11 +348,16 @@ function openFolderPicker(id) {
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-labelledby', 'fp-title');
   const sorted = folders.slice().sort((a, b) => a.name.localeCompare(b.name));
-  const itemsHtml = sorted.map(f => `<button class="folder-pick-item${w.folderId === f.id ? ' active' : ''}" data-id="${escAttr(f.id)}">📁 ${escHtml(f.name)}${w.folderId === f.id ? ' ✓' : ''}</button>`).join('');
+  const current = forceChecked || new Set(w.folderIds || []);
+  const itemsHtml = sorted.map(f => `
+    <label class="folder-pick-item">
+      <input type="checkbox" class="fp-check" value="${escAttr(f.id)}"${current.has(f.id) ? ' checked' : ''}>
+      📁 ${escHtml(f.name)}
+    </label>`).join('');
   overlay.innerHTML = `
     <div class="confirm-box folder-pick-box">
       <div class="cb-icon">📁</div>
-      <div class="cb-title" id="fp-title">Thêm "${escHtml(w.word)}" vào thư mục</div>
+      <div class="cb-title" id="fp-title">Thư mục cho "${escHtml(w.word)}"</div>
       <div class="folder-pick-list">
         ${itemsHtml || '<div style="font-size:0.85rem;color:var(--text3);padding:6px 0;">Chưa có thư mục nào.</div>'}
       </div>
@@ -328,38 +366,44 @@ function openFolderPicker(id) {
         <button class="btn btn-outline" id="fp-create-btn">Tạo</button>
       </div>
       <div class="cb-btns">
-        ${w.folderId ? '<button class="cb-cancel" id="fp-remove-btn">🚫 Bỏ khỏi thư mục</button><button class="cb-cancel" id="fp-close-btn">Đóng</button>' : '<button class="cb-cancel" id="fp-close-btn">Đóng</button>'}
+        <button class="cb-cancel" id="fp-close-btn">Hủy</button>
+        <button class="cb-confirm" id="fp-save-btn">💾 Lưu</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
   document.getElementById('fp-close-btn').addEventListener('click', closeFolderPicker);
-  overlay.querySelectorAll('.folder-pick-item').forEach(btn => btn.addEventListener('click', () => { assignWordToFolder(id, btn.dataset.id); closeFolderPicker(); }));
+  document.getElementById('fp-save-btn').addEventListener('click', () => {
+    const checked = [...overlay.querySelectorAll('.fp-check:checked')].map(c => c.value);
+    assignWordFolders(id, checked);
+    closeFolderPicker();
+  });
   document.getElementById('fp-create-btn').addEventListener('click', () => {
     const name = clampStr(document.getElementById('fp-new-name').value.trim(), 40);
     if (!name) { showToast('Nhập tên thư mục!', 'error'); return; }
     if (folders.find(f => f.name.toLowerCase() === name.toLowerCase())) { showToast('Thư mục này đã tồn tại!', 'error'); return; }
+    // Giữ lại các lựa chọn đang tick dở trước khi tạo thư mục mới, rồi mở lại
+    // dialog kèm thư mục vừa tạo (tự tick sẵn) — không đóng hẳn, cho phép chọn
+    // thêm thư mục khác trong cùng 1 lượt trước khi bấm Lưu.
+    const pending = new Set([...overlay.querySelectorAll('.fp-check:checked')].map(c => c.value));
     const f = { id: genFolderId(), name, createdAt: Date.now() };
     folders.push(f);
     if (!saveFolders()) { folders.pop(); showToast('⚠️ Không lưu được!', 'error'); return; }
-    assignWordToFolder(id, f.id);
-    closeFolderPicker();
-    showToast(`✅ Đã tạo thư mục "${name}" và thêm từ vào!`, 'success');
+    pending.add(f.id);
+    openFolderPicker(id, pending);
   });
-  const removeBtn = document.getElementById('fp-remove-btn');
-  if (removeBtn) removeBtn.addEventListener('click', () => { assignWordToFolder(id, null); closeFolderPicker(); });
   overlay.addEventListener('click', e => { if (e.target === overlay) closeFolderPicker(); });
   setTimeout(() => { const el = document.getElementById('fp-new-name'); if (el) el.focus(); }, 50);
 }
 function closeFolderPicker() { const el = document.getElementById('folder-pick-overlay'); if (el) el.remove(); }
 
-function assignWordToFolder(id, folderId) {
+function assignWordFolders(id, folderIds) {
   const idx = words.findIndex(x => x.id === id);
   if (idx === -1) return;
-  const old = words[idx].folderId;
-  words[idx].folderId = folderId || null;
-  if (!saveWords()) { words[idx].folderId = old; showToast('⚠️ Không lưu được!', 'error'); return; }
-  const f = folderId ? folders.find(x => x.id === folderId) : null;
-  showToast(f ? `📁 Đã thêm vào "${f.name}"` : '🚫 Đã bỏ khỏi thư mục', 'success');
+  const old = words[idx].folderIds;
+  const next = [...new Set(folderIds)]; // phòng hờ trùng, dù UI không tạo ra trùng
+  words[idx].folderIds = next;
+  if (!saveWords()) { words[idx].folderIds = old; showToast('⚠️ Không lưu được!', 'error'); return; }
+  showToast(next.length ? `📁 Đã cập nhật thư mục (${next.length})` : '🚫 Đã bỏ khỏi mọi thư mục', 'success');
   refreshWlView();
 }
 
@@ -378,13 +422,17 @@ function openAddWordsToFolderModal(folderId) {
   overlay.setAttribute('aria-modal', 'true');
   overlay.setAttribute('aria-labelledby', 'fb-title');
   const sortedWords = words.slice().sort((a, b) => a.word.localeCompare(b.word));
-  const rows = sortedWords.map(w => `
+  const rows = sortedWords.map(w => {
+    const otherIds = (w.folderIds || []).filter(fid => fid !== folderId);
+    const otherNames = otherIds.map(fid => (folders.find(f => f.id === fid) || {}).name).filter(Boolean);
+    return `
     <label class="folder-bulk-row" data-word="${escAttr(w.word.toLowerCase())}">
-      <input type="checkbox" class="fb-check" value="${escAttr(w.id)}"${w.folderId === folderId ? ' checked' : ''}>
+      <input type="checkbox" class="fb-check" value="${escAttr(w.id)}"${w.folderIds && w.folderIds.includes(folderId) ? ' checked' : ''}>
       <span class="fb-word">${escHtml(w.word)}</span>
       <span class="fb-meaning">${escHtml(w.meaning)}</span>
-      ${w.folderId && w.folderId !== folderId ? `<span class="fb-other-folder">📁 ${escHtml((folders.find(f => f.id === w.folderId) || {}).name || '')}</span>` : ''}
-    </label>`).join('');
+      ${otherNames.length ? `<span class="fb-other-folder">📁 ${escHtml(otherNames.join(', '))}</span>` : ''}
+    </label>`;
+  }).join('');
   overlay.innerHTML = `
     <div class="confirm-box folder-pick-box">
       <div class="cb-icon">📁</div>
@@ -408,10 +456,13 @@ function openAddWordsToFolderModal(folderId) {
     const checked = new Set([...overlay.querySelectorAll('.fb-check:checked')].map(c => c.value));
     let changed = 0;
     const backup = words;
+    // Tick thêm CHỈ thêm folderId này vào mảng (không đụng các thư mục khác từ
+    // đó đang thuộc); bỏ tick CHỈ gỡ đúng folderId này ra.
     words = words.map(w => {
+      const has = w.folderIds && w.folderIds.includes(folderId);
       const inChecked = checked.has(w.id);
-      if (inChecked && w.folderId !== folderId) { changed++; return { ...w, folderId }; }
-      if (!inChecked && w.folderId === folderId) { changed++; return { ...w, folderId: null }; }
+      if (inChecked && !has) { changed++; return { ...w, folderIds: [...(w.folderIds || []), folderId] }; }
+      if (!inChecked && has) { changed++; return { ...w, folderIds: w.folderIds.filter(x => x !== folderId) }; }
       return w;
     });
     closeFolderBulkModal();

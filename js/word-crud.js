@@ -16,7 +16,9 @@ function addWord() {
     category: clampStr(document.getElementById('aw-category').value.trim(), 50) || 'Chung',
     level:    document.getElementById('aw-level').value,
     mastery: 0, known: 0, seen: 0,
-    addedAt: Date.now(), folderId: document.getElementById('aw-folder').value || null
+    // Chỉ chọn được 1 thư mục ngay lúc thêm (giữ form đơn giản) — muốn gắn thêm
+    // thư mục khác nữa thì dùng nút 📁 trên bảng Từ điển sau khi đã thêm từ.
+    addedAt: Date.now(), folderIds: document.getElementById('aw-folder').value ? [document.getElementById('aw-folder').value] : []
   }));
   if (!saveWords()) { words.pop(); return; } // lưu thất bại (vd hết bộ nhớ) -> rút lại, không báo thành công giả
   // Reset form
@@ -93,7 +95,10 @@ function bulkAdd() {
     const { word, phonetic, meaning, example, type } = parseBulkLine(line);
     if (!word || !meaning) return;
     if (words.find(w => w.word.toLowerCase() === word.toLowerCase())) return;
-    words.push(srsInit({ id: genWordId(), word, phonetic, meaning, example, type, category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0, addedAt: Date.now(), folderId }));
+    // Mỗi từ có mảng folderIds RIÊNG (không dùng chung 1 tham chiếu mảng cho cả
+    // batch) — tránh việc sửa thư mục của 1 từ sau này vô tình ảnh hưởng tới
+    // các từ khác cùng thêm hàng loạt 1 lượt.
+    words.push(srsInit({ id: genWordId(), word, phonetic, meaning, example, type, category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0, addedAt: Date.now(), folderIds: folderId ? [folderId] : [] }));
     added++;
   });
   if (!added) { showToast('Không có từ hợp lệ nào để thêm (trùng tên hoặc thiếu nghĩa)!', 'error'); return; }
@@ -217,7 +222,11 @@ function openEditModal(id) {
   const typeLabels = { noun:'Danh từ (noun)', verb:'Động từ (verb)', adj:'Tính từ (adj)', adv:'Trạng từ (adv)', phrase:'Cụm từ (phrase)', other:'Khác' };
   const typeSel  = typeOptions.map(t => `<option value="${t}"${w.type === t ? ' selected' : ''}>${typeLabels[t]}</option>`).join('');
   const levelSel = ['easy','medium','hard'].map(l => `<option value="${l}"${w.level === l ? ' selected' : ''}>${l==='easy'?'Dễ (A1–A2)':l==='medium'?'Trung bình (B1–B2)':'Khó (C1–C2)'}</option>`).join('');
-  const folderSel = folderOptionsHtml(w.folderId);
+  // Quản lý thư mục KHÔNG còn nằm ở đây (1 từ có thể thuộc nhiều thư mục cùng
+  // lúc — dropdown chọn 1 sẽ vô tình làm mất bớt thư mục khi Lưu) — chỉ hiện đọc,
+  // trỏ sang nút 📁 trên bảng Từ điển (đã hỗ trợ chọn nhiều, xem folders.js).
+  const wFolderNames = (w.folderIds || []).map(fid => (folders.find(f => f.id === fid) || {}).name).filter(Boolean);
+  const folderReadout = wFolderNames.length ? wFolderNames.map(n => `📁 ${escHtml(n)}`).join(', ') : '<span style="color:var(--text3);">Chưa có thư mục</span>';
   const masteryLabels = ['Chưa thuộc (0)', 'Mới biết (1)', 'Khá thuộc (2)', 'Đã thuộc (3)'];
   const masterySel = [0,1,2,3].map(m => `<option value="${m}"${ (w.mastery||0) === m ? ' selected' : ''}>${masteryLabels[m]}</option>`).join('');
 
@@ -247,7 +256,7 @@ function openEditModal(id) {
         </div>
         <div class="edit-row">
           <div class="edit-group"><label>Mức độ khó</label><select class="form-select" id="ew-level">${levelSel}</select></div>
-          <div class="edit-group"><label>📁 Thư mục</label><select class="form-select" id="ew-folder">${folderSel}</select></div>
+          <div class="edit-group"><label>📁 Thư mục</label><div style="font-size:0.85rem;padding:9px 0;">${folderReadout}<br><span style="font-size:0.76rem;color:var(--text3);">Dùng nút 📁 trên bảng Từ điển để đổi (chọn được nhiều thư mục)</span></div></div>
         </div>
         <div class="edit-row">
           <div class="edit-group"><label>Mức độ thuộc</label><select class="form-select" id="ew-mastery">${masterySel}</select></div>
@@ -312,7 +321,8 @@ function saveEditWord(id) {
     type:     document.getElementById('ew-type').value,
     level:    document.getElementById('ew-level').value,
     suspended: document.getElementById('ew-suspended').checked,
-    folderId: document.getElementById('ew-folder').value || null,
+    // folderIds KHÔNG đụng ở đây — modal Sửa từ không còn quản lý thư mục (xem
+    // openEditModal), giữ nguyên giá trị hiện có nhờ spread ...words[idx] ở trên.
     mastery: Math.max(0, Math.min(3, parseInt(document.getElementById('ew-mastery').value, 10) || 0)),
   };
   if (!saveWords()) { words[idx] = backup; showToast('⚠️ Không lưu được thay đổi!', 'error'); return; }

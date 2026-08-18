@@ -139,7 +139,9 @@ function wlRowHtml(w) {
   const dots = [0,1,2].map(i => `<div class="wl-dot${i < w.mastery ? ' filled' : ''}"></div>`).join('');
   const escId = escAttr(w.id);
   const escWord = escAttr(w.word);
-  const folder = w.folderId ? folders.find(f => f.id === w.folderId) : null;
+  // 1 từ có thể thuộc nhiều thư mục cùng lúc — lọc bỏ id đã trỏ tới thư mục
+  // không còn tồn tại (đề phòng dữ liệu lệch pha do đồng bộ giữa nhiều máy).
+  const wFolders = (w.folderIds || []).map(fid => folders.find(f => f.id === fid)).filter(Boolean);
   const pos = typeAbbr(w.type);
   return `<tr class="${w.suspended ? 'wl-row-suspended' : ''}">
     <td>
@@ -151,12 +153,12 @@ function wlRowHtml(w) {
     <td><div class="wl-meaning">${escHtml(w.meaning)}</div><div class="wl-example">${escHtml(w.example || '')}</div></td>
     <td>
       <span class="wl-type">${escHtml(w.category || 'Khác')}</span>
-      ${folder ? `<div class="wl-folder-tag">📁 ${escHtml(folder.name)}</div>` : ''}
+      ${wFolders.map(f => `<div class="wl-folder-tag">📁 ${escHtml(f.name)}</div>`).join('')}
     </td>
     <td><div class="wl-mastery">${dots}</div></td>
     <td>
       <div class="wl-actions">
-        <button class="wl-folder-btn${folder ? ' active' : ''}" data-id="${escId}" title="${folder ? '📁 ' + escAttr(folder.name) : 'Thêm vào thư mục'}" aria-label="Gán thư mục cho ${escAttr(w.word)}">📁</button>
+        <button class="wl-folder-btn${wFolders.length ? ' active' : ''}" data-id="${escId}" title="${wFolders.length ? '📁 ' + escAttr(wFolders.map(f => f.name).join(', ')) : 'Thêm vào thư mục'}" aria-label="Gán thư mục cho ${escAttr(w.word)}">📁</button>
         <button class="wl-suspend${w.suspended ? ' active' : ''}" data-id="${escId}" title="${w.suspended ? 'Bỏ ẩn — đưa lại vào ôn tập' : 'Đã thuộc hẳn — ẩn khỏi ôn tập'}" aria-label="Ẩn/bỏ ẩn ${escAttr(w.word)}">${w.suspended ? '🔒' : '📌'}</button>
         <button class="wl-speak" data-word="${escWord}" aria-label="Phát âm ${escAttr(w.word)}">🔊</button>
         <button class="wl-edit" data-id="${escId}" title="Sửa" aria-label="Sửa từ ${escAttr(w.word)}">✏️</button>

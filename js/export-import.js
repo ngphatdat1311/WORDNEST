@@ -129,6 +129,12 @@ function importWords(event) {
           if (!local) { local = { id: genFolderId(), name, createdAt: Date.now() }; folders.push(local); }
           return (folderIdCache[oldId] = local.id);
         }
+        // File import có thể từ bản app CŨ (field folderId đơn) hoặc bản MỚI
+        // (folderIds, nhiều thư mục) — chấp nhận cả 2, luôn trả về mảng.
+        function resolveImportedFolderIds(w) {
+          const oldIds = Array.isArray(w.folderIds) ? w.folderIds : (w.folderId ? [w.folderId] : []);
+          return oldIds.map(resolveImportedFolder).filter(Boolean);
+        }
         let added = 0;
         toAdd.forEach(w => {
           // Không dùng w.id của file gốc — id đó thuộc máy khác, có thể trùng tình
@@ -137,7 +143,7 @@ function importWords(event) {
             id: genWordId(), word: w.word, phonetic: w.phonetic||'', meaning: w.meaning,
             example: w.example||'', type: w.type||'other', category: w.category||'Nhập',
             level: w.level||'medium', mastery: w.mastery||0, known: w.known||0, seen: w.seen||0,
-            addedAt: w.addedAt || Date.now(), folderId: resolveImportedFolder(w.folderId)
+            addedAt: w.addedAt || Date.now(), folderIds: resolveImportedFolderIds(w)
           }));
           added++;
         });

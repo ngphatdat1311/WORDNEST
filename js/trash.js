@@ -106,14 +106,19 @@ function restoreTrashWord(trashId) {
     showToast(`⚠️ Đã có từ "${w.word}" trong từ điển — không thể khôi phục trùng!`, 'error');
     return;
   }
-  // Nếu thư mục gốc của từ không còn tồn tại (đã bị xóa/đổ rác riêng) -> khôi phục về "Chưa phân loại"
-  const folderStillExists = w.folderId && folders.some(f => f.id === w.folderId);
-  const restored = { ...w, folderId: folderStillExists ? w.folderId : null };
+  // Thư mục nào trong số đó không còn tồn tại nữa (đã bị xóa/đổ rác riêng từ lúc
+  // từ này còn nằm trong Thùng rác) -> tự lọc bỏ, chỉ giữ thư mục còn tồn tại.
+  // Snapshot CŨ (bị xóa từ trước khi app hỗ trợ nhiều thư mục) vẫn có thể chỉ
+  // mang field folderId đơn thay vì folderIds — tự quy đổi sang mảng ở đây.
+  const snapshotFolderIds = Array.isArray(w.folderIds) ? w.folderIds : (w.folderId ? [w.folderId] : []);
+  const validFolderIds = snapshotFolderIds.filter(fid => folders.some(f => f.id === fid));
+  const restored = { ...w, folderIds: validFolderIds };
+  delete restored.folderId;
   const backupWords = words, backupTrash = trash;
   words = [...words, restored];
   trash = trash.filter(t => t.id !== trashId);
   if (!saveWords() || !saveTrash()) { words = backupWords; trash = backupTrash; showToast('⚠️ Không khôi phục được!', 'error'); return; }
-  showToast(`✅ Đã khôi phục "${w.word}"${folderStillExists ? ' vào thư mục cũ' : ''}!`, 'success');
+  showToast(`✅ Đã khôi phục "${w.word}"${validFolderIds.length ? ' vào thư mục cũ' : ''}!`, 'success');
   refreshWlView();
   renderHome();
 }
@@ -130,7 +135,10 @@ function restoreTrashFolder(trashId) {
   if (!targetFolder) { targetFolder = { ...f }; folders = [...folders, targetFolder]; }
   const toRestore = entry.words.filter(w => !words.find(x => x.word.toLowerCase() === w.word.toLowerCase()));
   const skipped = entry.words.length - toRestore.length;
-  words = [...words, ...toRestore.map(w => ({ ...w, folderId: targetFolder.id }))];
+  // Các từ gộp theo thư mục lúc xóa (bundledWords/soleWords trong deleteFolder)
+  // luôn CHỈ thuộc đúng 1 thư mục này tại thời điểm đó — khôi phục lại đúng 1
+  // phần tử đó là đủ, không cần đọc lại field cũ của snapshot.
+  words = [...words, ...toRestore.map(w => { const r = { ...w, folderIds: [targetFolder.id] }; delete r.folderId; return r; })];
   trash = trash.filter(t => t.id !== trashId);
   if (!saveWords() || !saveFolders() || !saveTrash()) { words = backupWords; folders = backupFolders; trash = backupTrash; showToast('⚠️ Không khôi phục được!', 'error'); return; }
   showToast(`✅ Đã khôi phục thư mục "${f.name}"${toRestore.length ? ' cùng ' + toRestore.length + ' từ' : ''}${skipped ? ', bỏ qua ' + skipped + ' từ trùng' : ''}!`, 'success');

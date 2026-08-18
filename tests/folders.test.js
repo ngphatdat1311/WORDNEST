@@ -17,11 +17,11 @@ function resetState({ words = [], folders = [], trash = [] } = {}) {
   ctx.refreshWlView = () => {};
 }
 
-test('deleteFolder moves the folder and its words into one trash entry, removing both from live data', () => {
+test('deleteFolder moves the folder and its sole-owned words into one trash entry, removing both from live data', () => {
   resetState({
     words: [
-      { id: 'w1', word: 'passport', meaning: 'hộ chiếu', folderId: 'f1' },
-      { id: 'w2', word: 'other', meaning: 'khác', folderId: null },
+      { id: 'w1', word: 'passport', meaning: 'hộ chiếu', folderIds: ['f1'] },
+      { id: 'w2', word: 'other', meaning: 'khác', folderIds: [] },
     ],
     folders: [{ id: 'f1', name: 'Du lịch' }],
   });
@@ -34,6 +34,21 @@ test('deleteFolder moves the folder and its words into one trash entry, removing
   assert.equal(ctx.trash[0].folder.id, 'f1');
   assert.equal(ctx.trash[0].words.length, 1);
   assert.equal(ctx.trash[0].words[0].word, 'passport');
+});
+
+test('deleteFolder only untags (keeps) a word that also belongs to another folder — does not trash it', () => {
+  resetState({
+    words: [{ id: 'w1', word: 'negotiate', meaning: 'đàm phán', folderIds: ['f1', 'f2'] }],
+    folders: [{ id: 'f1', name: 'Công việc' }, { id: 'f2', name: 'TOEIC' }],
+  });
+  ctx.deleteFolder('f1');
+  assert.equal(ctx.folders.length, 1);
+  assert.equal(ctx.folders[0].id, 'f2');
+  assert.equal(ctx.words.length, 1); // từ vẫn còn, không bị đưa vào thùng rác
+  assert.deepEqual(ctx.words[0].folderIds, ['f2']); // chỉ gỡ đúng f1
+  assert.equal(ctx.trash.length, 1);
+  assert.equal(ctx.trash[0].type, 'folder');
+  assert.deepEqual(ctx.trash[0].words, []); // không từ nào bị gộp vào trash cùng thư mục
 });
 
 test('deleteFolder on an empty folder still moves it to trash with an empty words snapshot', () => {
@@ -53,7 +68,7 @@ test('deleteFolder does nothing for an id that does not exist', () => {
 
 test('deleteFolder rolls back words/folders/trash if saving fails', () => {
   resetState({
-    words: [{ id: 'w1', word: 'passport', meaning: 'hộ chiếu', folderId: 'f1' }],
+    words: [{ id: 'w1', word: 'passport', meaning: 'hộ chiếu', folderIds: ['f1'] }],
     folders: [{ id: 'f1', name: 'Du lịch' }],
   });
   ctx.saveTrash = () => false;

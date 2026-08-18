@@ -709,12 +709,14 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .folder-pick-box { max-width: 420px; }
 .folder-pick-list { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; text-align: left; margin-bottom: 10px; }
 .folder-pick-item {
+  display: flex; align-items: center; gap: 8px;
   background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
   padding: 9px 12px; font-size: 0.85rem; color: var(--text2); text-align: left;
   cursor: pointer; font-family: 'Inter', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; transition: background .15s, border-color .15s;
 }
 .folder-pick-item:hover { border-color: var(--accent); }
-.folder-pick-item.active { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+.folder-pick-item:has(.fp-check:checked) { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+.folder-pick-item .fp-check { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
 .folder-pick-new { display: flex; gap: 8px; margin-bottom: 1rem; }
 .folder-pick-new .form-input { flex: 1; }
 .folder-bulk-list { max-height: 320px; overflow-y: auto; text-align: left; border: 1px solid var(--border); border-radius: 8px; }

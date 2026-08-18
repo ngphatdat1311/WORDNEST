@@ -24,14 +24,14 @@ test('resetWordMastery does not mutate the original word object (pure)', () => {
   assert.equal(w.known, 12);
 });
 
-test('resetWordMastery preserves all other fields untouched (word, meaning, category, folderId...)', () => {
-  const w = { word: 'apple', meaning: 'táo', category: 'Ẩm thực', type: 'noun', folderId: 'f1', suspended: true, mastery: 2 };
+test('resetWordMastery preserves all other fields untouched (word, meaning, category, folderIds...)', () => {
+  const w = { word: 'apple', meaning: 'táo', category: 'Ẩm thực', type: 'noun', folderIds: ['f1'], suspended: true, mastery: 2 };
   const result = ctx.resetWordMastery(w);
   assert.equal(result.word, 'apple');
   assert.equal(result.meaning, 'táo');
   assert.equal(result.category, 'Ẩm thực');
   assert.equal(result.type, 'noun');
-  assert.equal(result.folderId, 'f1');
+  assert.deepEqual(result.folderIds, ['f1']);
   assert.equal(result.suspended, true); // "đã thuộc hẳn" là lựa chọn thủ công riêng, không bị đụng tới
 });
 

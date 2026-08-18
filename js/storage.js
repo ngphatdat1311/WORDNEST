@@ -92,6 +92,24 @@ function ensureWordIds() {
   return changed;
 }
 
+// Migration: đổi field `folderId` cũ (string|null, 1 từ chỉ thuộc đúng 1 thư
+// mục) sang `folderIds` (mảng, 1 từ gắn được nhiều thư mục — xem project_wordnest.md
+// mục "1 từ nhiều thư mục"). Chạy 1 lần lúc load cho dữ liệu cũ trên đĩa; các
+// snapshot cũ trong Thùng rác (đông cứng tại thời điểm xóa, có thể vẫn mang
+// field folderId đơn nếu bị xóa từ trước khi nâng cấp) được tự quy đổi riêng
+// ngay tại chỗ khôi phục (trash.js), không đụng ở đây.
+function ensureWordFolderIds() {
+  let changed = false;
+  words.forEach((w) => {
+    if (!Array.isArray(w.folderIds)) {
+      w.folderIds = w.folderId ? [w.folderId] : [];
+      changed = true;
+    }
+    if ('folderId' in w) { delete w.folderId; changed = true; }
+  });
+  return changed;
+}
+
 // ════════════════════════════════════════════════════════
 // FOLDERS — nhóm từ thủ công (khác Chủ đề), kiểu thư mục
 // ════════════════════════════════════════════════════════
@@ -142,9 +160,12 @@ let words   = loadWords();
 let folders = loadFolders();
 let trash   = loadTrash();
 
-// Migration: backfill id cho từ chưa có (dữ liệu cũ, hoặc DEFAULT_WORDS vốn không
-// gán id sẵn trong literal) — chỉ ghi lại file nếu thực sự có thay đổi.
-if (ensureWordIds()) saveWords();
+// Migration: backfill id + folderIds cho dữ liệu cũ — LUÔN chạy cả 2 hàm (không
+// dùng `||` ngắn mạch, tránh bỏ sót hàm thứ 2 nếu hàm đầu đã trả true) rồi mới
+// quyết định có ghi lại file hay không.
+const _idsChanged = ensureWordIds();
+const _folderIdsChanged = ensureWordFolderIds();
+if (_idsChanged || _folderIdsChanged) saveWords();
 
 // ════════════════════════════════════════════════════════
 // QUIZ STATS — thống kê tích lũy qua nhiều phiên quiz
