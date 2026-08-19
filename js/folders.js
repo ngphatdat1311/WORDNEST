@@ -9,6 +9,15 @@ function genFolderId() {
   return 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
+// Trả về mảng OBJECT thư mục (không phải chỉ tên) mà 1 từ đang thuộc, tự lọc
+// bỏ id đã trỏ tới thư mục không còn tồn tại (đề phòng lệch pha do đồng bộ
+// giữa nhiều máy) — dùng chung cho mọi nơi cần hiện thư mục của 1 từ (bảng Từ
+// điển, modal Sửa từ, dialog cảnh báo trùng từ...), tránh lặp lại đúng 1 dòng
+// map+filter này ở nhiều file.
+function wordFolders(w) {
+  return (w.folderIds || []).map(fid => folders.find(f => f.id === fid)).filter(Boolean);
+}
+
 // <option> thư mục dùng cho form Thêm từ + modal Sửa từ (chọn 1 thư mục để gán, có "— Không có —")
 function folderOptionsHtml(selectedId) {
   const sorted = folders.slice().sort((a, b) => a.name.localeCompare(b.name));

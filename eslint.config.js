@@ -20,10 +20,10 @@ const appGlobals = Object.fromEntries(
     'addWord', 'answerQuiz', 'applyLookupResult', 'applyTheme', 'assignWordFolders',
     'autoLookupTimer', 'autoSyncWrite', 'awAbortController', 'awAudioUrl', 'awAutoFilledValues',
     'awCurrentAudio', 'awSpeakWord', 'bulkAdd', 'bumpDailyActivity', 'checkSpelling',
-    'checkSyncOnStartup', 'clampStr', 'clearExtensionInbox', 'clearQuizSession',
-    'clearSpellingSession', 'closeConfirm', 'closeEditModal', 'closeFolderBulkModal',
+    'checkSyncOnStartup', 'clampStr', 'classifyBulkLines', 'clearExtensionInbox', 'clearQuizSession',
+    'clearSpellingSession', 'closeBulkDupConfirm', 'closeConfirm', 'closeDuplicateWordConfirm', 'closeEditModal', 'closeFolderBulkModal',
     'closeFolderNameModal', 'closeFolderPicker', 'closeImportConfirm', 'closeWlMoreMenu',
-    'confirmDelete', 'confirmDeleteAll', 'confirmEmptyTrash', 'confirmReclassifyUnclearWords', 'createFolderPrompt',
+    'commitBulkAdd', 'confirmBulkDuplicates', 'confirmDelete', 'confirmDeleteAll', 'confirmDuplicateWordAdd', 'confirmEmptyTrash', 'confirmReclassifyUnclearWords', 'createFolderPrompt',
     'currentLookupWord', 'daysSince', 'debouncedRenderWordList', 'deleteAllWords', 'deleteFolder',
     'deleteFolderConfirm', 'deleteTrashEntry', 'deleteTrashEntryConfirm', 'deleteWord',
     'disableSync', 'dismissAppUpdateBanner', 'dismissBackupBanner', 'doAutoLookup',
@@ -40,7 +40,7 @@ const appGlobals = Object.fromEntries(
     'lastLookupExampleVi', 'lastLookupUsedExamples', 'loadDailyActivity', 'loadFolders',
     'loadLookupCacheRaw', 'loadMoreExamplesFromTatoeba', 'loadQuizStats', 'loadSpellingWord', 'loadStreak', 'loadTrash',
     'loadWords', 'localDateKey', 'looksLikeSentence', 'lookupGen', 'mapPartOfSpeech',
-    'markBackedUpNow', 'markCard', 'markSeenCurrent', 'migrateKeyIfNeeded', 'nextCard',
+    'markBackedUpNow', 'markCard', 'markSeenCurrent', 'mergeWordFolder', 'migrateKeyIfNeeded', 'nextCard',
     'nextQuiz', 'nextSpelling', 'qzIndex', 'qzScore', 'qzAnswered',
     'spIndex', 'spCorrect', 'spWrong', 'spStreak', 'spHintLevel', 'spRevealed',
     'openAddWordsToFolderModal', 'openEditModal', 'openFolder',
@@ -72,7 +72,7 @@ const appGlobals = Object.fromEntries(
     'updateRerollButtonLabel', 'updateSpScore', 'useInboxWord', 'wlActiveFolder', 'wlFolderPage', 'wlComparator',
     'wlFilter', 'wlPage', 'wlRowHtml', 'wlSearchDebounceTimer', 'wlShowDate', 'wlShowMasteredOnly',
     'wireWlRowActions', 'wireStaticEvents', 'on',
-    'wlView', 'words',
+    'wlView', 'wordFolders', 'words',
   ].map((name) => [name, 'writable'])
 );
 

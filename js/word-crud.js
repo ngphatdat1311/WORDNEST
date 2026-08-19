@@ -22,25 +22,10 @@ function addWord() {
   const folderId = document.getElementById('aw-folder').value || null;
   const dupIdx = words.findIndex(w => w.word.toLowerCase() === word.toLowerCase());
   if (dupIdx !== -1) {
-    // Từ đã tồn tại. Trước đây chặn thẳng bất kể có chọn thư mục hay không —
-    // khiến việc thêm liên tục cùng 1 từ để rải vào nhiều thư mục khác nhau
-    // (mô hình "1 từ nhiều thư mục", xem folderIds) luôn bị từ chối, trông như
-    // bug. Giờ nếu có chọn thư mục và từ đó CHƯA thuộc thư mục đó, gắn thêm
-    // thư mục vào từ có sẵn thay vì tạo bản ghi trùng tên (word vẫn là định
-    // danh duy nhất — không phá invariant này). Không chọn thư mục, hoặc từ đã
-    // thuộc sẵn thư mục đó rồi -> vẫn báo lỗi trùng như cũ.
-    if (folderId && !(words[dupIdx].folderIds || []).includes(folderId)) {
-      const old = words[dupIdx].folderIds || [];
-      words[dupIdx] = { ...words[dupIdx], folderIds: [...old, folderId] };
-      if (!saveWords()) { words[dupIdx] = { ...words[dupIdx], folderIds: old }; showToast('⚠️ Không lưu được!', 'error'); return; }
-      const folderName = (folders.find(f => f.id === folderId) || {}).name || '';
-      showToast(`⚠️ Từ "${word}" đã có sẵn — đã gắn thêm vào thư mục "${folderName}"!`, 'success');
-      resetAddWordForm();
-      renderHome();
-      renderWordList();
-      return;
-    }
-    showToast('Từ này đã tồn tại!', 'error');
+    // Từ đã tồn tại. Trước đây chặn thẳng (hoặc gắn thêm thư mục ÂM THẦM không
+    // hỏi) — giờ luôn hỏi lại rõ ràng: hiện từ đó đang thuộc thư mục nào, có
+    // muốn tiếp tục gắn thêm thư mục mới không. Xem confirmDuplicateWordAdd().
+    confirmDuplicateWordAdd(dupIdx, folderId);
     return;
   }
   words.push(srsInit({
@@ -63,6 +48,69 @@ function addWord() {
   renderHome();
   renderWordList(); // đồng bộ luôn danh sách từ, tránh hiển thị stale nếu user quay lại tab Danh sách
 }
+
+// Gắn thêm 1 thư mục vào từ đã có sẵn ở words[idx] (KHÔNG tạo bản ghi mới —
+// word vẫn là định danh duy nhất). Dùng reassign object mới (không mutate tại
+// chỗ) để rollback đúng nếu saveWords() lỗi. Trả về true/false theo kết quả lưu.
+function mergeWordFolder(idx, folderId) {
+  const w = words[idx];
+  const old = w.folderIds || [];
+  words[idx] = { ...w, folderIds: [...old, folderId] };
+  if (!saveWords()) { words[idx] = { ...words[idx], folderIds: old }; showToast('⚠️ Không lưu được!', 'error'); return false; }
+  return true;
+}
+
+// Hỏi lại khi Thêm từ (đơn lẻ) gặp từ trùng tên — hiện rõ từ đó ĐANG thuộc thư
+// mục nào (có thể nhiều), rồi mới hỏi có muốn tiếp tục gắn thêm thư mục mới
+// (nếu form có chọn thư mục và từ đó chưa thuộc thư mục đó) hay không. Không
+// chọn thư mục, hoặc thư mục đã gắn sẵn rồi -> chỉ hiện thông tin, không có gì
+// để làm thêm (nút "Đóng" thay vì "Hủy"/"Tiếp tục").
+function confirmDuplicateWordAdd(dupIdx, folderId) {
+  const w = words[dupIdx];
+  const existingNames = wordFolders(w).map(f => f.name);
+  const newFolder = folderId ? folders.find(f => f.id === folderId) : null;
+  const alreadyHas = newFolder && existingNames.includes(newFolder.name);
+  const canMerge = !!(newFolder && !alreadyHas);
+
+  const old = document.getElementById('dup-word-overlay');
+  if (old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.id = 'dup-word-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'dup-word-title');
+  const folderText = existingNames.length ? escHtml(existingNames.join(', ')) : 'chưa thuộc thư mục nào';
+  let subHtml = `Từ này hiện thuộc thư mục: <strong>${folderText}</strong>.`;
+  if (canMerge) subHtml += `<br><br>Bạn có muốn gắn thêm vào thư mục <strong>${escHtml(newFolder.name)}</strong> không?`;
+  else if (newFolder && alreadyHas) subHtml += `<br><br>Từ này đã thuộc thư mục "${escHtml(newFolder.name)}" rồi.`;
+  overlay.innerHTML = `
+    <div class="confirm-box">
+      <div class="cb-icon">⚠️</div>
+      <div class="cb-title" id="dup-word-title">Từ đã tồn tại</div>
+      <div class="cb-word">${escHtml(w.word)}</div>
+      <div class="cb-sub">${subHtml}</div>
+      <div class="cb-btns">
+        <button class="cb-cancel" id="dup-word-cancel-btn">${canMerge ? 'Hủy' : 'Đóng'}</button>
+        ${canMerge ? '<button class="cb-confirm" id="dup-word-confirm-btn">Tiếp tục</button>' : ''}
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('dup-word-cancel-btn').addEventListener('click', closeDuplicateWordConfirm);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeDuplicateWordConfirm(); });
+  if (canMerge) {
+    document.getElementById('dup-word-confirm-btn').addEventListener('click', () => {
+      closeDuplicateWordConfirm();
+      if (!mergeWordFolder(dupIdx, folderId)) return;
+      showToast(`⚠️ Từ "${w.word}" đã có sẵn — đã gắn thêm vào thư mục "${newFolder.name}"!`, 'success');
+      resetAddWordForm();
+      renderHome();
+      renderWordList();
+    });
+  }
+  setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
+}
+function closeDuplicateWordConfirm() { const el = document.getElementById('dup-word-overlay'); if (el) el.remove(); }
 
 // Chuẩn hoá "loại từ" gõ tay trong form Thêm hàng loạt — chấp nhận cả nhãn
 // tiếng Việt ngắn gọn (vd "danh từ") lẫn mã tiếng Anh (vd "noun"), không phân
@@ -110,44 +158,141 @@ function parseBulkLine(line) {
   };
 }
 
+// Đọc & phân loại các dòng nhập trong ô Thêm hàng loạt thành 2 nhóm: từ MỚI
+// (chưa có trong từ điển, kể cả trùng nhau NGAY TRONG chính danh sách đang dán
+// — chỉ dòng đầu tiên được tính là mới) và từ TRÙNG (đã có sẵn trong từ điển
+// từ trước). Tách riêng để test độc lập, không phụ thuộc DOM/state toàn cục
+// ngoài `words`.
+function classifyBulkLines(lines, folderId) {
+  const seen = new Set();
+  const newItems = [];
+  const dupItems = []; // { word, folderNames, inBatch, alreadyHasFolder }
+  lines.forEach(line => {
+    const { word, phonetic, meaning, example, type } = parseBulkLine(line);
+    if (!word || !meaning) return;
+    const lc = word.toLowerCase();
+    if (seen.has(lc)) { dupItems.push({ word, folderNames: [], inBatch: true, alreadyHasFolder: false }); return; }
+    const existing = words.find(w => w.word.toLowerCase() === lc);
+    if (existing) {
+      dupItems.push({
+        word,
+        folderNames: wordFolders(existing).map(f => f.name),
+        inBatch: false,
+        alreadyHasFolder: !!(folderId && (existing.folderIds || []).includes(folderId)),
+      });
+      return;
+    }
+    seen.add(lc);
+    newItems.push({ word, phonetic, meaning, example, type });
+  });
+  return { newItems, dupItems };
+}
+
 function bulkAdd() {
   const raw = document.getElementById('aw-bulk').value.trim();
   if (!raw) { showToast('Vui lòng nhập từ!'); return; }
   const folderId = document.getElementById('aw-bulk-folder').value || null;
   const lines = raw.split('\n').filter(l => l.trim());
+  const { newItems, dupItems } = classifyBulkLines(lines, folderId);
+  if (!newItems.length && !dupItems.length) { showToast('Không có từ hợp lệ nào để thêm (trùng tên hoặc thiếu nghĩa)!', 'error'); return; }
+  // Chỉ hỏi lại khi có từ trùng cần cảnh báo — không có gì bất ngờ thì thêm
+  // thẳng luôn như trước, đỡ phải bấm thêm 1 bước cho trường hợp phổ biến nhất.
+  if (dupItems.length) confirmBulkDuplicates(newItems, dupItems, folderId);
+  else commitBulkAdd(newItems, dupItems, folderId);
+}
+
+// Hỏi lại khi Thêm hàng loạt phát hiện 1+ từ đã trùng — liệt kê ĐẦY ĐỦ từng từ
+// bị trùng (kèm thư mục hiện có của nó) thay vì chỉ báo 1 con số chung chung,
+// rồi mới hỏi có muốn tiếp tục (thêm từ mới + gắn thêm thư mục cho từ trùng
+// chưa thuộc thư mục vừa chọn) hay không.
+function confirmBulkDuplicates(newItems, dupItems, folderId) {
+  const willAdd = newItems.length;
+  const willMerge = folderId ? dupItems.filter(d => !d.inBatch && !d.alreadyHasFolder).length : 0;
+  const canProceed = willAdd > 0 || willMerge > 0;
+  const folderName = folderId ? (folders.find(f => f.id === folderId) || {}).name || '' : '';
+
+  const rows = dupItems.map(d => {
+    let note;
+    if (d.inBatch) note = 'trùng lặp trong chính danh sách bạn vừa dán';
+    else if (!d.folderNames.length) note = 'đã có trong từ điển, chưa thuộc thư mục nào';
+    else note = 'đã thuộc: ' + d.folderNames.join(', ');
+    if (folderId && !d.inBatch && d.alreadyHasFolder) note += ` (đã có thư mục "${folderName}" rồi)`;
+    return `<div class="dup-list-row"><span class="dup-list-word">${escHtml(d.word)}</span><span class="dup-list-note">${escHtml(note)}</span></div>`;
+  }).join('');
+
+  const summaryParts = [];
+  if (willAdd) summaryParts.push(`thêm <strong>${willAdd}</strong> từ mới`);
+  if (willMerge) summaryParts.push(`gắn thêm thư mục "${escHtml(folderName)}" cho <strong>${willMerge}</strong> từ đã có`);
+
+  const old = document.getElementById('bulk-dup-overlay');
+  if (old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-overlay';
+  overlay.id = 'bulk-dup-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'bulk-dup-title');
+  overlay.innerHTML = `
+    <div class="confirm-box folder-pick-box">
+      <div class="cb-icon">⚠️</div>
+      <div class="cb-title" id="bulk-dup-title">${dupItems.length} từ đã trùng</div>
+      <div class="cb-sub" style="margin-bottom:8px;">Trong danh sách bạn nhập có <strong>${dupItems.length}</strong> từ đã tồn tại:</div>
+      <div class="folder-bulk-list">${rows}</div>
+      <div class="cb-sub" style="margin-top:10px;">
+        ${canProceed ? `Sẽ ${summaryParts.join(', ')}. Bạn có muốn tiếp tục không?` : 'Không có gì để thêm hoặc thay đổi.'}
+      </div>
+      <div class="cb-btns">
+        <button class="cb-cancel" id="bulk-dup-cancel-btn">${canProceed ? 'Hủy' : 'Đóng'}</button>
+        ${canProceed ? '<button class="cb-confirm" id="bulk-dup-confirm-btn">Tiếp tục</button>' : ''}
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('bulk-dup-cancel-btn').addEventListener('click', closeBulkDupConfirm);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeBulkDupConfirm(); });
+  if (canProceed) {
+    document.getElementById('bulk-dup-confirm-btn').addEventListener('click', () => {
+      closeBulkDupConfirm();
+      commitBulkAdd(newItems, dupItems, folderId);
+    });
+  }
+  setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
+}
+function closeBulkDupConfirm() { const el = document.getElementById('bulk-dup-overlay'); if (el) el.remove(); }
+
+// Thực sự ghi vào words[] — được gọi thẳng từ bulkAdd() khi không có từ nào
+// trùng, hoặc sau khi user bấm "Tiếp tục" ở confirmBulkDuplicates().
+function commitBulkAdd(newItems, dupItems, folderId) {
   const backup = words;
   words = [...words];
-  let added = 0, merged = 0;
-  lines.forEach(line => {
-    const { word, phonetic, meaning, example, type } = parseBulkLine(line);
-    if (!word || !meaning) return;
-    const dupIdx = words.findIndex(w => w.word.toLowerCase() === word.toLowerCase());
-    if (dupIdx !== -1) {
-      // Từ đã có sẵn (trùng với từ cũ, hoặc trùng ngay trong chính batch đang
-      // nhập) — trước đây bỏ qua thẳng, khiến việc bulk-add lại cùng 1 danh
-      // sách nhưng chọn thư mục khác (ý định rải từ vào nhiều thư mục) luôn bị
-      // âm thầm bỏ qua. Giờ nếu từ đó CHƯA thuộc thư mục vừa chọn, gắn thêm
-      // thư mục cho từ có sẵn thay vì tạo bản ghi trùng tên. Dùng reassign (không
-      // mutate object cũ) để backup ở trên vẫn giữ nguyên tham chiếu gốc, đảm
-      // bảo rollback đúng nếu saveWords() lỗi bên dưới.
-      if (folderId && !(words[dupIdx].folderIds || []).includes(folderId)) {
-        words[dupIdx] = { ...words[dupIdx], folderIds: [...(words[dupIdx].folderIds || []), folderId] };
+  // Mỗi từ có mảng folderIds RIÊNG (không dùng chung 1 tham chiếu mảng cho cả
+  // batch) — tránh việc sửa thư mục của 1 từ sau này vô tình ảnh hưởng tới các
+  // từ khác cùng thêm hàng loạt 1 lượt.
+  newItems.forEach(item => {
+    words.push(srsInit({ id: genWordId(), ...item, category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0, addedAt: Date.now(), folderIds: folderId ? [folderId] : [] }));
+  });
+  // Tìm lại theo TEXT (không dùng index đã tính từ lúc classify) — an toàn hơn
+  // nếu words[] đổi giữa lúc mở dialog và lúc user bấm Tiếp tục (vd đồng bộ nền).
+  let merged = 0;
+  if (folderId) {
+    dupItems.forEach(({ word, inBatch }) => {
+      if (inBatch) return; // dòng lặp lại trong chính batch — dòng đầu đã tạo mới với đúng folderId rồi
+      const idx = words.findIndex(w => w.word.toLowerCase() === word.toLowerCase());
+      if (idx === -1) return;
+      if (!(words[idx].folderIds || []).includes(folderId)) {
+        words[idx] = { ...words[idx], folderIds: [...(words[idx].folderIds || []), folderId] };
         merged++;
       }
-      return;
-    }
-    // Mỗi từ có mảng folderIds RIÊNG (không dùng chung 1 tham chiếu mảng cho cả
-    // batch) — tránh việc sửa thư mục của 1 từ sau này vô tình ảnh hưởng tới
-    // các từ khác cùng thêm hàng loạt 1 lượt.
-    words.push(srsInit({ id: genWordId(), word, phonetic, meaning, example, type, category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0, addedAt: Date.now(), folderIds: folderId ? [folderId] : [] }));
-    added++;
-  });
-  if (!added && !merged) { showToast('Không có từ hợp lệ nào để thêm (trùng tên hoặc thiếu nghĩa)!', 'error'); return; }
+    });
+  }
+  if (!newItems.length && !merged) { words = backup; showToast('Không có thay đổi nào để lưu.'); return; }
   if (!saveWords()) { words = backup; showToast('⚠️ Không lưu được — bộ nhớ đầy! Không có từ nào được thêm.', 'error'); return; }
   document.getElementById('aw-bulk').value = '';
   const parts = [];
-  if (added) parts.push(`thêm ${added} từ mới`);
-  if (merged) parts.push(`gắn thêm thư mục cho ${merged} từ đã có`);
+  if (newItems.length) parts.push(`thêm ${newItems.length} từ mới`);
+  if (merged) {
+    const folderName = (folders.find(f => f.id === folderId) || {}).name || '';
+    parts.push(`gắn thêm thư mục "${folderName}" cho ${merged} từ đã có`);
+  }
   showToast(`✅ Đã ${parts.join(', ')}!`, 'success');
   renderHome();
   renderWordList(); // đồng bộ luôn danh sách từ
@@ -269,7 +414,7 @@ function openEditModal(id) {
   // Quản lý thư mục KHÔNG còn nằm ở đây (1 từ có thể thuộc nhiều thư mục cùng
   // lúc — dropdown chọn 1 sẽ vô tình làm mất bớt thư mục khi Lưu) — chỉ hiện đọc,
   // trỏ sang nút 📁 trên bảng Từ điển (đã hỗ trợ chọn nhiều, xem folders.js).
-  const wFolderNames = (w.folderIds || []).map(fid => (folders.find(f => f.id === fid) || {}).name).filter(Boolean);
+  const wFolderNames = wordFolders(w).map(f => f.name);
   const folderReadout = wFolderNames.length ? wFolderNames.map(n => `📁 ${escHtml(n)}`).join(', ') : '<span style="color:var(--text3);">Chưa có thư mục</span>';
   const masteryLabels = ['Chưa thuộc (0)', 'Mới biết (1)', 'Khá thuộc (2)', 'Đã thuộc (3)'];
   const masterySel = [0,1,2,3].map(m => `<option value="${m}"${ (w.mastery||0) === m ? ' selected' : ''}>${masteryLabels[m]}</option>`).join('');

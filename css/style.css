@@ -731,6 +731,17 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .folder-bulk-row .fb-meaning { color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .folder-bulk-row .fb-other-folder { font-size: 0.74rem; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
 
+/* Danh sách từ bị trùng khi Thêm hàng loạt (confirmBulkDuplicates) — dùng
+   chung khung cuộn .folder-bulk-list ở trên, chỉ khác không có checkbox/click
+   (thuần thông tin, không thao tác được). */
+.dup-list-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 8px 12px; border-bottom: 1px solid var(--bg3); font-size: 0.85rem;
+}
+.dup-list-row:last-child { border-bottom: none; }
+.dup-list-word { font-family: 'Lora', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', serif; color: var(--text); font-weight: 500; flex-shrink: 0; }
+.dup-list-note { font-size: 0.76rem; color: var(--text3); text-align: right; }
+
 /* ── TRASH — thùng rác ── */
 .trash-item {
   display: flex; align-items: center; gap: 14px;

@@ -139,9 +139,8 @@ function wlRowHtml(w) {
   const dots = [0,1,2].map(i => `<div class="wl-dot${i < w.mastery ? ' filled' : ''}"></div>`).join('');
   const escId = escAttr(w.id);
   const escWord = escAttr(w.word);
-  // 1 từ có thể thuộc nhiều thư mục cùng lúc — lọc bỏ id đã trỏ tới thư mục
-  // không còn tồn tại (đề phòng dữ liệu lệch pha do đồng bộ giữa nhiều máy).
-  const wFolders = (w.folderIds || []).map(fid => folders.find(f => f.id === fid)).filter(Boolean);
+  // 1 từ có thể thuộc nhiều thư mục cùng lúc.
+  const wFolders = wordFolders(w);
   const pos = typeAbbr(w.type);
   return `<tr class="${w.suspended ? 'wl-row-suspended' : ''}">
     <td>
