@@ -1,11 +1,48 @@
 // ════════════════════════════════════════════════════════
 // ADD WORD
 // ════════════════════════════════════════════════════════
+// Xóa sạch form Thêm từ sau khi thêm thành công (hoặc sau khi gắn thêm thư mục
+// cho 1 từ đã có sẵn — xem addWord()) — tách riêng để dùng lại ở cả 2 nhánh.
+function resetAddWordForm() {
+  ['aw-word','aw-phonetic','aw-meaning','aw-example','aw-category'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.value = ''; el.classList.remove('autofilled'); }
+  });
+  document.getElementById('aw-folder').value = '';
+  const exVi = document.getElementById('aw-example-vi'); if (exVi) exVi.textContent = '';
+  const altM = document.getElementById('aw-alt-meaning'); if (altM) altM.innerHTML = '';
+  const speakBtn = document.getElementById('aw-speak-btn'); if (speakBtn) speakBtn.style.display = 'none';
+  document.getElementById('aw-autofill-status').innerHTML = '';
+  awAutoFilledValues = {};
+}
 function addWord() {
   const word    = clampStr(document.getElementById('aw-word').value.trim(), 60);
   const meaning = clampStr(document.getElementById('aw-meaning').value.trim(), 200);
   if (!word || !meaning) { showToast('Cần nhập từ và nghĩa!', 'error'); return; }
-  if (words.find(w => w.word.toLowerCase() === word.toLowerCase())) { showToast('Từ này đã tồn tại!', 'error'); return; }
+  const folderId = document.getElementById('aw-folder').value || null;
+  const dupIdx = words.findIndex(w => w.word.toLowerCase() === word.toLowerCase());
+  if (dupIdx !== -1) {
+    // Từ đã tồn tại. Trước đây chặn thẳng bất kể có chọn thư mục hay không —
+    // khiến việc thêm liên tục cùng 1 từ để rải vào nhiều thư mục khác nhau
+    // (mô hình "1 từ nhiều thư mục", xem folderIds) luôn bị từ chối, trông như
+    // bug. Giờ nếu có chọn thư mục và từ đó CHƯA thuộc thư mục đó, gắn thêm
+    // thư mục vào từ có sẵn thay vì tạo bản ghi trùng tên (word vẫn là định
+    // danh duy nhất — không phá invariant này). Không chọn thư mục, hoặc từ đã
+    // thuộc sẵn thư mục đó rồi -> vẫn báo lỗi trùng như cũ.
+    if (folderId && !(words[dupIdx].folderIds || []).includes(folderId)) {
+      const old = words[dupIdx].folderIds || [];
+      words[dupIdx] = { ...words[dupIdx], folderIds: [...old, folderId] };
+      if (!saveWords()) { words[dupIdx] = { ...words[dupIdx], folderIds: old }; showToast('⚠️ Không lưu được!', 'error'); return; }
+      const folderName = (folders.find(f => f.id === folderId) || {}).name || '';
+      showToast(`⚠️ Từ "${word}" đã có sẵn — đã gắn thêm vào thư mục "${folderName}"!`, 'success');
+      resetAddWordForm();
+      renderHome();
+      renderWordList();
+      return;
+    }
+    showToast('Từ này đã tồn tại!', 'error');
+    return;
+  }
   words.push(srsInit({
     id: genWordId(),
     word,
@@ -18,20 +55,10 @@ function addWord() {
     mastery: 0, known: 0, seen: 0,
     // Chỉ chọn được 1 thư mục ngay lúc thêm (giữ form đơn giản) — muốn gắn thêm
     // thư mục khác nữa thì dùng nút 📁 trên bảng Từ điển sau khi đã thêm từ.
-    addedAt: Date.now(), folderIds: document.getElementById('aw-folder').value ? [document.getElementById('aw-folder').value] : []
+    addedAt: Date.now(), folderIds: folderId ? [folderId] : []
   }));
   if (!saveWords()) { words.pop(); return; } // lưu thất bại (vd hết bộ nhớ) -> rút lại, không báo thành công giả
-  // Reset form
-  ['aw-word','aw-phonetic','aw-meaning','aw-example','aw-category'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.value = ''; el.classList.remove('autofilled'); }
-  });
-  document.getElementById('aw-folder').value = '';
-  const exVi = document.getElementById('aw-example-vi'); if (exVi) exVi.textContent = '';
-  const altM = document.getElementById('aw-alt-meaning'); if (altM) altM.innerHTML = '';
-  const speakBtn = document.getElementById('aw-speak-btn'); if (speakBtn) speakBtn.style.display = 'none';
-  document.getElementById('aw-autofill-status').innerHTML = '';
-  awAutoFilledValues = {};
+  resetAddWordForm();
   showToast('✅ Đã thêm từ "' + word + '"!', 'success');
   renderHome();
   renderWordList(); // đồng bộ luôn danh sách từ, tránh hiển thị stale nếu user quay lại tab Danh sách
@@ -90,21 +117,38 @@ function bulkAdd() {
   const lines = raw.split('\n').filter(l => l.trim());
   const backup = words;
   words = [...words];
-  let added = 0;
+  let added = 0, merged = 0;
   lines.forEach(line => {
     const { word, phonetic, meaning, example, type } = parseBulkLine(line);
     if (!word || !meaning) return;
-    if (words.find(w => w.word.toLowerCase() === word.toLowerCase())) return;
+    const dupIdx = words.findIndex(w => w.word.toLowerCase() === word.toLowerCase());
+    if (dupIdx !== -1) {
+      // Từ đã có sẵn (trùng với từ cũ, hoặc trùng ngay trong chính batch đang
+      // nhập) — trước đây bỏ qua thẳng, khiến việc bulk-add lại cùng 1 danh
+      // sách nhưng chọn thư mục khác (ý định rải từ vào nhiều thư mục) luôn bị
+      // âm thầm bỏ qua. Giờ nếu từ đó CHƯA thuộc thư mục vừa chọn, gắn thêm
+      // thư mục cho từ có sẵn thay vì tạo bản ghi trùng tên. Dùng reassign (không
+      // mutate object cũ) để backup ở trên vẫn giữ nguyên tham chiếu gốc, đảm
+      // bảo rollback đúng nếu saveWords() lỗi bên dưới.
+      if (folderId && !(words[dupIdx].folderIds || []).includes(folderId)) {
+        words[dupIdx] = { ...words[dupIdx], folderIds: [...(words[dupIdx].folderIds || []), folderId] };
+        merged++;
+      }
+      return;
+    }
     // Mỗi từ có mảng folderIds RIÊNG (không dùng chung 1 tham chiếu mảng cho cả
     // batch) — tránh việc sửa thư mục của 1 từ sau này vô tình ảnh hưởng tới
     // các từ khác cùng thêm hàng loạt 1 lượt.
     words.push(srsInit({ id: genWordId(), word, phonetic, meaning, example, type, category:'Nhập nhanh', level:'medium', mastery:0, known:0, seen:0, addedAt: Date.now(), folderIds: folderId ? [folderId] : [] }));
     added++;
   });
-  if (!added) { showToast('Không có từ hợp lệ nào để thêm (trùng tên hoặc thiếu nghĩa)!', 'error'); return; }
+  if (!added && !merged) { showToast('Không có từ hợp lệ nào để thêm (trùng tên hoặc thiếu nghĩa)!', 'error'); return; }
   if (!saveWords()) { words = backup; showToast('⚠️ Không lưu được — bộ nhớ đầy! Không có từ nào được thêm.', 'error'); return; }
   document.getElementById('aw-bulk').value = '';
-  showToast(`✅ Đã thêm ${added} từ!`, 'success');
+  const parts = [];
+  if (added) parts.push(`thêm ${added} từ mới`);
+  if (merged) parts.push(`gắn thêm thư mục cho ${merged} từ đã có`);
+  showToast(`✅ Đã ${parts.join(', ')}!`, 'success');
   renderHome();
   renderWordList(); // đồng bộ luôn danh sách từ
 }

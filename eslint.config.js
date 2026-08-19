@@ -55,7 +55,7 @@ const appGlobals = Object.fromEntries(
     'renderHome', 'renderProgress', 'renderQuizQ', 'renderQuizStats', 'renderSyncStatus',
     'renderTrash', 'renderVocabBreakdown', 'renderWlTableHead', 'renderWordList', 'rerollExample',
     'resetFlipInstant',
-    'resetAwExtras', 'restartSpelling', 'restoreTrashFolder', 'restoreTrashWord', 'revealWord',
+    'resetAwExtras', 'resetAddWordForm', 'restartSpelling', 'restoreTrashFolder', 'restoreTrashWord', 'revealWord',
     'saveDailyActivity', 'saveEditWord', 'saveFolders', 'saveLookupCacheRaw', 'saveQuizSession',
     'saveQuizStats', 'saveSpellingSession', 'saveStreak', 'saveTrash', 'saveWords',
     'scheduleAutoLookup', 'setCachedLookup', 'setStatus', 'setSyncFolder', 'setWlFilter',
