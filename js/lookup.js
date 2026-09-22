@@ -136,6 +136,22 @@ function statusBadge(text, type) {
   return `<span class="autofill-badge">${text}</span>`;
 }
 
+// Gọi sau MỖI await trong lượt tra từ điển/dịch (doAutoLookup/doSentenceLookup).
+// Có lượt MỚI HƠN đã bắt đầu (myGen !== lookupGen) hoặc user đã đổi nội dung ô
+// nhập (isStaleNow) -> lượt này không còn liên quan tới màn hình hiện tại nữa,
+// bỏ qua HOÀN TOÀN, không đụng status badge (1 lượt khác, hoặc chưa có lượt
+// nào, đang là trạng thái đúng cần hiển thị). Nhưng nếu lý do dừng là HẾT GIỜ
+// CHỜ (signal.aborted, do guardTimer 9s hẹn ở đầu hàm gọi) mà đây VẪN LÀ lượt
+// đang hiển thị cho user (chưa bị lượt nào khác thay thế, chưa đổi input) —
+// đây là 1 lượt tra THẬT SỰ THẤT BẠI (mất mạng/API không phản hồi), phải báo
+// lỗi rõ ràng, không được để badge "Đang tra..."/"Đang dịch..." treo mãi không
+// phản hồi gì như trước đây.
+function shouldAbandonLookup(myGen, signal, isStaleNow, timeoutMsg) {
+  if (myGen !== lookupGen || isStaleNow) return true;
+  if (signal.aborted) { setStatus(statusBadge(timeoutMsg, 'error')); return true; }
+  return false;
+}
+
 function playPronunciation() {
   const btn = document.getElementById('aw-speak-btn');
   if (btn) { btn.classList.add('speaking'); setTimeout(() => btn.classList.remove('speaking'), 600); }
@@ -171,7 +187,7 @@ async function doSentenceLookup(sentence, myGen) {
   try { meaningVI = await translateText(sentence, signal); }
   catch { /* thử tiếp ở dưới, không throw */ }
   clearTimeout(guardTimer);
-  if (myGen !== lookupGen || signal.aborted || isStale(sentence)) return;
+  if (shouldAbandonLookup(myGen, signal, isStale(sentence), '❌ Dịch quá lâu, có thể do mất mạng — nhập tay nhé')) return;
 
   if (!meaningVI) {
     setStatus(statusBadge('❌ Không dịch được câu này — nhập tay nhé', 'error'));
@@ -227,7 +243,7 @@ async function doAutoLookup(word) {
   const [entries, gTrans, phoneticFallback] = await Promise.all([dictPromise, transPromise, phoneticFallbackPromise]);
   clearTimeout(guardTimer);
   // Kiểm tra generation counter — loại bỏ kết quả từ request cũ hơn
-  if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
+  if (shouldAbandonLookup(myGen, signal, isStale(word), '❌ Tra từ điển quá lâu, có thể do mất mạng — nhập tay nhé')) return;
 
   const entry = (Array.isArray(entries) && entries.length) ? entries[0] : null;
   const dominantPos = pickDominantPos(entry);
@@ -269,13 +285,13 @@ async function doAutoLookup(word) {
     try {
       const translated = await translateText(enDefinition, signal);
       // Kiểm tra lại ngay sau await — người dùng có thể đã gõ từ mới trong lúc chờ dịch
-      if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
+      if (shouldAbandonLookup(myGen, signal, isStale(word), '❌ Tra từ điển quá lâu, có thể do mất mạng — nhập tay nhé')) return;
       meaningVI = translated;
     } catch {
-      if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
+      if (shouldAbandonLookup(myGen, signal, isStale(word), '❌ Tra từ điển quá lâu, có thể do mất mạng — nhập tay nhé')) return;
     }
   }
-  if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
+  if (shouldAbandonLookup(myGen, signal, isStale(word), '❌ Tra từ điển quá lâu, có thể do mất mạng — nhập tay nhé')) return;
 
   // Tầng dự phòng cuối — Google (endpoint tra từ điển dt=bd) đôi khi không có
   // entry cho từ hiếm/ít gặp/biến thể số nhiều... thử lại bằng đường dịch câu
@@ -283,9 +299,9 @@ async function doAutoLookup(word) {
   if (!meaningVI) {
     try {
       meaningVI = await translateText(word, signal);
-      if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
+      if (shouldAbandonLookup(myGen, signal, isStale(word), '❌ Tra từ điển quá lâu, có thể do mất mạng — nhập tay nhé')) return;
     } catch {
-      if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
+      if (shouldAbandonLookup(myGen, signal, isStale(word), '❌ Tra từ điển quá lâu, có thể do mất mạng — nhập tay nhé')) return;
     }
   }
 
@@ -307,9 +323,9 @@ async function doAutoLookup(word) {
   if (exampleEn) {
     try {
       exampleVi = await translateText(exampleEn, signal);
-      if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
+      if (shouldAbandonLookup(myGen, signal, isStale(word), '❌ Tra từ điển quá lâu, có thể do mất mạng — nhập tay nhé')) return;
     } catch {
-      if (myGen !== lookupGen || signal.aborted || isStale(word)) return;
+      if (shouldAbandonLookup(myGen, signal, isStale(word), '❌ Tra từ điển quá lâu, có thể do mất mạng — nhập tay nhé')) return;
     }
   }
 

@@ -58,7 +58,7 @@ const appGlobals = Object.fromEntries(
     'resetAwExtras', 'resetAddWordForm', 'resetUnsavedAddWordState', 'restartSpelling', 'restoreTrashFolder', 'restoreTrashWord', 'revealWord',
     'saveDailyActivity', 'saveEditWord', 'saveFolders', 'saveLookupCacheRaw', 'saveQuizSession',
     'saveQuizStats', 'saveSpellingSession', 'saveStreak', 'saveTrash', 'saveWords',
-    'scheduleAutoLookup', 'setCachedLookup', 'setStatus', 'setSyncFolder', 'setWlFilter',
+    'scheduleAutoLookup', 'setCachedLookup', 'setStatus', 'setSyncFolder', 'setWlFilter', 'shouldAbandonLookup',
     'shouldRemindBackup', 'shouldShowSyncBanner', 'showBackupBannerIfNeeded', 'showConfirmDialog', 'showQuizResult',
     'showMacUpdateHintIfNeeded', 'dismissMacUpdateHintBanner', 'MAC_UPDATE_HINT_DISMISSED_KEY',
     'showSection', 'showSyncRestoreBanner', 'showSyncUndoBanner', 'showToast', 'showUndoToast', 'shuffleArr',
