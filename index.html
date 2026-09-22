@@ -13,8 +13,17 @@
      vẫn giữ 'unsafe-inline' vì UI còn nhiều style="..." nội tuyến — rủi ro thấp hơn
      nhiều so với script-src (không dẫn tới thực thi mã). Cũng đã chặn 'unsafe-eval'
      (cảnh báo chính của Electron) và mọi script-src lạ ngoài chính trang. Font tự
-     host (css/fonts.css) nên không cần whitelist domain ngoài cho style-src/font-src. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; media-src https:; connect-src 'self' https: http://127.0.0.1:51789;">
+     host (css/fonts.css) nên không cần whitelist domain ngoài cho style-src/font-src.
+     connect-src liệt kê ĐÍCH DANH 3 domain renderer thực sự fetch() tới (tra từ
+     điển + dịch tự động — xem js/lookup-providers.js, js/lookup.js, js/word-crud.js)
+     thay vì cho phép cả 'https:' (mọi host HTTPS) như trước — nếu có lỗ XSS nào đó
+     lọt qua trong tương lai, script độc hại vẫn không gửi được dữ liệu người dùng ra
+     ngoài 3 domain này. api.datamuse.com và tatoeba.org KHÔNG cần liệt kê ở đây vì
+     2 API đó không có CORS nên được gọi từ MAIN PROCESS (electron/main.js) qua IPC,
+     không đi qua fetch() của renderer nên không chịu CSP của trang. 127.0.0.1:51789
+     (bridge server) cũng bỏ vì chỉ tiện ích Chrome gọi VÀO app, trang không tự gọi
+     ra cổng đó bao giờ. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; media-src https:; connect-src 'self' https://translate.googleapis.com https://api.mymemory.translated.net https://api.dictionaryapi.dev;">
 <link rel="stylesheet" href="css/fonts.css">
 <link rel="stylesheet" href="css/style.css">
 </head>

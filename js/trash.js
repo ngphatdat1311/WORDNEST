@@ -155,30 +155,14 @@ function deleteTrashEntryConfirm(trashId) {
   const name = entry.type === 'word' && entry.word ? entry.word.word
     : entry.type === 'folder' && entry.folder ? entry.folder.name
     : 'mục dữ liệu bị lỗi';
-  const old = document.getElementById('delete-overlay');
-  if (old) old.remove();
-  const overlay = document.createElement('div');
-  overlay.className = 'confirm-overlay';
-  overlay.id = 'delete-overlay';
-  overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-modal', 'true');
-  overlay.setAttribute('aria-labelledby', 'cb-dialog-title');
-  overlay.innerHTML = `
-    <div class="confirm-box">
-      <div class="cb-icon">🗑️</div>
-      <div class="cb-title" id="cb-dialog-title">Xóa vĩnh viễn?</div>
-      <div class="cb-word">${entry.type === 'folder' ? '📁 ' : ''}${escHtml(name)}</div>
-      <div class="cb-sub">Mục này sẽ biến mất hoàn toàn, không thể khôi phục lại.</div>
-      <div class="cb-btns">
-        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
-        <button class="cb-confirm" id="cb-confirm-btn">Xóa vĩnh viễn</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  document.getElementById('cb-confirm-btn').addEventListener('click', () => deleteTrashEntry(trashId));
-  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
-  setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
+  showConfirmDialog({
+    icon: '🗑️',
+    title: 'Xóa vĩnh viễn?',
+    wordHtml: `${entry.type === 'folder' ? '📁 ' : ''}${escHtml(name)}`,
+    subHtml: 'Mục này sẽ biến mất hoàn toàn, không thể khôi phục lại.',
+    confirmLabel: 'Xóa vĩnh viễn',
+    onConfirm: () => deleteTrashEntry(trashId),
+  });
 }
 function deleteTrashEntry(trashId) {
   const backupTrash = trash;
@@ -191,30 +175,14 @@ function deleteTrashEntry(trashId) {
 
 function confirmEmptyTrash() {
   if (!trash.length) { showToast('Thùng rác đang trống!'); return; }
-  const old = document.getElementById('delete-overlay');
-  if (old) old.remove();
-  const overlay = document.createElement('div');
-  overlay.className = 'confirm-overlay';
-  overlay.id = 'delete-overlay';
-  overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-modal', 'true');
-  overlay.setAttribute('aria-labelledby', 'cb-dialog-title');
-  overlay.innerHTML = `
-    <div class="confirm-box">
-      <div class="cb-icon">⚠️</div>
-      <div class="cb-title" id="cb-dialog-title">Đổ hết thùng rác?</div>
-      <div class="cb-word">${trash.length} mục</div>
-      <div class="cb-sub">Toàn bộ từ/thư mục trong thùng rác sẽ biến mất vĩnh viễn, không thể khôi phục.</div>
-      <div class="cb-btns">
-        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
-        <button class="cb-confirm" id="cb-confirm-all-btn">Đổ rác</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  document.getElementById('cb-confirm-all-btn').addEventListener('click', emptyTrash);
-  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
-  setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
+  showConfirmDialog({
+    icon: '⚠️',
+    title: 'Đổ hết thùng rác?',
+    wordHtml: `${trash.length} mục`,
+    subHtml: 'Toàn bộ từ/thư mục trong thùng rác sẽ biến mất vĩnh viễn, không thể khôi phục.',
+    confirmLabel: 'Đổ rác',
+    onConfirm: emptyTrash,
+  });
 }
 function emptyTrash() {
   const backupTrash = trash;

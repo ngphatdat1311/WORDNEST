@@ -240,35 +240,19 @@ const RESET_PROGRESS_OPTIONS = [
 ];
 
 function openResetProgressModal() {
-  const old = document.getElementById('delete-overlay');
-  if (old) old.remove();
-  const overlay = document.createElement('div');
-  overlay.className = 'confirm-overlay';
-  overlay.id = 'delete-overlay';
-  overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-modal', 'true');
-  overlay.setAttribute('aria-labelledby', 'cb-dialog-title');
   const rowsHtml = RESET_PROGRESS_OPTIONS.map(o => `
     <label class="ew-suspend-label" style="margin-bottom:8px;">
       <input type="checkbox" id="${o.id}">
       <span>${escHtml(o.label)}</span>
     </label>`).join('');
-  overlay.innerHTML = `
-    <div class="confirm-box">
-      <div class="cb-icon">🔄</div>
-      <div class="cb-title" id="cb-dialog-title">Đặt lại tiến độ học tập</div>
-      <div class="cb-sub">Chọn phần muốn xóa sạch. Không đụng tới danh sách từ vựng/thư mục/thùng rác. Có thể hoàn tác trong 5 giây sau khi xác nhận.</div>
-      <div style="text-align:left;margin-bottom:1.2rem;">${rowsHtml}</div>
-      <div class="cb-btns">
-        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
-        <button class="cb-confirm" id="cb-confirm-btn">Đặt lại</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  document.getElementById('cb-confirm-btn').addEventListener('click', confirmResetProgress);
-  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
-  setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
+  showConfirmDialog({
+    icon: '🔄',
+    title: 'Đặt lại tiến độ học tập',
+    subHtml: 'Chọn phần muốn xóa sạch. Không đụng tới danh sách từ vựng/thư mục/thùng rác. Có thể hoàn tác trong 5 giây sau khi xác nhận.',
+    extraHtml: `<div style="text-align:left;margin-bottom:1.2rem;">${rowsHtml}</div>`,
+    confirmLabel: 'Đặt lại',
+    onConfirm: confirmResetProgress,
+  });
 }
 
 function confirmResetProgress() {

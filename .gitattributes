@@ -1,0 +1,16 @@
+# Chuẩn hoá line-ending về LF cho mọi file text, bất kể contributor commit từ
+# Windows/macOS/Linux hay editor nào — tránh git status/diff báo "modified"
+# hàng loạt file chỉ vì lệch CRLF/LF trong khi nội dung thật không đổi gì
+# (từng gặp đúng tình huống này: ~33 file "modified" nhưng insertions/deletions
+# đối xứng tuyệt đối ở mọi file, tức thuần lệch line-ending, không có sửa nội
+# dung thật nào). Trên Windows, git tự chuyển LF -> CRLF khi checkout ra ổ đĩa
+# (nếu core.autocrlf=true, cấu hình khuyến nghị chuẩn cho Windows) và chuyển
+# ngược lại khi commit — file trên đĩa vẫn là CRLF cho các trình soạn thảo
+# Windows quen thuộc, còn trong repo luôn nhất quán LF.
+* text=auto eol=lf
+
+# Định dạng nhị phân — KHÔNG áp dụng chuyển đổi line-ending (sẽ làm hỏng file)
+*.png binary
+*.ico binary
+*.icns binary
+*.woff2 binary

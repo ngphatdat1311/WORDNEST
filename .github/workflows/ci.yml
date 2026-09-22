@@ -1,0 +1,37 @@
+name: CI
+
+# Chạy lint + test trên MỌI push và pull request — khác với build.yml (chỉ
+# chạy khi đẩy tag vX.Y.Z hoặc bấm tay, để build installer cho release). Repo
+# này commit thẳng lên main (không qua PR), nên trước đây lint/test chỉ được
+# kiểm tra lúc release — 1 lỗi có thể nằm im nhiều commit mới bị phát hiện.
+# Workflow này phản hồi ngay trong vài phút sau mỗi lần đẩy code, không cần
+# đợi tới lúc build installer đa nền tảng (vốn tốn nhiều phút hơn hẳn).
+on:
+  push:
+    # Bỏ qua tag vX.Y.Z — build.yml đã tự chạy lint+test làm bước gate riêng
+    # trước khi build installer cho lượt đẩy tag, chạy lại ở đây chỉ tốn phút
+    # CI vô ích cho đúng 1 lượt kiểm tra trùng lặp.
+    tags-ignore: ['v*']
+  pull_request:
+
+# Hủy lượt chạy CŨ hơn của cùng 1 branch/PR khi có commit mới đẩy lên tiếp —
+# đỡ tốn phút CI chạy lượt cũ đã lỗi thời.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm test

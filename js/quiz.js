@@ -170,6 +170,13 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
+// Mốc % để chọn thông điệp cuối bài + có ăn mừng confetti hay không — tách
+// riêng khỏi showQuizResult() để test độc lập, không phụ thuộc DOM.
+// 0: <50%, 1: 50-69%, 2: 70-89%, 3: >=90%
+function quizScoreTier(pct) {
+  return pct < 50 ? 0 : pct < 70 ? 1 : pct < 90 ? 2 : 3;
+}
+
 function showQuizResult() {
   clearQuizSession(); // quiz đã hoàn tất — không cần resume nữa
   // Cập nhật thống kê tích lũy
@@ -183,7 +190,7 @@ function showQuizResult() {
   const pct = Math.round(qzScore / qzWords.length * 100);
   document.getElementById('qz-final-score').textContent = pct + '%';
   const msgs = ['Cần cố gắng thêm! 💪','Khá tốt! Tiếp tục nhé 👍','Tuyệt vời! Bạn giỏi lắm 🌟','Xuất sắc! Bậc thầy từ vựng 🏆'];
-  const mi = pct < 50 ? 0 : pct < 70 ? 1 : pct < 90 ? 2 : 3;
+  const mi = quizScoreTier(pct);
   document.getElementById('qz-result-msg').textContent = `${qzScore}/${qzWords.length} câu đúng. ${msgs[mi]}`;
   if (mi >= 2) triggerConfetti(); // Tuyệt vời/Xuất sắc (≥70%) -> ăn mừng nhẹ
   const best = parseInt(storeGet('qs_best_score') || 0);
