@@ -91,20 +91,27 @@ test('partitionImportWords puts every word in toAdd when words[] is empty', () =
 test('partitionImportWords skips (and counts) a word that already exists in words[], case-insensitively', () => {
   resetWords([{ word: 'Apple' }]);
   const { toAdd, skipped } = ctx.partitionImportWords([{ word: 'apple' }, { word: 'banana' }]);
-  assert.deepEqual(toAdd.map(w => w.word), ['banana']);
+  // [...toAdd] trước khi .map() — toAdd đến từ bên trong vm sandbox (context/realm
+  // khác), mảng nó tạo ra mang Array constructor của sandbox đó; so trực tiếp với
+  // mảng literal viết ở đây (Array của Node thường) khiến assert.deepEqual (alias
+  // deepStrictEqual do dùng node:assert/strict) báo "same structure but are not
+  // reference-equal" dù nội dung giống hệt. Spread ra mảng MỚI ở đúng realm hiện
+  // tại (Node thường) trước rồi mới .map()/so sánh — cùng cách classifyBulkLines
+  // test ở word-crud.test.js dùng { ...r } cho object.
+  assert.deepEqual([...toAdd].map(w => w.word), ['banana']);
   assert.equal(skipped, 1);
 });
 
 test('partitionImportWords treats a 2nd occurrence of the same word WITHIN the imported file as a duplicate too', () => {
   resetWords([]); // kho hiện có trống — chỉ trùng trong chính file import
   const { toAdd, skipped } = ctx.partitionImportWords([{ word: 'apple' }, { word: 'Apple' }, { word: 'banana' }]);
-  assert.deepEqual(toAdd.map(w => w.word), ['apple', 'banana']); // chỉ occurrence đầu tiên được thêm
+  assert.deepEqual([...toAdd].map(w => w.word), ['apple', 'banana']); // chỉ occurrence đầu tiên được thêm
   assert.equal(skipped, 1);
 });
 
 test('partitionImportWords returns an empty toAdd for an empty import list', () => {
   resetWords([{ word: 'apple' }]);
   const { toAdd, skipped } = ctx.partitionImportWords([]);
-  assert.deepEqual(toAdd, []);
+  assert.deepEqual([...toAdd], []); // spread ra mảng ở đúng realm hiện tại trước khi so sánh — xem giải thích ở trên
   assert.equal(skipped, 0);
 });
