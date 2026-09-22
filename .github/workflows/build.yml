@@ -43,7 +43,15 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
+      # continue-on-error: đây chỉ là tiện ích PHỤ (tải file build thô ngay trên
+      # trang Actions), KHÔNG phải cơ chế chính đưa file cài vào GitHub Release
+      # (đó là bước "action-gh-release" riêng ở dưới, đọc thẳng dist/ trên máy ảo,
+      # không phụ thuộc bước này). Tài khoản free của GitHub chỉ có 500MB dung
+      # lượng lưu artifact — rất dễ đầy sau nhiều lần release — nếu bước này lỗi vì
+      # hết quota thì KHÔNG được để nó chặn luôn cả việc đính file vào Release thật.
+      # retention-days ngắn để artifact mới tự dọn sớm, đỡ tích tụ đầy quota lần sau.
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: wordnest-${{ matrix.os }}
           path: |
@@ -54,6 +62,7 @@ jobs:
             dist/*.blockmap
             dist/latest*.yml
           if-no-files-found: ignore
+          retention-days: 7
 
       # latest.yml / latest-mac.yml / latest-linux.yml: electron-updater đọc file
       # này để biết phiên bản mới nhất + link tải — thiếu nó thì app sẽ không bao
