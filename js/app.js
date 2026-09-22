@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.wl-mastered-only-btn').forEach(b => b.classList.toggle('active', wlShowMasteredOnly));
   showBackupBannerIfNeeded();
   showMacUpdateHintIfNeeded();
+  showComingSoonPromo();
   if (typeof initSync === 'function') initSync();
   // Chỉ đọc streak, không ghi — streak chỉ tăng sau khi học
   streak = loadStreak();

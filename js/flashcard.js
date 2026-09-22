@@ -149,6 +149,8 @@ function markCard(known) {
 document.addEventListener('keydown', function(e) {
   // Escape: đóng modal đang mở (ưu tiên cao nhất)
   if (e.key === 'Escape') {
+    const promoOverlay = document.getElementById('promo-overlay');
+    if (promoOverlay && promoOverlay.classList.contains('show')) { closeComingSoonPromo(); return; }
     const editOverlay = document.getElementById('edit-overlay');
     const deleteOverlay = document.getElementById('delete-overlay');
     const importOverlay = document.getElementById('import-confirm-overlay');

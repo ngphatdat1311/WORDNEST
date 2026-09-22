@@ -6,14 +6,18 @@ App học từ vựng tiếng Anh cá nhân: Flashcard (SRS kiểu SM-2), Quiz t
 
 | Hệ điều hành | Tải về |
 |---|---|
-| Windows | [WordNest-Setup-1.0.25.exe](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.25/WordNest-Setup-1.0.25.exe) |
-| macOS (Intel & Apple Silicon) | [WordNest-1.0.25-universal.dmg](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.25/WordNest-1.0.25-universal.dmg) |
+| Windows | [WordNest-Setup-1.0.26.exe](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.26/WordNest-Setup-1.0.26.exe) |
+| macOS (Intel & Apple Silicon) | [WordNest-1.0.26-universal.dmg](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.26/WordNest-1.0.26-universal.dmg) |
+| Linux (AppImage) | [WordNest-1.0.26.AppImage](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.26/WordNest-1.0.26.AppImage) |
+| Linux (.deb) | [wordnest_1.0.26_amd64.deb](https://github.com/ngphatdat1311/WORDNEST/releases/download/v1.0.26/wordnest_1.0.26_amd64.deb) |
 
 Xem tất cả bản phát hành tại [Releases](https://github.com/ngphatdat1311/WORDNEST/releases).
 
 App chưa có chữ ký số (tốn phí, không cần thiết cho dùng cá nhân) nên lần đầu mở:
 - **Windows:** SmartScreen báo "Unknown publisher" → bấm **More info → Run anyway**.
 - **macOS:** Gatekeeper báo `"WordNest" chưa được mở` → mở **System Settings → Privacy & Security**, cuộn xuống mục Security tìm dòng "WordNest was blocked..." → bấm **Open Anyway** → mở lại app và xác nhận **Open** lần nữa. (Cách cũ "chuột phải → Open" không còn tác dụng trên các bản macOS gần đây.)
+- **Linux (AppImage):** cấp quyền thực thi trước khi chạy: `chmod +x WordNest-*.AppImage` rồi mở bằng `./WordNest-*.AppImage`.
+- **Linux (.deb):** cài bằng `sudo apt install ./WordNest-*.deb` (hoặc `sudo dpkg -i` rồi `sudo apt --fix-broken install` nếu thiếu dependency).
 
 Từ các bản sau, app sẽ tự báo trong giao diện khi có bản mới hơn — không cần gỡ cài đặt rồi tải lại (xem mục [Cập nhật app](#-cập-nhật-app)).
 
@@ -111,6 +115,8 @@ Cài đặt tại tab **Tiến Độ → Đồng bộ tự động ☁️**.
 App tự kiểm tra phiên bản mới mỗi khi mở (không tự tải gì nếu bạn chưa đồng ý). Có bản mới sẽ hiện banner ở trên cùng — bấm **"⬇️ Cập nhật ngay"**, app tự tải và khởi động lại để áp dụng, dữ liệu của bạn không bị mất.
 
 > **macOS** cần app được ký bằng chứng chỉ Apple (trả phí) mới auto-update đầy đủ được. Hiện tại bản Mac **chưa có chữ ký số**, nên người dùng Mac vẫn cần tải bản `.dmg` mới thủ công từ [Releases](https://github.com/ngphatdat1311/WORDNEST/releases) khi có bản cập nhật — Windows thì auto-update hoạt động đầy đủ. Bản Mac có 1 banner nhỏ trong app nhắc việc này (tắt được vĩnh viễn bằng nút ✕).
+>
+> **Linux** auto-update hoạt động cho cả AppImage và `.deb` (không cần chữ ký số như macOS). Riêng bản `.deb` cần quyền quản trị để cài đặt — hệt như `apt install` — nên lúc cập nhật hệ thống có thể hỏi mật khẩu sudo.
 
 ## 🧩 Tiện ích Chrome — bôi đen từ trên web khác, gửi thẳng vào app
 
@@ -126,6 +132,7 @@ js/
   storage.js       Lưu trữ dữ liệu (file-based trong Electron, localStorage fallback)
   sync.js          Đồng bộ tự động vào thư mục cloud
   auto-update.js   UI banner cập nhật app (electron-updater)
+  promo.js         Popup quảng cáo game mini "Không Chiến Từ Vựng" sắp ra mắt
   navigation.js    Điều hướng giữa các tab/chế độ học
   theme.js         Giao diện sáng/tối
   utils.js         Hàm tiện ích dùng chung (format, escape HTML...)
@@ -164,7 +171,7 @@ npm run lint     # kiểm tra lỗi/style bằng ESLint
 npm run dist     # build installer cho hệ điều hành hiện tại, ra trong dist/
 ```
 
-Bản macOS chỉ build được trên máy Mac (hoặc qua CI) — xem `.github/workflows/build.yml`.
+electron-builder chỉ build được bản cho đúng hệ điều hành đang chạy nó (bản macOS chỉ build trên máy Mac, bản Linux chỉ build trên máy Linux...) — không tự cross-build được cả 3 từ 1 máy, nên CI build song song trên cả 3 loại runner. Xem `.github/workflows/build.yml`.
 
 ## Lưu ý
 

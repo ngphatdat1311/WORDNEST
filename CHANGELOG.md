@@ -10,6 +10,14 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [1.0.26] - 2026-09-22
+
+- Thêm bản build Linux (AppImage + `.deb`) — `package.json`/CI giờ build cho
+  cả 3 hệ điều hành, auto-update hoạt động trên cả AppImage lẫn `.deb`.
+- Thêm popup quảng cáo game mini "Không Chiến Từ Vựng" (gõ từ tiếng Anh để
+  bắn máy bay) đang phát triển — hiện khi mở app, đóng được bằng ✕/Escape/bấm
+  ra ngoài.
+
 ## [1.0.25] - 2026-08-19
 
 - Thêm từ trùng giờ gắn thêm thư mục thay vì chặn cứng, kèm dialog xác nhận

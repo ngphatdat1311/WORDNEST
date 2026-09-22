@@ -1002,6 +1002,69 @@ main { flex: 1; padding: 2rem 1.5rem; max-width: 860px; margin: 0 auto; width: 1
 .update-banner .bb-close { background: none; border: none; color: var(--text3); font-size: 1rem; cursor: pointer; padding: 4px; line-height: 1; transition: color .15s; }
 .update-banner .bb-close:hover { color: var(--text); }
 
+/* ── PROMO: popup "game sắp ra mắt" kiểu banner khuyến mãi (Shopee-style) ──
+   Màu nền thẻ cố tình KHÔNG dùng biến theme (--card/--text...) — đây là 1 mảnh
+   nội dung quảng cáo rực rỡ, giữ nguyên tông cam-hồng-tím dù app đang sáng hay
+   tối, giống cách các banner khuyến mãi thật không đổi màu theo theme trang. */
+.promo-overlay {
+  display: none; position: fixed; inset: 0; background: var(--overlay-bg);
+  align-items: center; justify-content: center; z-index: 400; padding: 1rem;
+}
+.promo-overlay.show { display: flex; animation: fadeIn .25s ease; }
+.promo-card {
+  position: relative; width: 100%; max-width: 420px;
+  background: linear-gradient(160deg, #FF7A45 0%, #FF4D6D 45%, #6A4CE0 100%);
+  border-radius: var(--r2); box-shadow: var(--shadow2);
+  padding: 2.5rem 1.8rem 2rem; text-align: center; overflow: hidden;
+  animation: promoPopIn .5s cubic-bezier(.34,1.56,.64,1);
+}
+.promo-close {
+  position: absolute; top: 12px; right: 12px; width: 30px; height: 30px;
+  border-radius: 50%; border: none; background: rgba(255,255,255,.22); color: #fff;
+  font-size: .95rem; line-height: 1; cursor: pointer; transition: background .15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.promo-close:hover { background: rgba(255,255,255,.38); }
+.promo-ribbon {
+  position: absolute; top: 16px; left: -44px; width: 180px;
+  transform: rotate(-45deg); background: linear-gradient(90deg, #FFD23F, #FFB020);
+  color: #6E3B00; font-size: .72rem; font-weight: 700; letter-spacing: .02em;
+  padding: 4px 0; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  animation: promoGlow 1.8s ease-in-out infinite;
+}
+.promo-scene { position: relative; height: 60px; margin-bottom: .4rem; }
+.promo-plane {
+  position: absolute; left: 50%; top: 50%; font-size: 2.6rem;
+  transform: translate(-50%,-50%); display: inline-block;
+  animation: promoFly 2.6s ease-in-out infinite;
+}
+.promo-cloud { position: absolute; font-size: 1.3rem; opacity: .85; }
+.promo-cloud.c1 { left: 10%; top: 2px; animation: promoDrift 5s ease-in-out infinite; }
+.promo-cloud.c2 { right: 12%; bottom: 0; animation: promoDrift 6.5s ease-in-out infinite reverse; }
+.promo-spark { position: absolute; font-size: 1.1rem; animation: promoPulse 1.4s ease-in-out infinite; }
+.promo-spark.s1 { left: 20%; top: 8px; animation-delay: .2s; }
+.promo-spark.s2 { right: 18%; bottom: 4px; animation-delay: .7s; }
+.promo-title {
+  font-family: 'Lora', 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', serif;
+  font-size: 1.5rem; font-weight: 600; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.2);
+  margin-bottom: .3rem;
+}
+.promo-sub { font-size: .88rem; font-weight: 600; color: rgba(255,255,255,.92); margin-bottom: .8rem; }
+.promo-desc { font-size: .85rem; line-height: 1.6; color: rgba(255,255,255,.92); margin-bottom: 1.5rem; }
+.promo-cta {
+  display: inline-block; border: none; border-radius: 999px; cursor: pointer;
+  padding: 12px 22px; font-size: .9rem; font-weight: 700; color: #6E3B00;
+  background: linear-gradient(135deg, #FFE580, #FFC93F);
+  box-shadow: 0 6px 18px rgba(0,0,0,.25); transition: transform .15s ease, box-shadow .15s ease;
+}
+.promo-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,.3); }
+
+@keyframes promoPopIn { from{opacity:0; transform:scale(.85) translateY(10px)} to{opacity:1; transform:scale(1) translateY(0)} }
+@keyframes promoFly { 0%,100%{transform:translate(-50%,-50%) rotate(-6deg)} 50%{transform:translate(-50%,-58%) rotate(4deg)} }
+@keyframes promoDrift { 0%,100%{transform:translateX(0)} 50%{transform:translateX(10px)} }
+@keyframes promoPulse { 0%,100%{opacity:.4; transform:scale(.85)} 50%{opacity:1; transform:scale(1.15)} }
+@keyframes promoGlow { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.25)} }
+
 /* ── EXTENSION INBOX ── */
 .inbox-panel {
   background: var(--autofill-bg); border: 1px solid var(--autofill-bdr);

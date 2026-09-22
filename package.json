@@ -1,6 +1,6 @@
 {
   "name": "wordnest",
-  "version": "1.0.25",
+  "version": "1.0.26",
   "description": "WordNest – ứng dụng học từ vựng tiếng Anh cá nhân (Flashcard SRS, Quiz, Chính tả, Từ điển).",
   "main": "electron/main.js",
   "author": "ngphatdat1311",
@@ -96,6 +96,16 @@
           "path": "/Applications"
         }
       ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icons/icon-512.png",
+      "category": "Education",
+      "executableName": "wordnest",
+      "maintainer": "ngphatdat1311 <ngphatdat1311@users.noreply.github.com>"
     }
   }
 }

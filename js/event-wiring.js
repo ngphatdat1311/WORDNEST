@@ -31,6 +31,13 @@ function wireStaticEvents() {
   on('mac-update-hint-open-btn', 'click', () => window.electronAPI?.openReleasesPage());
   on('mac-update-hint-close-btn', 'click', dismissMacUpdateHintBanner);
 
+  on('promo-close-btn', 'click', closeComingSoonPromo);
+  on('promo-cta-btn', 'click', openComingSoonPromoLink);
+  // Bấm ra vùng nền tối quanh thẻ (không phải bấm vào thẻ) cũng đóng được, giống
+  // hành vi popup quảng cáo quen thuộc — check target === overlay để không đóng
+  // nhầm khi bấm vào nội dung bên trong thẻ (event bubble lên tới overlay).
+  on('promo-overlay', 'click', (e) => { if (e.target.id === 'promo-overlay') closeComingSoonPromo(); });
+
   on('home-srs-card', 'click', () => showSection('flashcard'));
   on('action-flashcard', 'click', () => showSection('flashcard'));
   on('action-quiz', 'click', () => showSection('quiz'));
