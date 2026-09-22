@@ -20,6 +20,25 @@ function exportWords() {
   showToast('✅ Đã xuất ' + words.length + ' từ!', 'success');
 }
 
+// Chia danh sách từ đọc được từ file import thành "mới" (chưa có trong words[]
+// toàn cục, kể cả trùng nhau NGAY TRONG chính file import — chỉ dòng/phần tử
+// đầu tiên được tính là mới) và đếm số bị bỏ qua vì trùng. Tách riêng để test
+// độc lập, không phụ thuộc FileReader/DOM — đọc `words` toàn cục giống
+// classifyBulkLines() ở word-crud.js (cùng quy ước trong codebase này).
+// Dùng Set tra O(1) thay vì words.find() lặp lại (O(n) mỗi từ) và tự thêm vào
+// Set ngay khi chấp nhận, để phát hiện luôn 2 từ trùng tên NẰM TRONG CHÍNH file
+// import (trước đây chỉ so với kho hiện có nên lọt cả 2 — xem lịch sử sửa lỗi).
+function partitionImportWords(imported) {
+  let toAdd = [], skipped = 0;
+  const existing = new Set(words.map(x => x.word.toLowerCase()));
+  imported.forEach(w => {
+    const key = w.word.toLowerCase();
+    if (existing.has(key)) { skipped++; }
+    else { toAdd.push(w); existing.add(key); }
+  });
+  return { toAdd, skipped };
+}
+
 function importWords(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -52,17 +71,7 @@ function importWords(event) {
         }))
         .filter(w => w.word && w.meaning); // loại bỏ luôn nếu sau khi cắt mà rỗng (vd word toàn khoảng trắng)
 
-      // Tính trước số từ mới / trùng để hiện trong confirm dialog.
-      // Dùng Set tra O(1) thay vì words.find() lặp lại (O(n) mỗi từ) và tự thêm
-      // vào Set ngay khi chấp nhận, để phát hiện luôn 2 từ trùng tên NẰM TRONG
-      // CHÍNH file import (trước đây chỉ so với kho hiện có nên lọt cả 2).
-      let toAdd = [], skipped = 0;
-      const existing = new Set(words.map(x => x.word.toLowerCase()));
-      imported.forEach(w => {
-        const key = w.word.toLowerCase();
-        if (existing.has(key)) { skipped++; }
-        else { toAdd.push(w); existing.add(key); }
-      });
+      const { toAdd, skipped } = partitionImportWords(imported);
 
       if (!toAdd.length) {
         showToast(`⚠️ Tất cả ${skipped} từ đã tồn tại, không có gì để nhập!`, '');
@@ -164,12 +173,16 @@ function closeImportConfirm() { const el = document.getElementById('import-confi
 // ════════════════════════════════════════════════════════
 // EXPORT CSV
 // ════════════════════════════════════════════════════════
+// Bọc 1 ô CSV trong dấu ngoặc kép + escape dấu ngoặc kép bên trong nếu ô chứa
+// dấu phẩy/ngoặc kép/xuống dòng (quy tắc CSV chuẩn RFC 4180) — tách khỏi
+// exportCSV() để test độc lập, không phụ thuộc Blob/DOM.
+function csvCell(v) {
+  const s = String(v ?? '');
+  return (s.includes(',') || s.includes('"') || s.includes('\n'))
+    ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
 function exportCSV() {
-  function csvCell(v) {
-    const s = String(v ?? '');
-    return (s.includes(',') || s.includes('"') || s.includes('\n'))
-      ? '"' + s.replace(/"/g, '""') + '"' : s;
-  }
   const header = ['word','phonetic','meaning','example','type','category','level','mastery'];
   const rows = words.map(w => [
     w.word, w.phonetic||'', w.meaning, w.example||'',
@@ -187,6 +200,17 @@ function exportCSV() {
 // ════════════════════════════════════════════════════════
 // EXPORT ANKI (tab-separated .txt — Anki import trực tiếp được)
 // ════════════════════════════════════════════════════════
+// Dựng 1 dòng Anki (tab-separated: front, back, [rỗng], [rỗng], tags) cho 1
+// từ — tách khỏi exportAnkiTxt() để test độc lập, không phụ thuộc Blob/DOM.
+function ankiRowFor(w) {
+  const front = escHtml(w.word) +
+    (w.phonetic ? `<br><small style="color:#888">${escHtml(w.phonetic)}</small>` : '');
+  const back  = `<b>${escHtml(w.meaning)}</b>` +
+    (w.example ? `<br><i>${escHtml(w.example)}</i>` : '');
+  const tags  = (w.category || '').replace(/\s+/g, '_');
+  return [front, back, '', '', tags].join('\t');
+}
+
 function exportAnkiTxt() {
   const lines = [
     '#separator:Tab',
@@ -196,14 +220,7 @@ function exportAnkiTxt() {
     '#tags column:5',
     ''
   ];
-  words.forEach(w => {
-    const front = escHtml(w.word) +
-      (w.phonetic ? `<br><small style="color:#888">${escHtml(w.phonetic)}</small>` : '');
-    const back  = `<b>${escHtml(w.meaning)}</b>` +
-      (w.example ? `<br><i>${escHtml(w.example)}</i>` : '');
-    const tags  = (w.category || '').replace(/\s+/g, '_');
-    lines.push([front, back, '', '', tags].join('\t'));
-  });
+  words.forEach(w => lines.push(ankiRowFor(w)));
   const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

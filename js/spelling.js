@@ -135,20 +135,25 @@ function nextSpelling() {
   loadSpellingWord();
 }
 
-function renderBlanks(typed) {
-  if (!spWords.length) return;
-  const w = spWords[spIndex].word;
+// Xây HTML các ô chữ cái cho 1 từ + phần đã gõ — tách khỏi renderBlanks() để
+// test độc lập, không phụ thuộc DOM/state toàn cục (spWords/spIndex).
+function buildBlanksHtml(word, typed) {
   let html = '';
-  for (let i = 0; i < w.length; i++) {
+  for (let i = 0; i < word.length; i++) {
     // Cụm từ (vd "give up", "be fond of ...") có khoảng trắng giữa các tiếng —
     // hiện khoảng cách trực quan thay vì 1 ô trống trống trơn gây nhầm là thiếu ký tự.
     // Dấu "..." không phải khoảng trắng nên vẫn là ô riêng, vẫn phải gõ đủ 3 dấu chấm.
-    if (w[i] === ' ') { html += '<div class="spell-gap"></div>'; continue; }
+    if (word[i] === ' ') { html += '<div class="spell-gap"></div>'; continue; }
     const ch = typed[i] || '';
-    const cls = ch ? (ch.toLowerCase() === w[i].toLowerCase() ? 'filled' : 'wrong') : '';
+    const cls = ch ? (ch.toLowerCase() === word[i].toLowerCase() ? 'filled' : 'wrong') : '';
     html += `<div class="spell-blank ${cls}">${escHtml(ch)}</div>`;
   }
-  document.getElementById('sp-blanks').innerHTML = html;
+  return html;
+}
+
+function renderBlanks(typed) {
+  if (!spWords.length) return;
+  document.getElementById('sp-blanks').innerHTML = buildBlanksHtml(spWords[spIndex].word, typed);
 }
 
 function updateBlanks() { renderBlanks(document.getElementById('sp-input').value); }
