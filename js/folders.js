@@ -288,30 +288,14 @@ function deleteFolderConfirm(id) {
   } else {
     sub = `${soleCount} từ chỉ thuộc riêng thư mục này sẽ chuyển vào 🗑️ Thùng rác; ${sharedCount} từ còn thuộc thư mục khác sẽ được giữ lại, chỉ gỡ khỏi thư mục này`;
   }
-  const old = document.getElementById('delete-overlay');
-  if (old) old.remove();
-  const overlay = document.createElement('div');
-  overlay.className = 'confirm-overlay';
-  overlay.id = 'delete-overlay';
-  overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-modal', 'true');
-  overlay.setAttribute('aria-labelledby', 'cb-dialog-title');
-  overlay.innerHTML = `
-    <div class="confirm-box">
-      <div class="cb-icon">🗑️</div>
-      <div class="cb-title" id="cb-dialog-title">Xóa thư mục này?</div>
-      <div class="cb-word">📁 ${escHtml(f.name)}</div>
-      <div class="cb-sub">${sub} — khôi phục sẽ trả lại đúng như cũ.</div>
-      <div class="cb-btns">
-        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
-        <button class="cb-confirm" id="cb-confirm-btn">Xóa thư mục</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  document.getElementById('cb-confirm-btn').addEventListener('click', () => deleteFolder(id));
-  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
-  setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
+  showConfirmDialog({
+    icon: '🗑️',
+    title: 'Xóa thư mục này?',
+    wordHtml: `📁 ${escHtml(f.name)}`,
+    subHtml: `${sub} — khôi phục sẽ trả lại đúng như cũ.`,
+    confirmLabel: 'Xóa thư mục',
+    onConfirm: () => deleteFolder(id),
+  });
 }
 
 function deleteFolder(id) {

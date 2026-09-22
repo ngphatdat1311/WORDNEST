@@ -299,11 +299,28 @@ function commitBulkAdd(newItems, dupItems, folderId) {
 }
 
 // ════════════════════════════════════════════════════════
-// DELETE WORD
-// ════════════════════════════════════════════════════════
-function confirmDelete(id) {
-  const w = words.find(x => x.id === id);
-  if (!w) return;
+// CONFIRM DIALOG (dùng chung) — hộp thoại xác nhận "1 hành động, có Hủy/Xác
+// nhận" đơn giản: xóa từ, xóa tất cả, xóa thư mục, đổ thùng rác, xóa vĩnh viễn,
+// đặt lại tiến độ... đều cùng 1 khung (icon + tiêu đề + [khối từ/tên] + mô tả +
+// [nội dung thêm] + 2 nút). Trước đây mỗi nơi tự dựng lại đúng khung này —
+// gộp lại đây để sửa 1 chỗ (vd style, hành vi focus/click-outside) áp dụng cho
+// tất cả, đỡ phải nhớ sửa từng nơi. confirmBatchFix() (bên dưới, xa hơn trong
+// file này) KHÔNG dùng hàm này vì có vòng đời nhiều giai đoạn khác hẳn (xác
+// nhận -> thanh tiến độ -> kết quả, đổi nội dung ngay trong cùng overlay).
+// Dialog xác nhận từ trùng (confirmDuplicateWordAdd/confirmBulkDuplicates) và
+// các modal có input/checkbox phức tạp hơn (openFolderNameModal, openFolderPicker...)
+// cũng không dùng hàm này vì cấu trúc nút/nội dung khác biệt đủ nhiều để gộp
+// vào sẽ làm cfg rối hơn là giúp ích.
+//
+// cfg: {
+//   icon, title,
+//   wordHtml    — optional, HTML cho khối "cb-word" (tự escHtml nếu cần trước khi truyền vào)
+//   subHtml     — HTML cho khối "cb-sub" (tự escHtml nếu cần trước khi truyền vào)
+//   extraHtml   — optional, chèn thêm giữa "cb-sub" và 2 nút (vd danh sách checkbox)
+//   confirmLabel — chữ trên nút xác nhận
+//   onConfirm   — callback khi bấm nút xác nhận (tự lo đóng dialog/rollback nếu cần)
+// }
+function showConfirmDialog(cfg) {
   const old = document.getElementById('delete-overlay');
   if (old) old.remove();
   const overlay = document.createElement('div');
@@ -314,18 +331,18 @@ function confirmDelete(id) {
   overlay.setAttribute('aria-labelledby', 'cb-dialog-title');
   overlay.innerHTML = `
     <div class="confirm-box">
-      <div class="cb-icon">🗑️</div>
-      <div class="cb-title" id="cb-dialog-title">Xóa từ này?</div>
-      <div class="cb-word">${escHtml(w.word)}</div>
-      <div class="cb-sub">${escHtml(w.meaning)}<br>Từ sẽ được chuyển vào 🗑️ Thùng rác — có thể khôi phục lại sau.</div>
+      <div class="cb-icon">${cfg.icon}</div>
+      <div class="cb-title" id="cb-dialog-title">${escHtml(cfg.title)}</div>
+      ${cfg.wordHtml ? `<div class="cb-word">${cfg.wordHtml}</div>` : ''}
+      <div class="cb-sub">${cfg.subHtml}</div>
+      ${cfg.extraHtml || ''}
       <div class="cb-btns">
         <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
-        <button class="cb-confirm" id="cb-confirm-btn">Xóa</button>
+        <button class="cb-confirm" id="cb-confirm-btn">${escHtml(cfg.confirmLabel)}</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  // Dùng event listener, không nối chuỗi từ vào onclick inline
-  document.getElementById('cb-confirm-btn').addEventListener('click', () => deleteWord(id));
+  document.getElementById('cb-confirm-btn').addEventListener('click', cfg.onConfirm);
   document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
   overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
   // Focus vào nút đầu tiên khi modal mở
@@ -333,32 +350,32 @@ function confirmDelete(id) {
 }
 function closeConfirm() { const el = document.getElementById('delete-overlay'); if (el) el.remove(); }
 
+// ════════════════════════════════════════════════════════
+// DELETE WORD
+// ════════════════════════════════════════════════════════
+function confirmDelete(id) {
+  const w = words.find(x => x.id === id);
+  if (!w) return;
+  showConfirmDialog({
+    icon: '🗑️',
+    title: 'Xóa từ này?',
+    wordHtml: escHtml(w.word),
+    subHtml: `${escHtml(w.meaning)}<br>Từ sẽ được chuyển vào 🗑️ Thùng rác — có thể khôi phục lại sau.`,
+    confirmLabel: 'Xóa',
+    onConfirm: () => deleteWord(id),
+  });
+}
+
 function confirmDeleteAll() {
   if (!words.length) { showToast('Từ điển đang trống!'); return; }
-  const old = document.getElementById('delete-overlay');
-  if (old) old.remove();
-  const overlay = document.createElement('div');
-  overlay.className = 'confirm-overlay';
-  overlay.id = 'delete-overlay';
-  overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-modal', 'true');
-  overlay.setAttribute('aria-labelledby', 'cb-dialog-title');
-  overlay.innerHTML = `
-    <div class="confirm-box">
-      <div class="cb-icon">⚠️</div>
-      <div class="cb-title" id="cb-dialog-title">Xóa toàn bộ từ điển?</div>
-      <div class="cb-word">${words.length} từ</div>
-      <div class="cb-sub">Toàn bộ từ vựng sẽ được chuyển vào 🗑️ Thùng rác — có thể khôi phục lại sau, hoặc xuất JSON để sao lưu chắc chắn hơn.</div>
-      <div class="cb-btns">
-        <button class="cb-cancel" id="cb-cancel-btn">Hủy</button>
-        <button class="cb-confirm" id="cb-confirm-all-btn">Có, xóa tất cả</button>
-      </div>
-    </div>`;
-  document.body.appendChild(overlay);
-  document.getElementById('cb-confirm-all-btn').addEventListener('click', deleteAllWords);
-  document.getElementById('cb-cancel-btn').addEventListener('click', closeConfirm);
-  overlay.addEventListener('click', e => { if (e.target === overlay) closeConfirm(); });
-  setTimeout(() => { const btn = overlay.querySelector('.cb-cancel'); if (btn) btn.focus(); }, 50);
+  showConfirmDialog({
+    icon: '⚠️',
+    title: 'Xóa toàn bộ từ điển?',
+    wordHtml: `${words.length} từ`,
+    subHtml: 'Toàn bộ từ vựng sẽ được chuyển vào 🗑️ Thùng rác — có thể khôi phục lại sau, hoặc xuất JSON để sao lưu chắc chắn hơn.',
+    confirmLabel: 'Có, xóa tất cả',
+    onConfirm: deleteAllWords,
+  });
 }
 function deleteAllWords() {
   const backupWords = words, backupTrash = trash;
