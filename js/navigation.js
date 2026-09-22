@@ -1,24 +1,48 @@
 // ════════════════════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════════════════════
+// Cảnh báo nếu đang nhập dữ liệu ở tab "Thêm từ" mà chưa lưu, rồi mới thực sự
+// chuyển tab. Dùng showConfirmDialog() (word-crud.js) thay vì confirm() gốc
+// trình duyệt — trước đây đây là chỗ DUY NHẤT trong app bật popup hệ điều hành
+// (nút OK/Cancel mặc định của trình duyệt, không style/dịch được), lạc lõng
+// giữa toàn bộ modal còn lại đều tự vẽ theo đúng giao diện app.
 function showSection(id) {
-  // Cảnh báo nếu đang nhập dữ liệu ở tab "Thêm từ" mà chưa lưu
-  if (id !== 'add') {
-    const awWord = document.getElementById('aw-word');
-    const awMeaning = document.getElementById('aw-meaning');
-    if (awWord && awMeaning && (awWord.value.trim() || awMeaning.value.trim())) {
-      if (!confirm('Bạn đang nhập từ chưa lưu. Rời khỏi sẽ mất dữ liệu. Tiếp tục không?')) return;
-      // Reset form nếu user xác nhận rời
-      ['aw-word','aw-phonetic','aw-meaning','aw-example','aw-category'].forEach(i => {
-        const el = document.getElementById(i); if (el) { el.value = ''; el.classList.remove('autofilled'); }
-      });
-      const exVi = document.getElementById('aw-example-vi'); if (exVi) exVi.textContent = '';
-      const altM = document.getElementById('aw-alt-meaning'); if (altM) altM.innerHTML = '';
-      document.getElementById('aw-autofill-status').innerHTML = '';
-      awAutoFilledValues = {};
-      if (awAbortController) { awAbortController.abort(); awAbortController = null; }
-    }
+  const awWord = document.getElementById('aw-word');
+  const awMeaning = document.getElementById('aw-meaning');
+  const hasUnsavedAddWord = id !== 'add' && awWord && awMeaning && (awWord.value.trim() || awMeaning.value.trim());
+  if (hasUnsavedAddWord) {
+    showConfirmDialog({
+      icon: '⚠️',
+      title: 'Rời khỏi trang Thêm từ?',
+      subHtml: 'Bạn đang nhập từ chưa lưu — rời khỏi sẽ mất toàn bộ dữ liệu đang nhập trong form.',
+      confirmLabel: 'Rời khỏi, mất dữ liệu',
+      onConfirm: () => {
+        closeConfirm();
+        resetUnsavedAddWordState();
+        doShowSection(id);
+      },
+    });
+    return;
   }
+  doShowSection(id);
+}
+
+// Xóa sạch form Thêm từ + hủy request tra từ điển đang chạy dở — chỉ gọi khi
+// user đã XÁC NHẬN rời tab dù đang nhập dở (xem showSection ở trên).
+function resetUnsavedAddWordState() {
+  ['aw-word','aw-phonetic','aw-meaning','aw-example','aw-category'].forEach(i => {
+    const el = document.getElementById(i); if (el) { el.value = ''; el.classList.remove('autofilled'); }
+  });
+  const exVi = document.getElementById('aw-example-vi'); if (exVi) exVi.textContent = '';
+  const altM = document.getElementById('aw-alt-meaning'); if (altM) altM.innerHTML = '';
+  document.getElementById('aw-autofill-status').innerHTML = '';
+  awAutoFilledValues = {};
+  if (awAbortController) { awAbortController.abort(); awAbortController = null; }
+}
+
+// Thực sự chuyển tab — tách khỏi showSection() để gọi được cả ngay lập tức
+// (không có gì chưa lưu) lẫn trễ hơn sau khi user xác nhận rời (có cảnh báo).
+function doShowSection(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('section-' + id).classList.add('active');
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
