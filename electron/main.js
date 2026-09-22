@@ -3,6 +3,7 @@ const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const http = require('http');
+const { isValidStoreKey, isValidSyncFolder, atomicWriteFileSync, arpabetToIpa } = require('./pure');
 
 // Cổng cục bộ để tiện ích Chrome "WordNest Capture" gửi từ trực tiếp vào app
 // desktop đang chạy — không cần mở tab WordNest nào cả.
@@ -181,15 +182,10 @@ ipcMain.on('open-releases-page', () => {
 
 // ════════════════════════════════════════════════════════
 // FILE-BASED STORE — thay thế localStorage, không giới hạn kích thước
-// Mỗi key → 1 file JSON trong thư mục userData của Electron
+// Mỗi key → 1 file JSON trong thư mục userData của Electron. isValidStoreKey
+// định nghĩa ở electron/pure.js (tách riêng để unit test được mà không cần
+// require('electron') — xem comment đầu file đó).
 // ════════════════════════════════════════════════════════
-// key luôn phải là hằng số cố định do chính app định nghĩa (vd 'wordnest_data',
-// 'wordnest_streak'...) — chặn ký tự lạ (., /, \...) ở biên IPC để dù renderer
-// có bị chiếm quyền kiểu nào cũng không thể biến key thành đường dẫn ra ngoài
-// thư mục userData (path traversal), dù path.join phía dưới không tự chặn việc đó.
-function isValidStoreKey(key) {
-  return typeof key === 'string' && /^[A-Za-z0-9_]{1,64}$/.test(key);
-}
 ipcMain.on('store-read', (event, key) => {
   if (!isValidStoreKey(key)) { event.returnValue = null; return; }
   try {
@@ -201,22 +197,18 @@ ipcMain.on('store-write', (event, key, val) => {
   if (!isValidStoreKey(key)) { event.returnValue = false; return; }
   try {
     const file = path.join(app.getPath('userData'), 'store_' + key + '.json');
-    fs.writeFileSync(file, String(val), 'utf8');
+    // atomicWriteFileSync (ghi file tạm rồi rename đè) thay vì writeFileSync
+    // thẳng — tránh file dữ liệu (vd toàn bộ words[]) bị cắt cụt/hỏng nếu app
+    // crash/mất điện đúng lúc đang ghi. Xem comment chi tiết ở electron/pure.js.
+    atomicWriteFileSync(file, String(val));
     event.returnValue = true;
   } catch { event.returnValue = false; }
 });
 
 // ════════════════════════════════════════════════════════
-// SYNC FOLDER — tự động sao lưu vào thư mục do user chọn (vd OneDrive)
+// SYNC FOLDER — tự động sao lưu vào thư mục do user chọn (vd OneDrive).
+// isValidSyncFolder định nghĩa ở electron/pure.js.
 // ════════════════════════════════════════════════════════
-// folderPath do renderer gửi lên mỗi lần ghi/đọc (lưu lại từ lần chọn qua dialog
-// trước đó) — xác nhận lại đây thực sự là 1 thư mục CÓ TỒN TẠI trên máy trước
-// khi ghi/đọc file, để không lỡ ghi/đọc vào 1 đường dẫn bất kỳ nếu giá trị lưu
-// trong store bị hỏng hoặc bị can thiệp.
-function isValidSyncFolder(folderPath) {
-  if (typeof folderPath !== 'string' || !folderPath || !path.isAbsolute(folderPath)) return false;
-  try { return fs.statSync(folderPath).isDirectory(); } catch { return false; }
-}
 ipcMain.handle('pick-sync-folder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],
@@ -228,7 +220,7 @@ ipcMain.handle('pick-sync-folder', async () => {
 ipcMain.on('sync-write', (event, folderPath, jsonData) => {
   if (!isValidSyncFolder(folderPath)) { event.returnValue = false; return; }
   try {
-    fs.writeFileSync(path.join(folderPath, 'wordnest-sync.json'), String(jsonData), 'utf8');
+    atomicWriteFileSync(path.join(folderPath, 'wordnest-sync.json'), String(jsonData));
     event.returnValue = true;
   } catch { event.returnValue = false; }
 });
@@ -299,38 +291,7 @@ ipcMain.handle('fetch-tatoeba-examples', async (event, rawWord) => {
   return out;
 });
 
-// Bảng quy đổi ARPAbet (CMU Pronouncing Dictionary, Datamuse trả về dạng này)
-// sang IPA — dùng làm phiên âm dự phòng khi dictionaryapi.dev không có.
-const ARPABET_TO_IPA = {
-  AA: 'ɑ', AE: 'æ', AH: 'ə', AO: 'ɔ', AW: 'aʊ', AY: 'aɪ',
-  B: 'b', CH: 'tʃ', D: 'd', DH: 'ð',
-  EH: 'ɛ', ER: 'ɚ', EY: 'eɪ',
-  F: 'f', G: 'g', HH: 'h',
-  IH: 'ɪ', IY: 'i',
-  JH: 'dʒ', K: 'k', L: 'l', M: 'm', N: 'n', NG: 'ŋ',
-  OW: 'oʊ', OY: 'ɔɪ',
-  P: 'p', R: 'r', S: 's', SH: 'ʃ',
-  T: 't', TH: 'θ',
-  UH: 'ʊ', UW: 'u',
-  V: 'v', W: 'w', Y: 'j', Z: 'z', ZH: 'ʒ',
-};
-function arpabetToIpa(pronTag) {
-  const phones = pronTag.trim().split(/\s+/);
-  let ipa = '';
-  for (const ph of phones) {
-    const m = ph.match(/^([A-Z]+)([0-2])?$/);
-    if (!m) continue;
-    const base = m[1], stress = m[2];
-    let sym = ARPABET_TO_IPA[base];
-    if (sym === undefined) continue;
-    if (base === 'AH' && stress && stress !== '0') sym = 'ʌ'; // AH có trọng âm đọc /ʌ/, không phải schwa
-    if (stress === '1') ipa += 'ˈ' + sym;
-    else if (stress === '2') ipa += 'ˌ' + sym;
-    else ipa += sym;
-  }
-  return ipa;
-}
-
+// arpabetToIpa (quy đổi ARPAbet -> IPA) định nghĩa ở electron/pure.js.
 ipcMain.handle('fetch-phonetic-fallback', async (event, rawWord) => {
   const word = String(rawWord || '').trim().toLowerCase().slice(0, 60);
   if (!word || /\s/.test(word)) return ''; // Datamuse chỉ tra được từ đơn, không tra cụm từ
