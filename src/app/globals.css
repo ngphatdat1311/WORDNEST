@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════
+   WordNest 2.0 — Warm Academia Evolved Design System
+   Preserves the beloved ivory-paper & espresso-wood DNA of v1
+   while upgrading typography, contrast, depth, and mobile UX.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="light"] {
+  --bg: #F6F2EA;
+  --bg2: #EDE7DB;
+  --bg3: #E3DBCC;
+  --card: #FFFDFA;
+  --card-hover: #FAF6EE;
+  --border: #DFD7C8;
+  --border2: #CBBFA9;
+  --text: #2E2720;
+  --text2: #635749;
+  --text3: #928575;
+  --accent: #8B6F47;
+  --accent-hover: #705737;
+  --accent-soft: #F3EBDD;
+  --gold: #C69232;
+  --gold-soft: #FDF5E4;
+  --green: #3D7A52;
+  --green-soft: #ECF6EF;
+  --green-border: #B8DCC4;
+  --red: #B84A46;
+  --red-soft: #FCEEEE;
+  --red-border: #EBC1BF;
+  --blue: #446A9E;
+  --blue-soft: #EDF3FA;
+  --shadow-sm: 0 1px 3px rgba(72, 54, 32, 0.06);
+  --shadow: 0 4px 16px rgba(72, 54, 32, 0.07);
+  --shadow-lg: 0 12px 32px rgba(72, 54, 32, 0.12);
+}
+
+[data-theme="dark"] {
+  --bg: #161310;
+  --bg2: #1F1B16;
+  --bg3: #2A241E;
+  --card: #211C17;
+  --card-hover: #28221C;
+  --border: #38312A;
+  --border2: #4B4239;
+  --text: #F0EAE0;
+  --text2: #B9AA98;
+  --text3: #7E7164;
+  --accent: #CEA056;
+  --accent-hover: #E0B46C;
+  --accent-soft: #2C2419;
+  --gold: #DEB054;
+  --gold-soft: #2B2416;
+  --green: #5EAD77;
+  --green-soft: #18291E;
+  --green-border: #2E543B;
+  --red: #DF706B;
+  --red-soft: #2C1A19;
+  --red-border: #5A312F;
+  --blue: #749CD0;
+  --blue-soft: #192330;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+    min-height: 100dvh;
+    transition: background-color 0.25s ease, color 0.25s ease;
+    overflow-x: hidden;
+  }
+}
+
+.font-serif-display {
+  font-family: var(--font-lora), Georgia, serif;
+}
+
+/* Custom warm scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 999px;
+}
+
+/* 3D Flashcard utilities */
+.perspective-1200 {
+  perspective: 1200px;
+}
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Safe area bottom padding for iPhone notch/home bar */
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+/* Subtle paper grain overlay */
+.bg-warm-card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

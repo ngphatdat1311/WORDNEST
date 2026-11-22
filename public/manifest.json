@@ -1,0 +1,18 @@
+{
+  "name": "WordNest 2.0 – Học Tiếng Anh & Nghe Chép YouTube",
+  "short_name": "WordNest",
+  "description": "Ứng dụng học từ vựng SRS & Luyện nghe chép chính tả YouTube chuẩn DOL, tối ưu cho điện thoại và máy tính.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F6F2EA",
+  "theme_color": "#8B6F47",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

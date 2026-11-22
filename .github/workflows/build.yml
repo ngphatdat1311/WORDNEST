@@ -36,6 +36,7 @@ jobs:
       # (Windows + macOS + Linux) một bản chắc chắn có lỗi.
       - run: npm run lint
       - run: npm test
+      - run: npm run build:electron
 
       # --publish never: chỉ build ra file, không để electron-builder tự upload
       # (việc đính vào Release đã có bước riêng "softprops/action-gh-release" ở dưới).
