@@ -16,7 +16,8 @@ import {
   Trophy,
   Volume2,
 } from 'lucide-react';
-import { CURATED_LESSONS } from '@/lib/curated-lessons';
+import { CURATED_LESSONS_META } from '@/lib/curated-lessons-meta';
+import { getLessonSegmentCount } from '@/lib/lesson-loader';
 import { isSrsDue, localDateKey } from '@/lib/srs';
 import { speakEnglish } from '@/lib/speech';
 import { useWordNestStore } from '@/store/useWordNestStore';
@@ -46,7 +47,7 @@ export function HomeView() {
 
   // Pick most recently practiced YouTube lesson or default first curated lesson
   const featuredLesson = useMemo(() => {
-    const all = [...customLessons, ...CURATED_LESSONS];
+    const all = [...customLessons, ...CURATED_LESSONS_META];
     const sorted = Object.values(dictationProgress).sort((a, b) =>
       b.lastPracticedAt.localeCompare(a.lastPracticedAt)
     );
@@ -54,7 +55,7 @@ export function HomeView() {
       const found = all.find((l) => l.id === sorted[0].lessonId);
       if (found) return found;
     }
-    return CURATED_LESSONS[0];
+    return CURATED_LESSONS_META[0];
   }, [customLessons, dictationProgress]);
 
   const recentWords = useMemo(
@@ -166,7 +167,7 @@ export function HomeView() {
               {featuredLesson.title}
             </h2>
             <p className="text-xs sm:text-sm text-white/80 line-clamp-2">
-              {featuredLesson.channel} · {featuredLesson.segments.length} câu ngắn · Chế độ chạm chọn từ & gõ DOL
+              {featuredLesson.channel} · {getLessonSegmentCount(featuredLesson)} câu ngắn · Chế độ chạm chọn từ & gõ DOL
             </p>
           </div>
 

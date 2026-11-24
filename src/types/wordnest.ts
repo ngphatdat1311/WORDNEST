@@ -92,6 +92,7 @@ export interface DictationLesson {
   thumbnail: string;
   description?: string;
   segments: TranscriptSegment[];
+  segmentCount?: number;
   viewsCount?: number;
   viewsFormatted?: string;
   isCustom?: boolean;

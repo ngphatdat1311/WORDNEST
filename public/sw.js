@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wordnest-v2-offline-v1';
+const CACHE_NAME = 'wordnest-v2-offline-v2';
 const PRECACHE_URLS = ['/', '/manifest.json', '/icon.svg'];
 
 self.addEventListener('install', (event) => {

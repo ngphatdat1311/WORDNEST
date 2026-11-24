@@ -9,6 +9,9 @@ const fs = require('fs');
 let mainWindow = null;
 let serverProcess = null;
 let activeServerUrl = null;
+let captureServer = null;
+const pendingExtensionWords = [];
+const EXTENSION_CAPTURE_PORT = 51789;
 
 function sanitizeStorageKey(key) {
   const safe = String(key || '').replace(/[^a-zA-Z0-9_-]/g, '');
@@ -88,6 +91,81 @@ function setupStorageIpc() {
       return false;
     }
   });
+
+  ipcMain.handle('wordnest:extension-drain', () => {
+    const items = pendingExtensionWords.splice(0, pendingExtensionWords.length);
+    return items;
+  });
+}
+
+function startExtensionCaptureServer() {
+  if (captureServer) return;
+  captureServer = http.createServer((req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    if (req.method !== 'POST' || req.url !== '/capture') {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk.toString();
+      if (body.length > 4096) {
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      try {
+        const parsed = JSON.parse(body || '{}');
+        const word = String(parsed.word || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+        const pageUrl = String(parsed.pageUrl || '').slice(0, 300);
+        if (!word) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false }));
+          return;
+        }
+        const item = { word, pageUrl, ts: Date.now() };
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('wordnest:extension-capture', item);
+        } else if (!pendingExtensionWords.some((w) => w.word.toLowerCase() === word.toLowerCase())) {
+          pendingExtensionWords.push(item);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false }));
+      }
+    });
+  });
+
+  captureServer.on('error', (err) => {
+    console.warn('[WordNest Extension Capture]', err.message);
+    captureServer = null;
+  });
+
+  captureServer.listen(EXTENSION_CAPTURE_PORT, '127.0.0.1');
+}
+
+function stopExtensionCaptureServer() {
+  if (captureServer) {
+    try {
+      captureServer.close();
+    } catch {
+      // Ignore cleanup errors
+    }
+    captureServer = null;
+  }
 }
 
 function findFreePort(startPort = 3210) {
@@ -307,6 +385,7 @@ if (!gotLock) {
   app.whenReady().then(async () => {
     setupAppMenu();
     setupStorageIpc();
+    startExtensionCaptureServer();
     try {
       const appUrl = await startEmbeddedServer();
       createWindow(appUrl);
@@ -327,12 +406,14 @@ if (!gotLock) {
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
+      stopExtensionCaptureServer();
       stopEmbeddedServer();
       app.quit();
     }
   });
 
   app.on('before-quit', () => {
+    stopExtensionCaptureServer();
     stopEmbeddedServer();
   });
 }

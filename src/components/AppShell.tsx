@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import dynamic from 'next/dynamic';
 import {
   BarChart3,
   BookOpen,
@@ -9,28 +10,69 @@ import {
   Headphones,
   Home,
   Layers,
+  Loader2,
   Moon,
   PenLine,
   PlusCircle,
   Rocket,
   RotateCcw,
+  Search,
+  Sparkles,
   Sun,
 } from 'lucide-react';
 import { pushToSupabase } from '@/lib/cloud-sync';
-import { CURATED_LESSONS } from '@/lib/curated-lessons';
+import { CURATED_LESSONS_META } from '@/lib/curated-lessons-meta';
 import { extractYoutubeId } from '@/lib/dictation-engine';
 import { isSrsDue } from '@/lib/srs';
 import { useWordNestStore } from '@/store/useWordNestStore';
 import { DictationLesson, NavTab } from '@/types/wordnest';
-import { AddWordView } from './AddWordView';
-import { AirCombatView } from './AirCombatView';
-import { DictationView } from './DictationView';
-import { FlashcardView } from './FlashcardView';
+import { CommandPalette } from './CommandPalette';
+import { ErrorBoundary } from './ErrorBoundary';
 import { HomeView } from './HomeView';
-import { ProgressView } from './ProgressView';
-import { QuizView } from './QuizView';
-import { SpellingView } from './SpellingView';
-import { WordlistView } from './WordlistView';
+import { WordLookupPopover } from './WordLookupPopover';
+
+function TabLoadingFallback() {
+  return (
+    <div className="py-16 flex flex-col items-center justify-center gap-2.5" style={{ color: 'var(--text3)' }}>
+      <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
+      <span className="text-xs font-medium">Đang tải...</span>
+    </div>
+  );
+}
+
+// Code-split secondary views so initial load only ships AppShell + HomeView
+const DictationView = dynamic(
+  () => import('./DictationView').then((m) => ({ default: m.DictationView })),
+  { ssr: false, loading: () => <TabLoadingFallback /> }
+);
+const FlashcardView = dynamic(
+  () => import('./FlashcardView').then((m) => ({ default: m.FlashcardView })),
+  { ssr: false, loading: () => <TabLoadingFallback /> }
+);
+const QuizView = dynamic(
+  () => import('./QuizView').then((m) => ({ default: m.QuizView })),
+  { ssr: false, loading: () => <TabLoadingFallback /> }
+);
+const SpellingView = dynamic(
+  () => import('./SpellingView').then((m) => ({ default: m.SpellingView })),
+  { ssr: false, loading: () => <TabLoadingFallback /> }
+);
+const AirCombatView = dynamic(
+  () => import('./AirCombatView').then((m) => ({ default: m.AirCombatView })),
+  { ssr: false, loading: () => <TabLoadingFallback /> }
+);
+const WordlistView = dynamic(
+  () => import('./WordlistView').then((m) => ({ default: m.WordlistView })),
+  { ssr: false, loading: () => <TabLoadingFallback /> }
+);
+const AddWordView = dynamic(
+  () => import('./AddWordView').then((m) => ({ default: m.AddWordView })),
+  { ssr: false, loading: () => <TabLoadingFallback /> }
+);
+const ProgressView = dynamic(
+  () => import('./ProgressView').then((m) => ({ default: m.ProgressView })),
+  { ssr: false, loading: () => <TabLoadingFallback /> }
+);
 
 function WordNestLogo({ size = 34 }: { size?: number }) {
   return (
@@ -72,11 +114,25 @@ function WordNestLogo({ size = 34 }: { size?: number }) {
   );
 }
 
-const emptySubscribe = () => () => {};
-function useIsClient(): boolean {
+interface CapturedWordItem {
+  word: string;
+  pageUrl?: string;
+  ts?: number;
+}
+
+interface DesktopExtensionBridge {
+  drainPending?: () => Promise<CapturedWordItem[]>;
+  onCapture?: (cb: (item: CapturedWordItem) => void) => () => void;
+}
+
+function subscribeHydration(cb: () => void) {
+  return useWordNestStore.persist.onFinishHydration(cb);
+}
+
+function useStoreHydrated(): boolean {
   return useSyncExternalStore(
-    emptySubscribe,
-    () => true,
+    subscribeHydration,
+    () => useWordNestStore.persist.hasHydrated(),
     () => false
   );
 }
@@ -102,10 +158,95 @@ export function AppShell() {
   const addCustomLesson = useWordNestStore((s) => s.addCustomLesson);
   const openDictationLesson = useWordNestStore((s) => s.openDictationLesson);
   const showToast = useWordNestStore((s) => s.showToast);
-  const hydrated = useIsClient();
+  const hydrated = useStoreHydrated();
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [quickLookupWord, setQuickLookupWord] = useState<string | null>(null);
+  const [extensionInbox, setExtensionInbox] = useState<CapturedWordItem[]>([]);
 
   const historyInitRef = useRef(false);
   const isPoppingHistoryRef = useRef(false);
+
+  // Global Command Palette shortcut: Ctrl+K / Cmd+K
+  useEffect(() => {
+    if (!hydrated || typeof window === 'undefined') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [hydrated]);
+
+  // Chrome Extension Bridge (supports BOTH Electron IPC 127.0.0.1:51789 & Web postMessage)
+  useEffect(() => {
+    if (!hydrated || typeof window === 'undefined') return;
+
+    const pushToInbox = (incoming: CapturedWordItem[]) => {
+      if (!incoming.length) return;
+      setExtensionInbox((prev) => {
+        const merged = [...prev];
+        let added = 0;
+        for (const item of incoming) {
+          const clean = String(item?.word || '').trim();
+          if (!clean) continue;
+          if (!merged.some((x) => x.word.toLowerCase() === clean.toLowerCase())) {
+            merged.push({ word: clean, pageUrl: item.pageUrl, ts: item.ts || Date.now() });
+            added++;
+          }
+        }
+        if (added > 0) {
+          showToast(
+            added === 1
+              ? `Tiện ích Chrome vừa gửi từ "${incoming[0].word}" vào hộp thư!`
+              : `Tiện ích Chrome vừa gửi ${added} từ mới vào hộp thư!`,
+            'default'
+          );
+        }
+        return merged;
+      });
+    };
+
+    // 1. Web bridge (extension/content-bridge.js)
+    const onWindowMessage = (event: MessageEvent) => {
+      if (event.source !== window || event.origin !== window.location.origin) return;
+      const data = event.data as { source?: string; type?: string; words?: CapturedWordItem[] } | null;
+      if (data?.source === 'wordnest-extension' && data.type === 'PENDING_WORDS' && Array.isArray(data.words)) {
+        pushToInbox(data.words);
+      }
+    };
+    window.addEventListener('message', onWindowMessage);
+
+    // 2. Electron Desktop IPC bridge
+    const desktopExt = (window as unknown as { wordnestDesktop?: { extension?: DesktopExtensionBridge } })
+      .wordnestDesktop?.extension;
+    let unsubDesktop: (() => void) | undefined;
+    if (desktopExt) {
+      desktopExt.drainPending?.().then((items) => {
+        if (Array.isArray(items) && items.length) pushToInbox(items);
+      }).catch(() => {});
+      unsubDesktop = desktopExt.onCapture?.((item) => {
+        pushToInbox([item]);
+      });
+    }
+
+    return () => {
+      window.removeEventListener('message', onWindowMessage);
+      unsubDesktop?.();
+    };
+  }, [hydrated, showToast]);
+
+  const consumeExtensionWord = (word: string) => {
+    setExtensionInbox((prev) => prev.filter((x) => x.word.toLowerCase() !== word.toLowerCase()));
+    if (typeof window !== 'undefined') {
+      window.postMessage(
+        { source: 'wordnest-page', type: 'CONSUME_WORD', word },
+        window.location.origin
+      );
+    }
+  };
 
   // Sync activeTab & activeDictationLessonId with Browser History API
   // Enables native Chrome/Safari Back & Forward buttons + 2-finger trackpad swipe!
@@ -265,7 +406,7 @@ export function AppShell() {
     const cleanUrl = window.location.pathname;
     window.history.replaceState({}, '', cleanUrl);
 
-    const existing = [...customLessons, ...CURATED_LESSONS].find((l) => l.youtubeId === vid);
+    const existing = [...customLessons, ...CURATED_LESSONS_META].find((l) => l.youtubeId === vid);
     if (existing) {
       openDictationLesson(existing.id);
       return;
@@ -388,8 +529,33 @@ export function AppShell() {
           </div>
         </div>
 
+        {/* Quick Search Trigger (Ctrl+K) */}
+        <div className="px-3 pt-3">
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs transition-colors cursor-pointer"
+            style={{
+              backgroundColor: 'var(--bg)',
+              borderColor: 'var(--border)',
+              color: 'var(--text3)',
+            }}
+          >
+            <span className="inline-flex items-center gap-2 truncate">
+              <Search className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Tìm nhanh từ / bài...</span>
+            </span>
+            <kbd
+              className="text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0"
+              style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
+            >
+              Ctrl K
+            </kbd>
+          </button>
+        </div>
+
         {/* Navigation Groups */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+        <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-5">
           {sidebarGroups.map((group) => (
             <div key={group.title}>
               <div
@@ -492,6 +658,20 @@ export function AppShell() {
         </button>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="w-8 h-8 rounded-xl border flex items-center justify-center cursor-pointer"
+            style={{
+              backgroundColor: 'var(--bg2)',
+              borderColor: 'var(--border)',
+              color: 'var(--text2)',
+            }}
+            aria-label="Tìm nhanh từ và bài nghe"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+
           <div
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold border"
             style={{
@@ -576,17 +756,77 @@ export function AppShell() {
             </div>
           )}
 
-          {activeTab === 'home' && <HomeView />}
-          {activeTab === 'dictation' && <DictationView />}
-          {activeTab === 'flashcard' && <FlashcardView />}
-          {activeTab === 'quiz' && <QuizView />}
-          {activeTab === 'spelling' && <SpellingView />}
-          {activeTab === 'game' && <AirCombatView />}
-          {activeTab === 'wordlist' && <WordlistView />}
-          {activeTab === 'add' && <AddWordView />}
-          {activeTab === 'progress' && <ProgressView />}
+          {/* Chrome Extension Captured Words Inbox */}
+          {extensionInbox.length > 0 && (
+            <div
+              className="mb-4 rounded-2xl px-4 py-3 border flex flex-wrap items-center justify-between gap-2"
+              style={{
+                backgroundColor: 'var(--accent-soft)',
+                borderColor: 'var(--border2)',
+              }}
+            >
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-semibold inline-flex items-center gap-1.5" style={{ color: 'var(--accent)' }}>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Hộp thư tiện ích ({extensionInbox.length}):
+                </span>
+                {extensionInbox.slice(0, 6).map((item) => (
+                  <button
+                    key={item.word}
+                    type="button"
+                    onClick={() => {
+                      setQuickLookupWord(item.word);
+                      consumeExtensionWord(item.word);
+                    }}
+                    className="px-2.5 py-1 rounded-full border font-medium cursor-pointer transition-opacity hover:opacity-85"
+                    style={{
+                      backgroundColor: 'var(--card)',
+                      borderColor: 'var(--border)',
+                      color: 'var(--text)',
+                    }}
+                    title="Bấm để tra & lưu vào kho từ WordNest"
+                  >
+                    + {item.word}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  extensionInbox.forEach((item) => consumeExtensionWord(item.word));
+                }}
+                className="text-[11px] font-medium underline cursor-pointer"
+                style={{ color: 'var(--text3)' }}
+              >
+                Xóa hàng đợi
+              </button>
+            </div>
+          )}
+
+          <ErrorBoundary key={activeTab} onGoHome={() => setActiveTab('home')}>
+            {activeTab === 'home' && <HomeView />}
+            {activeTab === 'dictation' && <DictationView />}
+            {activeTab === 'flashcard' && <FlashcardView />}
+            {activeTab === 'quiz' && <QuizView />}
+            {activeTab === 'spelling' && <SpellingView />}
+            {activeTab === 'game' && <AirCombatView />}
+            {activeTab === 'wordlist' && <WordlistView />}
+            {activeTab === 'add' && <AddWordView />}
+            {activeTab === 'progress' && <ProgressView />}
+          </ErrorBoundary>
         </div>
       </main>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onLookupWord={(w) => setQuickLookupWord(w)}
+      />
+
+      <WordLookupPopover
+        word={quickLookupWord}
+        onClose={() => setQuickLookupWord(null)}
+      />
 
       {/* ═══ MOBILE FIXED BOTTOM NAVIGATION BAR (< lg) ═══ */}
       <nav

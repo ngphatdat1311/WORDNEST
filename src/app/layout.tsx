@@ -35,7 +35,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#F6F2EA' },
@@ -44,7 +43,7 @@ export const viewport: Viewport = {
 };
 
 // Runs synchronously before first paint to prevent light/dark flash (FOUC)
-const THEME_INIT_SCRIPT = `(function(){try{var raw=localStorage.getItem('wordnest-v2-storage');if(raw){var p=JSON.parse(raw);var t=p&&p.state&&p.state.theme;if(t==='dark'||t==='light'){document.documentElement.setAttribute('data-theme',t);return;}}if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();`;
+const THEME_INIT_SCRIPT = `(function(){try{var quick=localStorage.getItem('wordnest-theme');if(quick==='dark'||quick==='light'){document.documentElement.setAttribute('data-theme',quick);return;}var raw=localStorage.getItem('wordnest-v2-storage');if(raw){var p=JSON.parse(raw);var t=p&&p.state&&p.state.theme;if(t==='dark'||t==='light'){document.documentElement.setAttribute('data-theme',t);return;}}if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -54,6 +53,7 @@ export default function RootLayout({
   return (
     <html lang="vi" className={`${inter.variable} ${lora.variable}`} suppressHydrationWarning>
       <head>
+        <meta name="wordnest-app" content="2.0" />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body className="antialiased selection:bg-[#8B6F47]/20">{children}</body>
