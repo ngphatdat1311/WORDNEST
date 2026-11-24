@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  getClientIp,
+  getLemmaCandidates,
+  SlidingWindowRateLimiter,
+  TtlLruCache,
+} from '@/lib/server-cache';
 import { LookupResult, WordLevel, WordType } from '@/types/wordnest';
+
+const lookupCache = new TtlLruCache<LookupResult>(1000, 24 * 60 * 60 * 1000);
+const lookupLimiter = new SlidingWindowRateLimiter(120, 60_000);
+const MAX_WORD_LENGTH = 80;
 
 function mapPosToWordType(pos?: string, word = ''): WordType {
   if (word.trim().includes(' ')) return 'phrase';
@@ -83,23 +93,26 @@ async function fetchTranslateVi(text: string): Promise<{ main: string; alts: str
   }
 }
 
-async function fetchDictionaryApi(word: string): Promise<{
+interface DictFetchResult {
+  found: boolean;
   phonetic: string;
   audioUrl?: string;
   type: WordType;
   examples: string[];
-}> {
+}
+
+async function fetchDictionarySingle(word: string): Promise<DictFetchResult> {
   try {
     const res = await fetch(
       `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
       { signal: AbortSignal.timeout(5000) }
     );
     if (!res.ok) {
-      return { phonetic: '', type: mapPosToWordType('', word), examples: [] };
+      return { found: false, phonetic: '', type: mapPosToWordType('', word), examples: [] };
     }
     const entries = await res.json();
     const entry = Array.isArray(entries) ? entries[0] : null;
-    if (!entry) return { phonetic: '', type: mapPosToWordType('', word), examples: [] };
+    if (!entry) return { found: false, phonetic: '', type: mapPosToWordType('', word), examples: [] };
 
     let phonetic = entry.phonetic || '';
     let audioUrl: string | undefined;
@@ -128,25 +141,65 @@ async function fetchDictionaryApi(word: string): Promise<{
     }
 
     return {
+      found: true,
       phonetic,
       audioUrl,
       type: mapPosToWordType(firstPos, word),
       examples: examples.slice(0, 5),
     };
   } catch {
-    return { phonetic: '', type: mapPosToWordType('', word), examples: [] };
+    return { found: false, phonetic: '', type: mapPosToWordType('', word), examples: [] };
   }
 }
 
+async function fetchDictionaryApi(word: string): Promise<DictFetchResult> {
+  const direct = await fetchDictionarySingle(word);
+  if (direct.found) return direct;
+
+  // Fallback to base-form lemma candidates for inflected words (e.g. procrastinating -> procrastinate)
+  for (const lemma of getLemmaCandidates(word)) {
+    const fallback = await fetchDictionarySingle(lemma);
+    if (fallback.found) return fallback;
+  }
+
+  return direct;
+}
+
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request.headers);
+  const limit = lookupLimiter.allow(ip);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: 'Bạn tra từ quá nhanh. Vui lòng thử lại sau vài giây.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec) } }
+    );
+  }
+
   const rawWord = (request.nextUrl.searchParams.get('word') || '').trim();
   if (!rawWord) {
     return NextResponse.json({ error: 'Vui lòng nhập từ cần tra.' }, { status: 400 });
+  }
+  if (rawWord.length > MAX_WORD_LENGTH) {
+    return NextResponse.json(
+      { error: `Từ cần tra tối đa ${MAX_WORD_LENGTH} ký tự.` },
+      { status: 400 }
+    );
   }
 
   const cleanWord = rawWord.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '');
   if (!cleanWord) {
     return NextResponse.json({ error: 'Từ không hợp lệ.' }, { status: 400 });
+  }
+
+  const cacheKey = cleanWord.toLowerCase();
+  const cached = lookupCache.get(cacheKey);
+  if (cached) {
+    return NextResponse.json(cached, {
+      headers: {
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+        'X-WordNest-Cache': 'HIT',
+      },
+    });
   }
 
   const [dict, trans] = await Promise.all([
@@ -172,5 +225,15 @@ export async function GET(request: NextRequest) {
     level: guessLevel(cleanWord),
   };
 
-  return NextResponse.json(result);
+  // Only cache meaningful results so transient upstream outages aren't pinned for 24h
+  if (result.meaning || result.phonetic) {
+    lookupCache.set(cacheKey, result);
+  }
+
+  return NextResponse.json(result, {
+    headers: {
+      'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+      'X-WordNest-Cache': 'MISS',
+    },
+  });
 }

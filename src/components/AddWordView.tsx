@@ -39,17 +39,23 @@ export function AddWordView() {
   const [bulkText, setBulkText] = useState('');
   const [bulkFolderId, setBulkFolderId] = useState('');
 
-  // Debounced server-side auto-lookup (zero CORS issues!)
+  // Debounced server-side auto-lookup (zero CORS issues, with AbortController against race conditions!)
   useEffect(() => {
     const clean = word.trim();
     if (clean.length < 2) return;
 
+    const controller = new AbortController();
+    let cancelled = false;
+
     const timer = setTimeout(async () => {
       setLookupStatus('loading');
       try {
-        const res = await fetch(`/api/lookup?word=${encodeURIComponent(clean)}`);
+        const res = await fetch(`/api/lookup?word=${encodeURIComponent(clean)}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error();
         const data: LookupResult = await res.json();
+        if (cancelled) return;
         setLookupData(data);
         setExampleIdx(0);
         if (data.phonetic) setPhonetic(data.phonetic);
@@ -58,12 +64,17 @@ export function AddWordView() {
         if (data.level) setLevel(data.level);
         if (data.examples?.[0]) setExample(data.examples[0]);
         setLookupStatus('done');
-      } catch {
+      } catch (err) {
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
         setLookupStatus('idle');
       }
     }, 550);
 
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [word]);
 
   const handleRerollExample = () => {

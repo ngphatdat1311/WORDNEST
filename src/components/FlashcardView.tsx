@@ -11,7 +11,14 @@ import {
   Shuffle,
   Volume2,
 } from 'lucide-react';
-import { computeSrsNext, daysUntilDue, formatIntervalPreview, isSrsDue } from '@/lib/srs';
+import {
+  buildFlashcardSessionIds,
+  computeSrsNext,
+  daysUntilDue,
+  FlashcardModeFilter,
+  formatIntervalPreview,
+  requeueForgottenCard,
+} from '@/lib/srs';
 import { playChime, speakEnglish, vibrateLight } from '@/lib/speech';
 import { useWordNestStore } from '@/store/useWordNestStore';
 import { SrsRating, WordItem } from '@/types/wordnest';
@@ -32,47 +39,56 @@ export function FlashcardView() {
   const reviewWordSrs = useWordNestStore((s) => s.reviewWordSrs);
   const showToast = useWordNestStore((s) => s.showToast);
 
-  const [modeFilter, setModeFilter] = useState<'all' | 'srs' | 'new' | 'review'>('all');
+  const [modeFilter, setModeFilter] = useState<FlashcardModeFilter>('all');
   const [folderFilter, setFolderFilter] = useState('all');
   const [shuffleSeed, setShuffleSeed] = useState(0);
+  const [sessionIds, setSessionIds] = useState<string[]>(() =>
+    buildFlashcardSessionIds(words, 'all', 'all', 0)
+  );
+  const [relearnCount, setRelearnCount] = useState(0);
+  const [reviewedCount, setReviewedCount] = useState(0);
+  const [sessionDone, setSessionDone] = useState(false);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
-  const deck = useMemo(() => {
-    let pool = words.filter((w) => !w.suspended);
-    if (modeFilter === 'srs') pool = pool.filter(isSrsDue);
-    else if (modeFilter === 'new') pool = pool.filter((w) => w.mastery === 0);
-    else if (modeFilter === 'review') pool = pool.filter((w) => w.mastery > 0 && w.mastery < 3);
-
-    if (folderFilter !== 'all') {
-      pool = pool.filter((w) => w.folderIds.includes(folderFilter));
+  const wordsById = useMemo(() => {
+    const map = new Map<string, WordItem>();
+    for (const w of words) {
+      if (!w.suspended) map.set(w.id, w);
     }
+    return map;
+  }, [words]);
 
-    const list = [...pool];
-    if (shuffleSeed > 0) {
-      let s = shuffleSeed * 9301 + 49297;
-      for (let i = list.length - 1; i > 0; i--) {
-        s = (s * 9301 + 49297) % 233280;
-        const j = Math.floor((s / 233280) * (i + 1));
-        [list[i], list[j]] = [list[j], list[i]];
-      }
-    }
-    return list;
-  }, [words, modeFilter, folderFilter, shuffleSeed]);
+  // Resolve frozen session queue against live word records (never shrinks when srsDue updates!)
+  const deck = useMemo(
+    () =>
+      sessionIds
+        .map((id) => wordsById.get(id))
+        .filter((w): w is WordItem => Boolean(w)),
+    [sessionIds, wordsById]
+  );
 
-  const resetDeckPos = () => {
-    setIndex(0);
-    setFlipped(false);
-  };
+  const startSession = useCallback(
+    (nextMode: FlashcardModeFilter, nextFolder: string, nextSeed: number) => {
+      setSessionIds(buildFlashcardSessionIds(words, nextMode, nextFolder, nextSeed));
+      setIndex(0);
+      setFlipped(false);
+      setRelearnCount(0);
+      setReviewedCount(0);
+      setSessionDone(false);
+    },
+    [words]
+  );
 
-  const current: WordItem | undefined = deck[index];
+  const safeIndex = deck.length > 0 ? Math.min(index, deck.length - 1) : 0;
+  const current: WordItem | undefined = sessionDone ? undefined : deck[safeIndex];
 
   useEffect(() => {
     if (current) {
       markWordSeen(current.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id]);
+  }, [current?.id, safeIndex]);
 
   const handleRate = useCallback(
     (rating: SrsRating) => {
@@ -80,16 +96,27 @@ export function FlashcardView() {
       reviewWordSrs(current.id, rating);
       vibrateLight(14);
       playChime(rating === 'again' ? 'error' : 'success');
+      setReviewedCount((c) => c + 1);
+
+      let nextQueueLength = deck.length;
+      if (rating === 'again') {
+        // Anki-style intra-session relearning: re-insert forgotten card a few cards ahead
+        setSessionIds((prev) => requeueForgottenCard(prev, safeIndex, 3));
+        setRelearnCount((c) => c + 1);
+        nextQueueLength = deck.length + 1;
+        showToast('Sẽ lặp lại thẻ này trong phiên để bạn nhớ chắc hơn!', 'default');
+      }
 
       setFlipped(false);
-      if (index < deck.length - 1) {
+      if (safeIndex < nextQueueLength - 1) {
         setTimeout(() => setIndex((i) => i + 1), 120);
       } else {
+        setSessionDone(true);
         confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
         showToast('Tuyệt vời! Bạn đã ôn hết bộ thẻ này!', 'success');
       }
     },
-    [current, reviewWordSrs, index, deck.length, showToast]
+    [current, reviewWordSrs, safeIndex, deck.length, showToast]
   );
 
   const handleSwipeEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -105,15 +132,16 @@ export function FlashcardView() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (sessionDone) return;
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         setFlipped((f) => !f);
-      } else if (e.key === 'ArrowLeft' && index > 0) {
+      } else if (e.key === 'ArrowLeft' && safeIndex > 0) {
         setFlipped(false);
-        setIndex((i) => i - 1);
-      } else if (e.key === 'ArrowRight' && index < deck.length - 1) {
+        setIndex((i) => Math.max(0, i - 1));
+      } else if (e.key === 'ArrowRight' && safeIndex < deck.length - 1) {
         setFlipped(false);
-        setIndex((i) => i + 1);
+        setIndex((i) => Math.min(deck.length - 1, i + 1));
       } else if (e.key.toLowerCase() === 's' && current) {
         speakEnglish(current.word);
       } else if (flipped) {
@@ -125,7 +153,7 @@ export function FlashcardView() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [index, deck.length, current, flipped, handleRate]);
+  }, [safeIndex, deck.length, current, flipped, sessionDone, handleRate]);
 
   const srsLabel = useMemo(() => {
     if (!current) return '';
@@ -139,14 +167,19 @@ export function FlashcardView() {
   const previews = useMemo(() => {
     if (!current) return null;
     return {
-      again: formatIntervalPreview(computeSrsNext(current, 'again').srsInterval),
+      again: 'Lặp lại ngay',
       hard: formatIntervalPreview(computeSrsNext(current, 'hard').srsInterval),
       good: formatIntervalPreview(computeSrsNext(current, 'good').srsInterval),
       easy: formatIntervalPreview(computeSrsNext(current, 'easy').srsInterval),
     };
   }, [current]);
 
-  const pct = deck.length > 0 ? Math.round(((index + 1) / deck.length) * 100) : 0;
+  const pct =
+    deck.length > 0
+      ? sessionDone
+        ? 100
+        : Math.round(((safeIndex + 1) / deck.length) * 100)
+      : 0;
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
@@ -174,7 +207,7 @@ export function FlashcardView() {
               type="button"
               onClick={() => {
                 setModeFilter(tab.id);
-                resetDeckPos();
+                startSession(tab.id, folderFilter, shuffleSeed);
               }}
               className="px-3 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors"
               style={{
@@ -192,8 +225,9 @@ export function FlashcardView() {
           <select
             value={folderFilter}
             onChange={(e) => {
-              setFolderFilter(e.target.value);
-              resetDeckPos();
+              const nextFolder = e.target.value;
+              setFolderFilter(nextFolder);
+              startSession(modeFilter, nextFolder, shuffleSeed);
             }}
             className="px-3 py-1.5 rounded-full text-xs border outline-none cursor-pointer"
             style={{
@@ -215,8 +249,9 @@ export function FlashcardView() {
           <button
             type="button"
             onClick={() => {
-              setShuffleSeed((s) => s + 1);
-              resetDeckPos();
+              const nextSeed = shuffleSeed + 1;
+              setShuffleSeed(nextSeed);
+              startSession(modeFilter, folderFilter, nextSeed);
               showToast('Đã xáo trộn bộ thẻ!');
             }}
             className="p-2 rounded-xl border cursor-pointer"
@@ -227,10 +262,7 @@ export function FlashcardView() {
           </button>
           <button
             type="button"
-            onClick={() => {
-              setIndex(0);
-              setFlipped(false);
-            }}
+            onClick={() => startSession(modeFilter, folderFilter, shuffleSeed)}
             className="p-2 rounded-xl border cursor-pointer"
             style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', color: 'var(--text2)' }}
             title="Học lại từ đầu"
@@ -245,16 +277,57 @@ export function FlashcardView() {
         <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg3)' }}>
           <div
             className="h-full rounded-full transition-all duration-300"
-            style={{ width: `${pct}%`, backgroundColor: 'var(--accent)' }}
+            style={{
+              width: `${pct}%`,
+              backgroundColor: sessionDone ? 'var(--green)' : 'var(--accent)',
+            }}
           />
         </div>
         <span className="text-xs font-medium tabular-nums" style={{ color: 'var(--text3)' }}>
-          {deck.length ? `${index + 1} / ${deck.length}` : '0 / 0'}
+          {deck.length ? `${sessionDone ? deck.length : safeIndex + 1} / ${deck.length}` : '0 / 0'}
+          {relearnCount > 0 ? ` · +${relearnCount} ôn lại` : ''}
         </span>
       </div>
 
       {/* 3D Interactive Flashcard */}
-      {!current ? (
+      {sessionDone ? (
+        <div className="bg-warm-card rounded-3xl p-10 text-center space-y-3">
+          <p className="font-serif-display text-2xl font-semibold" style={{ color: 'var(--green)' }}>
+            Hoàn thành phiên ôn tập!
+          </p>
+          <p className="text-sm" style={{ color: 'var(--text2)' }}>
+            Bạn đã ôn xong <strong>{reviewedCount}</strong> lượt thẻ
+            {relearnCount > 0 ? ` (gồm ${relearnCount} thẻ được lặp lại để nhớ sâu hơn)` : ''}.
+          </p>
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => startSession(modeFilter, folderFilter, shuffleSeed)}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-white cursor-pointer"
+              style={{ backgroundColor: 'var(--accent)' }}
+            >
+              Kiểm tra thẻ đến hạn mới
+            </button>
+            {modeFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setModeFilter('all');
+                  startSession('all', folderFilter, shuffleSeed);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-medium border cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--card)',
+                  borderColor: 'var(--border)',
+                  color: 'var(--text2)',
+                }}
+              >
+                Xem tất cả từ
+              </button>
+            )}
+          </div>
+        </div>
+      ) : !current ? (
         <div className="bg-warm-card rounded-3xl p-12 text-center space-y-2">
           <p className="font-serif-display text-lg font-medium">Không có thẻ nào trong bộ lọc này</p>
           <p className="text-xs" style={{ color: 'var(--text3)' }}>
@@ -263,7 +336,7 @@ export function FlashcardView() {
         </div>
       ) : (
         <motion.div
-          key={current.id}
+          key={`${current.id}-${safeIndex}`}
           drag={flipped ? 'x' : false}
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={0.22}
@@ -419,12 +492,12 @@ export function FlashcardView() {
             </button>
           ))}
         </div>
-      ) : (
+      ) : !sessionDone && current ? (
         /* Prev / Next Navigation */
         <div className="flex items-center justify-center gap-4">
           <button
             type="button"
-            disabled={index === 0}
+            disabled={safeIndex === 0}
             onClick={() => {
               setFlipped(false);
               setIndex((i) => Math.max(0, i - 1));
@@ -440,7 +513,7 @@ export function FlashcardView() {
           </span>
           <button
             type="button"
-            disabled={index >= deck.length - 1}
+            disabled={safeIndex >= deck.length - 1}
             onClick={() => {
               setFlipped(false);
               setIndex((i) => Math.min(deck.length - 1, i + 1));
@@ -452,7 +525,7 @@ export function FlashcardView() {
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

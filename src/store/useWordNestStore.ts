@@ -1,7 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import {
   AirCombatStats,
   CloudSyncConfig,
@@ -19,6 +19,7 @@ import {
   WordType,
 } from '@/types/wordnest';
 import { addDaysToDateKey, computeSrsNext, localDateKey } from '@/lib/srs';
+import { wordNestStateStorage } from '@/lib/storage-adapter';
 
 function genId(prefix = 'w'): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
@@ -609,13 +610,15 @@ export const useWordNestStore = create<WordNestState>()(
       exportBackup: () => {
         const s = get();
         return {
-          version: '2.0.0',
+          version: '2.0.1',
           exportedAt: new Date().toISOString(),
           words: s.words,
           folders: s.folders,
           trash: s.trash,
           streak: s.streak,
           quizStats: s.quizStats,
+          airCombatStats: s.airCombatStats,
+          dailyGoal: s.dailyGoal,
           customLessons: s.customLessons,
           dictationProgress: s.dictationProgress,
         };
@@ -626,6 +629,8 @@ export const useWordNestStore = create<WordNestState>()(
         let incomingFolders: FolderItem[] | undefined;
         let incomingStreak: StreakData | undefined;
         let incomingQuizStats: QuizStats | undefined;
+        let incomingAirCombatStats: AirCombatStats | undefined;
+        let incomingDailyGoal: number | undefined;
         let incomingCustomLessons: DictationLesson[] | undefined;
         let incomingDictationProgress: Record<string, DictationLessonProgress> | undefined;
 
@@ -637,6 +642,12 @@ export const useWordNestStore = create<WordNestState>()(
           if (Array.isArray(obj.folders)) incomingFolders = obj.folders;
           if (obj.streak && typeof obj.streak === 'object') incomingStreak = obj.streak;
           if (obj.quizStats && typeof obj.quizStats === 'object') incomingQuizStats = obj.quizStats;
+          if (obj.airCombatStats && typeof obj.airCombatStats === 'object') {
+            incomingAirCombatStats = obj.airCombatStats;
+          }
+          if (typeof obj.dailyGoal === 'number' && Number.isFinite(obj.dailyGoal)) {
+            incomingDailyGoal = Math.max(5, Math.min(200, Math.round(obj.dailyGoal)));
+          }
           if (Array.isArray(obj.customLessons)) incomingCustomLessons = obj.customLessons;
           if (obj.dictationProgress && typeof obj.dictationProgress === 'object') {
             incomingDictationProgress = obj.dictationProgress;
@@ -653,6 +664,8 @@ export const useWordNestStore = create<WordNestState>()(
             folders: incomingFolders ?? s.folders,
             streak: incomingStreak ?? s.streak,
             quizStats: incomingQuizStats ?? s.quizStats,
+            airCombatStats: incomingAirCombatStats ?? s.airCombatStats,
+            dailyGoal: incomingDailyGoal ?? s.dailyGoal,
             customLessons: incomingCustomLessons ?? s.customLessons,
             dictationProgress: incomingDictationProgress ?? s.dictationProgress,
           }));
@@ -680,6 +693,19 @@ export const useWordNestStore = create<WordNestState>()(
                 ...incomingFolders.filter((f) => !s.folders.some((ef) => ef.id === f.id)),
               ]
             : s.folders,
+          airCombatStats: incomingAirCombatStats
+            ? {
+                gamesPlayed: Math.max(s.airCombatStats.gamesPlayed, incomingAirCombatStats.gamesPlayed),
+                bestScore: Math.max(s.airCombatStats.bestScore, incomingAirCombatStats.bestScore),
+                bestWave: Math.max(s.airCombatStats.bestWave, incomingAirCombatStats.bestWave),
+                bestWpm: Math.max(s.airCombatStats.bestWpm, incomingAirCombatStats.bestWpm),
+                totalDestroyed: Math.max(
+                  s.airCombatStats.totalDestroyed,
+                  incomingAirCombatStats.totalDestroyed
+                ),
+              }
+            : s.airCombatStats,
+          dailyGoal: incomingDailyGoal ?? s.dailyGoal,
           customLessons: incomingCustomLessons
             ? [
                 ...s.customLessons,
@@ -702,6 +728,7 @@ export const useWordNestStore = create<WordNestState>()(
     }),
     {
       name: 'wordnest-v2-storage',
+      storage: createJSONStorage(() => wordNestStateStorage),
       partialize: (state) => ({
         theme: state.theme,
         words: state.words,

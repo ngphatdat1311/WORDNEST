@@ -136,6 +136,8 @@ export interface WordNestBackupV1 {
   trash?: TrashEntry[];
   streak?: StreakData;
   quizStats?: QuizStats;
+  airCombatStats?: AirCombatStats;
+  dailyGoal?: number;
   customLessons?: DictationLesson[];
   dictationProgress?: Record<string, DictationLessonProgress>;
 }

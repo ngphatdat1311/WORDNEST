@@ -213,11 +213,21 @@ export function AppShell() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme, hydrated]);
 
-  // Register PWA Offline Service Worker
+  // Register PWA Offline Service Worker & listen for storage quota warnings
   useEffect(() => {
-    if (!hydrated || typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  }, [hydrated]);
+    if (!hydrated || typeof window === 'undefined') return;
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+    const onQuotaError = () => {
+      showToast(
+        'Bộ nhớ trình duyệt gần đầy (5MB)! Hãy xuất file sao lưu JSON hoặc xóa bớt bài nghe tự thêm.',
+        'error'
+      );
+    };
+    window.addEventListener('wordnest:storage-quota-error', onQuotaError);
+    return () => window.removeEventListener('wordnest:storage-quota-error', onQuotaError);
+  }, [hydrated, showToast]);
 
   // Background debounced Auto Cloud Sync when Supabase + autoSync are enabled
   useEffect(() => {
@@ -528,7 +538,7 @@ export function AppShell() {
       <main className="flex-1 lg:pl-64 pb-24 lg:pb-12">
         <div
           className={`mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-7 ${
-            activeTab === 'dictation' ? 'max-w-6xl' : 'max-w-4xl'
+            activeTab === 'dictation' || activeTab === 'game' ? 'max-w-6xl' : 'max-w-4xl'
           }`}
         >
           {/* Mobile Practice Mode Sub-Switcher (only visible when inside Flashcard / Quiz / Spelling on mobile) */}

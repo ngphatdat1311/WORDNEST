@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -8,6 +8,87 @@ const fs = require('fs');
 
 let mainWindow = null;
 let serverProcess = null;
+let activeServerUrl = null;
+
+function sanitizeStorageKey(key) {
+  const safe = String(key || '').replace(/[^a-zA-Z0-9_-]/g, '');
+  return safe || 'wordnest-store';
+}
+
+function getStorageFilePath(key) {
+  const dir = path.join(app.getPath('userData'), 'storage');
+  fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, `${sanitizeStorageKey(key)}.json`);
+}
+
+function maybeWriteDailyBackup(key, rawValue) {
+  try {
+    const backupDir = path.join(app.getPath('userData'), 'backups');
+    fs.mkdirSync(backupDir, { recursive: true });
+    const today = new Date().toISOString().slice(0, 10);
+    const prefix = `${sanitizeStorageKey(key)}-`;
+    const backupPath = path.join(backupDir, `${prefix}${today}.json`);
+    if (!fs.existsSync(backupPath)) {
+      fs.writeFileSync(backupPath, rawValue, 'utf8');
+      const existing = fs
+        .readdirSync(backupDir)
+        .filter((f) => f.startsWith(prefix) && f.endsWith('.json'))
+        .sort();
+      while (existing.length > 5) {
+        const oldest = existing.shift();
+        if (oldest) {
+          fs.unlinkSync(path.join(backupDir, oldest));
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[WordNest Backup]', err);
+  }
+}
+
+function setupStorageIpc() {
+  ipcMain.on('wordnest:storage-get-sync', (event, key) => {
+    try {
+      const filePath = getStorageFilePath(key);
+      if (!fs.existsSync(filePath)) {
+        event.returnValue = null;
+        return;
+      }
+      event.returnValue = fs.readFileSync(filePath, 'utf8');
+    } catch (err) {
+      console.error('[WordNest Storage Read]', err);
+      event.returnValue = null;
+    }
+  });
+
+  ipcMain.handle('wordnest:storage-set', async (_event, key, value) => {
+    try {
+      const filePath = getStorageFilePath(key);
+      const tmpPath = `${filePath}.tmp`;
+      const strVal = String(value);
+      await fs.promises.writeFile(tmpPath, strVal, 'utf8');
+      await fs.promises.rename(tmpPath, filePath);
+      maybeWriteDailyBackup(key, strVal);
+      return true;
+    } catch (err) {
+      console.error('[WordNest Storage Write]', err);
+      return false;
+    }
+  });
+
+  ipcMain.handle('wordnest:storage-remove', async (_event, key) => {
+    try {
+      const filePath = getStorageFilePath(key);
+      if (fs.existsSync(filePath)) {
+        await fs.promises.unlink(filePath);
+      }
+      return true;
+    } catch (err) {
+      console.error('[WordNest Storage Remove]', err);
+      return false;
+    }
+  });
+}
 
 function findFreePort(startPort = 3210) {
   return new Promise((resolve, reject) => {
@@ -51,6 +132,12 @@ async function startEmbeddedServer() {
     return process.env.ELECTRON_DEV_URL;
   }
 
+  // Reuse the already running embedded server (prevents macOS activate from spawning
+  // a second Next.js server on another port and splitting localStorage origins).
+  if (activeServerUrl && serverProcess && !serverProcess.killed && serverProcess.exitCode === null) {
+    return activeServerUrl;
+  }
+
   const standaloneDir = app.isPackaged
     ? path.join(process.resourcesPath, 'standalone')
     : path.join(__dirname, '..', '.next', 'standalone');
@@ -77,15 +164,22 @@ async function startEmbeddedServer() {
     stdio: 'pipe',
   });
 
+  serverProcess.on('exit', () => {
+    activeServerUrl = null;
+    serverProcess = null;
+  });
+
   serverProcess.stderr?.on('data', (chunk) => {
     console.error('[WordNest Server]', chunk.toString());
   });
 
   await waitForServer(url);
+  activeServerUrl = url;
   return url;
 }
 
 function stopEmbeddedServer() {
+  activeServerUrl = null;
   if (serverProcess && !serverProcess.killed) {
     try {
       serverProcess.kill();
@@ -173,10 +267,11 @@ function createWindow(appUrl) {
   });
 
   // Native two-finger swipe Back/Forward on macOS
+  // Swiping fingers left-to-right fires 'right' (Go Back); right-to-left fires 'left' (Go Forward)
   mainWindow.on('swipe', (_e, direction) => {
-    if (direction === 'left' && mainWindow?.webContents.navigationHistory.canGoBack()) {
+    if (direction === 'right' && mainWindow?.webContents.navigationHistory.canGoBack()) {
       mainWindow.webContents.navigationHistory.goBack();
-    } else if (direction === 'right' && mainWindow?.webContents.navigationHistory.canGoForward()) {
+    } else if (direction === 'left' && mainWindow?.webContents.navigationHistory.canGoForward()) {
       mainWindow.webContents.navigationHistory.goForward();
     }
   });
@@ -211,6 +306,7 @@ if (!gotLock) {
 
   app.whenReady().then(async () => {
     setupAppMenu();
+    setupStorageIpc();
     try {
       const appUrl = await startEmbeddedServer();
       createWindow(appUrl);

@@ -92,3 +92,53 @@ export function formatIntervalPreview(days: number): string {
   const months = Math.round(days / 30);
   return `${months} tháng`;
 }
+
+export type FlashcardModeFilter = 'all' | 'srs' | 'new' | 'review';
+
+/**
+ * Build a stable snapshot of card IDs for a flashcard study session so rating a card
+ * (which updates srsDue / mastery) never mutates indices mid-session and skips cards.
+ */
+export function buildFlashcardSessionIds(
+  words: WordItem[],
+  modeFilter: FlashcardModeFilter,
+  folderFilter: string,
+  shuffleSeed: number
+): string[] {
+  let pool = words.filter((w) => !w.suspended);
+  if (modeFilter === 'srs') pool = pool.filter(isSrsDue);
+  else if (modeFilter === 'new') pool = pool.filter((w) => w.mastery === 0);
+  else if (modeFilter === 'review') pool = pool.filter((w) => w.mastery > 0 && w.mastery < 3);
+
+  if (folderFilter !== 'all') {
+    pool = pool.filter((w) => w.folderIds.includes(folderFilter));
+  }
+
+  const ids = pool.map((w) => w.id);
+  if (shuffleSeed > 0) {
+    let s = shuffleSeed * 9301 + 49297;
+    for (let i = ids.length - 1; i > 0; i--) {
+      s = (s * 9301 + 49297) % 233280;
+      const j = Math.floor((s / 233280) * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+  }
+  return ids;
+}
+
+/**
+ * Anki-style intra-session relearning: when a user presses "Again", re-insert the
+ * forgotten card a few positions ahead in the current session queue so they reinforce it now.
+ */
+export function requeueForgottenCard(
+  queue: string[],
+  currentIndex: number,
+  gap = 3
+): string[] {
+  const cardId = queue[currentIndex];
+  if (!cardId) return queue;
+  const next = [...queue];
+  const insertAt = Math.min(next.length, currentIndex + Math.max(1, gap) + 1);
+  next.splice(insertAt, 0, cardId);
+  return next;
+}

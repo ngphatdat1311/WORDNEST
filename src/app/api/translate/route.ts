@@ -1,9 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getClientIp, SlidingWindowRateLimiter, TtlLruCache } from '@/lib/server-cache';
+
+const translateCache = new TtlLruCache<string>(2000, 24 * 60 * 60 * 1000);
+const translateLimiter = new SlidingWindowRateLimiter(120, 60_000);
+const MAX_TRANSLATE_LENGTH = 1000;
 
 export async function GET(request: NextRequest) {
-  const text = (request.nextUrl.searchParams.get('text') || '').trim();
-  if (!text) {
+  const ip = getClientIp(request.headers);
+  const limit = translateLimiter.allow(ip);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { vi: '', error: 'Bạn dịch quá nhanh. Vui lòng thử lại sau vài giây.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec) } }
+    );
+  }
+
+  const rawText = (request.nextUrl.searchParams.get('text') || '').trim();
+  if (!rawText) {
     return NextResponse.json({ vi: '' });
+  }
+  const text = rawText.slice(0, MAX_TRANSLATE_LENGTH);
+  const cacheKey = text.toLowerCase();
+
+  const cached = translateCache.get(cacheKey);
+  if (cached) {
+    return NextResponse.json(
+      { vi: cached },
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+          'X-WordNest-Cache': 'HIT',
+        },
+      }
+    );
   }
 
   // 1. Try MyMemory Translation API (reliable & CORS/serverless friendly)
@@ -18,8 +47,22 @@ export async function GET(request: NextRequest) {
     if (res.ok) {
       const data = await res.json();
       const translation = data?.responseData?.translatedText;
-      if (translation && typeof translation === 'string' && !translation.includes('MYMEMORY WARNING')) {
-        return NextResponse.json({ vi: translation.trim() });
+      if (
+        translation &&
+        typeof translation === 'string' &&
+        !translation.includes('MYMEMORY WARNING')
+      ) {
+        const vi = translation.trim();
+        translateCache.set(cacheKey, vi);
+        return NextResponse.json(
+          { vi },
+          {
+            headers: {
+              'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+              'X-WordNest-Cache': 'MISS',
+            },
+          }
+        );
       }
     }
   } catch {
@@ -43,7 +86,18 @@ export async function GET(request: NextRequest) {
       const vi = Array.isArray(data?.[0])
         ? data[0].map((part: [string]) => part?.[0] || '').join('').trim()
         : '';
-      if (vi) return NextResponse.json({ vi });
+      if (vi) {
+        translateCache.set(cacheKey, vi);
+        return NextResponse.json(
+          { vi },
+          {
+            headers: {
+              'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+              'X-WordNest-Cache': 'MISS',
+            },
+          }
+        );
+      }
     }
   } catch {
     // Fallback failed
@@ -51,4 +105,3 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ vi: '' });
 }
-

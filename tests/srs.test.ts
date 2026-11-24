@@ -2,10 +2,12 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   addDaysToDateKey,
+  buildFlashcardSessionIds,
   computeSrsNext,
   formatIntervalPreview,
   isSrsDue,
   localDateKey,
+  requeueForgottenCard,
 } from '../src/lib/srs.ts';
 import type { WordItem } from '../src/types/wordnest.ts';
 
@@ -61,5 +63,30 @@ describe('SRS SM-2 Algorithm', () => {
     assert.equal(formatIntervalPreview(1), '1 ngày');
     assert.equal(formatIntervalPreview(12), '12 ngày');
     assert.equal(formatIntervalPreview(60), '2 tháng');
+  });
+});
+
+describe('Flashcard SRS Session Queue (No-Skip & Intra-Session Relearning)', () => {
+  it('snapshots due card IDs stably and filters folders/suspended words', () => {
+    const today = localDateKey();
+    const tomorrow = addDaysToDateKey(today, 1);
+    const words = [
+      makeWord({ id: 'a', srsDue: today, folderIds: ['f1'] }),
+      makeWord({ id: 'b', srsDue: undefined, folderIds: ['f1'] }),
+      makeWord({ id: 'c', srsDue: tomorrow, folderIds: ['f1'] }),
+      makeWord({ id: 'd', srsDue: today, suspended: true, folderIds: ['f1'] }),
+      makeWord({ id: 'e', srsDue: today, folderIds: ['f2'] }),
+    ];
+
+    assert.deepEqual(buildFlashcardSessionIds(words, 'srs', 'all', 0), ['a', 'b', 'e']);
+    assert.deepEqual(buildFlashcardSessionIds(words, 'srs', 'f1', 0), ['a', 'b']);
+  });
+
+  it('requeues a forgotten card ahead in the current session without skipping neighbors', () => {
+    const queue = ['a', 'b', 'c', 'd', 'e'];
+    // Forget index 0 ('a') with gap 3 -> inserted at index 4 (after b, c, d)
+    assert.deepEqual(requeueForgottenCard(queue, 0, 3), ['a', 'b', 'c', 'd', 'a', 'e']);
+    // Forget last card -> inserted immediately at end so user must reinforce it before finishing
+    assert.deepEqual(requeueForgottenCard(['a', 'b'], 1, 3), ['a', 'b', 'b']);
   });
 });
