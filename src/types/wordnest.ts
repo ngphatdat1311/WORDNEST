@@ -28,6 +28,7 @@ export interface WordItem {
   folderIds: string[];
   suspended?: boolean;
   addedAt?: string;
+  updatedAt?: string; // ISO timestamp used for conflict-free 2-way sync merge
   // SM-2 SRS fields (compatible with WordNest v1)
   srsDue?: string; // YYYY-MM-DD
   srsInterval?: number; // days
@@ -114,9 +115,15 @@ export interface DictationLessonProgress {
 export interface CloudSyncConfig {
   enabled: boolean;
   autoSync?: boolean;
+  authMode?: 'account' | 'code';
   supabaseUrl: string;
   supabaseAnonKey: string;
   syncCode: string;
+  userEmail?: string;
+  userId?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  geminiApiKey?: string;
   lastSyncedAt: string | null;
 }
 

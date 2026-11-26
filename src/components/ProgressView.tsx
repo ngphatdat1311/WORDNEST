@@ -12,6 +12,10 @@ import {
   Loader2,
   Rocket,
   RotateCcw,
+  KeyRound,
+  LogOut,
+  RefreshCw,
+  ShieldCheck,
   Sparkles,
   Target,
   Trophy,
@@ -19,7 +23,13 @@ import {
   Volume2,
   Wand2,
 } from 'lucide-react';
-import { pullFromSupabase, pushToSupabase } from '@/lib/cloud-sync';
+import {
+  pullFromSupabase,
+  pushToSupabase,
+  signInWithEmail,
+  signUpWithEmail,
+  syncTwoWayWithSupabase,
+} from '@/lib/cloud-sync';
 import { addDaysToDateKey, localDateKey } from '@/lib/srs';
 import { speakEnglish } from '@/lib/speech';
 import { useWordNestStore } from '@/store/useWordNestStore';
@@ -50,7 +60,9 @@ export function ProgressView() {
   const resetLearningProgress = useWordNestStore((s) => s.resetLearningProgress);
   const showToast = useWordNestStore((s) => s.showToast);
 
-  const [syncing, setSyncing] = useState<'push' | 'pull' | null>(null);
+  const [syncing, setSyncing] = useState<'two-way' | 'push' | 'pull' | 'auth' | null>(null);
+  const [authEmail, setAuthEmail] = useState(cloudSync.userEmail || '');
+  const [authPassword, setAuthPassword] = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -147,13 +159,69 @@ export function ProgressView() {
     showToast(`Đã tự động điền phiên âm IPA cho ${filled}/${targets.length} từ!`, 'success');
   };
 
+  const handleTwoWaySync = async () => {
+    setSyncing('two-way');
+    const res = await syncTwoWayWithSupabase(cloudSync, exportBackup());
+    setSyncing(null);
+    if (res.ok && res.mergedPayload) {
+      const imp = importBackup(res.mergedPayload, 'replace');
+      updateCloudSync({
+        enabled: true,
+        ...(res.refreshedAuth || {}),
+        lastSyncedAt: res.syncedAt || new Date().toISOString(),
+      });
+      showToast(
+        `Đồng bộ 2 chiều thành công (${imp.imported} từ — đã hợp nhất an toàn 2 thiết bị)!`,
+        'success'
+      );
+    } else {
+      showToast(res.error || 'Đồng bộ 2 chiều thất bại', 'error');
+    }
+  };
+
+  const handleAccountAuth = async (action: 'login' | 'signup') => {
+    if (!authEmail.trim() || authPassword.length < 6) {
+      showToast('Nhập Email hợp lệ và mật khẩu tối thiểu 6 ký tự!', 'error');
+      return;
+    }
+    setSyncing('auth');
+    const res =
+      action === 'login'
+        ? await signInWithEmail(cloudSync, authEmail, authPassword)
+        : await signUpWithEmail(cloudSync, authEmail, authPassword);
+    setSyncing(null);
+
+    if (!res.ok) {
+      showToast(res.error || 'Xác thực tài khoản thất bại', 'error');
+      return;
+    }
+    if (res.needsEmailConfirm) {
+      showToast('Đã tạo tài khoản! Hãy kiểm tra hộp thư Email để xác nhận trước khi đăng nhập.', 'success');
+      return;
+    }
+    updateCloudSync({
+      enabled: true,
+      authMode: 'account',
+      userEmail: res.email,
+      userId: res.userId,
+      accessToken: res.accessToken,
+      refreshToken: res.refreshToken,
+    });
+    setAuthPassword('');
+    showToast(`Đăng nhập thành công (${res.email})! Bấm Đồng bộ 2 chiều để gộp dữ liệu.`, 'success');
+  };
+
   const handlePushCloud = async () => {
     setSyncing('push');
     const res = await pushToSupabase(cloudSync, exportBackup());
     setSyncing(null);
     if (res.ok) {
-      updateCloudSync({ enabled: true, lastSyncedAt: res.syncedAt || new Date().toISOString() });
-      showToast('Đã đồng bộ dữ liệu lên Cloud thành công!', 'success');
+      updateCloudSync({
+        enabled: true,
+        ...(res.refreshedAuth || {}),
+        lastSyncedAt: res.syncedAt || new Date().toISOString(),
+      });
+      showToast('Đã đẩy dữ liệu lên Cloud thành công!', 'success');
     } else {
       showToast(res.error || 'Đẩy dữ liệu thất bại', 'error');
     }
@@ -165,7 +233,11 @@ export function ProgressView() {
     setSyncing(null);
     if (res.ok && res.payload) {
       const imp = importBackup(res.payload, 'replace');
-      updateCloudSync({ enabled: true, lastSyncedAt: res.updatedAt || new Date().toISOString() });
+      updateCloudSync({
+        enabled: true,
+        ...(res.refreshedAuth || {}),
+        lastSyncedAt: res.updatedAt || new Date().toISOString(),
+      });
       showToast(`Đã tải về ${imp.imported} từ từ Cloud!`, 'success');
     } else {
       showToast(res.error || 'Tải dữ liệu thất bại', 'error');
@@ -480,16 +552,16 @@ export function ProgressView() {
         </div>
       </div>
 
-      {/* Cloud Sync Panel + Auto-Sync Toggle */}
+      {/* Cloud Sync 2.1: Conflict-Free Two-Way Merge + Supabase Auth (Strict RLS) */}
       <div className="bg-warm-card rounded-2xl p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 className="font-semibold text-sm inline-flex items-center gap-1.5">
               <Cloud className="w-4 h-4" style={{ color: 'var(--blue)' }} />
-              Đồng bộ Cloud (Máy tính ↔ Điện thoại qua Supabase)
+              Đồng bộ Cloud 2 chiều thông minh (Supabase)
             </h2>
             <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text3)' }}>
-              Cắm Supabase miễn phí để đồng bộ kho từ & bài nghe YouTube giữa máy tính và điện thoại bằng 1 Mã đồng bộ riêng.
+              Tự động hợp nhất từng từ, chuỗi ngày & tiến độ nghe giữa Máy tính ↔ Điện thoại — không bao giờ ghi đè mất tiến độ học offline!
             </p>
           </div>
           <label className="inline-flex items-center gap-2 text-xs font-medium cursor-pointer">
@@ -502,12 +574,40 @@ export function ProgressView() {
           </label>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Auth Mode Switcher */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(
+            [
+              { id: 'account', label: 'Tài khoản Email (RLS bảo mật cao)' },
+              { id: 'code', label: 'Mã đồng bộ nhanh (Legacy)' },
+            ] as const
+          ).map((m) => {
+            const active = (cloudSync.authMode || 'account') === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => updateCloudSync({ authMode: m.id })}
+                className="px-3 py-1.5 rounded-xl border text-xs font-medium cursor-pointer transition-colors"
+                style={{
+                  backgroundColor: active ? 'var(--blue-soft)' : 'var(--bg)',
+                  borderColor: active ? 'var(--blue)' : 'var(--border)',
+                  color: active ? 'var(--blue)' : 'var(--text2)',
+                }}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Supabase Project Connection Inputs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <input
             type="text"
             value={cloudSync.supabaseUrl}
             onChange={(e) => updateCloudSync({ supabaseUrl: e.target.value })}
-            placeholder="https://xxxx.supabase.co"
+            placeholder="Supabase URL (để trống nếu đã cấu hình env)"
             className="rounded-xl px-3 py-2 text-xs border outline-none"
             style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
           />
@@ -519,36 +619,120 @@ export function ProgressView() {
             className="rounded-xl px-3 py-2 text-xs border outline-none"
             style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
           />
+        </div>
+
+        {(cloudSync.authMode || 'account') === 'account' ? (
+          cloudSync.accessToken && cloudSync.userEmail ? (
+            <div
+              className="rounded-xl px-3.5 py-2.5 border flex flex-wrap items-center justify-between gap-2 text-xs"
+              style={{ backgroundColor: 'var(--green-soft)', borderColor: 'var(--green-border)' }}
+            >
+              <span className="inline-flex items-center gap-1.5 font-medium" style={{ color: 'var(--green)' }}>
+                <ShieldCheck className="w-4 h-4" />
+                Đã đăng nhập bảo mật RLS: <strong>{cloudSync.userEmail}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  updateCloudSync({
+                    accessToken: undefined,
+                    refreshToken: undefined,
+                    userId: undefined,
+                    enabled: false,
+                  })
+                }
+                className="inline-flex items-center gap-1 text-xs font-semibold cursor-pointer"
+                style={{ color: 'var(--red)' }}
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                Đăng xuất
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <input
+                type="email"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                placeholder="Email tài khoản..."
+                className="rounded-xl px-3 py-2 text-xs border outline-none"
+                style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
+              />
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                placeholder="Mật khẩu (>= 6 ký tự)"
+                className="rounded-xl px-3 py-2 text-xs border outline-none"
+                style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
+              />
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  disabled={syncing !== null}
+                  onClick={() => void handleAccountAuth('login')}
+                  className="flex-1 px-3 py-2 rounded-xl text-xs font-semibold text-white cursor-pointer disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--blue)' }}
+                >
+                  Đăng nhập
+                </button>
+                <button
+                  type="button"
+                  disabled={syncing !== null}
+                  onClick={() => void handleAccountAuth('signup')}
+                  className="px-3 py-2 rounded-xl border text-xs font-semibold cursor-pointer disabled:opacity-50"
+                  style={{ borderColor: 'var(--blue)', color: 'var(--blue)' }}
+                >
+                  Đăng ký
+                </button>
+              </div>
+            </div>
+          )
+        ) : (
           <input
             type="text"
             value={cloudSync.syncCode}
             onChange={(e) => updateCloudSync({ syncCode: e.target.value })}
             placeholder="Mã đồng bộ bí mật (vd: heo-2026)"
-            className="rounded-xl px-3 py-2 text-xs border outline-none"
+            className="w-full rounded-xl px-3 py-2 text-xs border outline-none"
             style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
           />
-        </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             disabled={syncing !== null}
-            onClick={handlePushCloud}
+            onClick={handleTwoWaySync}
             className="px-4 py-2 rounded-xl text-xs font-semibold text-white inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-            style={{ backgroundColor: 'var(--blue)' }}
+            style={{ backgroundColor: 'var(--green)' }}
+          >
+            {syncing === 'two-way' ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="w-3.5 h-3.5" />
+            )}
+            Đồng bộ 2 chiều (Hợp nhất an toàn)
+          </button>
+          <button
+            type="button"
+            disabled={syncing !== null}
+            onClick={handlePushCloud}
+            className="px-3.5 py-2 rounded-xl border text-xs font-medium inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            style={{ borderColor: 'var(--blue)', color: 'var(--blue)' }}
           >
             {syncing === 'push' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CloudUpload className="w-3.5 h-3.5" />}
-            Đẩy lên Cloud
+            Chỉ đẩy lên
           </button>
           <button
             type="button"
             disabled={syncing !== null}
             onClick={handlePullCloud}
-            className="px-4 py-2 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-            style={{ borderColor: 'var(--blue)', color: 'var(--blue)' }}
+            className="px-3.5 py-2 rounded-xl border text-xs font-medium inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            style={{ borderColor: 'var(--border2)', color: 'var(--text2)' }}
           >
             {syncing === 'pull' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CloudDownload className="w-3.5 h-3.5" />}
-            Tải từ Cloud về máy này
+            Chỉ tải về
           </button>
           {cloudSync.lastSyncedAt && (
             <span className="text-[11px]" style={{ color: 'var(--text3)' }}>
@@ -556,6 +740,25 @@ export function ProgressView() {
             </span>
           )}
         </div>
+      </div>
+
+      {/* Optional AI Coach (Gemini API Key) */}
+      <div className="bg-warm-card rounded-2xl p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <KeyRound className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+          <h2 className="font-semibold text-sm">Trợ lý AI Coach đặt câu & giải thích ngữ cảnh (Tùy chọn)</h2>
+        </div>
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--text3)' }}>
+          Dán Google Gemini API Key miễn phí (lưu cục bộ trên máy bạn) để AI chấm sâu ngữ pháp, gợi ý câu viết tự nhiên và collocation trong khung tra từ. Không nhập vẫn dùng được chế độ kiểm tra câu nhanh offline!
+        </p>
+        <input
+          type="password"
+          value={cloudSync.geminiApiKey || ''}
+          onChange={(e) => updateCloudSync({ geminiApiKey: e.target.value })}
+          placeholder="AIzaSy... (tùy chọn)"
+          className="w-full sm:max-w-md rounded-xl px-3 py-2 text-xs border outline-none"
+          style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
+        />
       </div>
 
       {/* Danger Zone: Reset Progress */}

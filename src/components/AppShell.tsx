@@ -20,7 +20,7 @@ import {
   Sparkles,
   Sun,
 } from 'lucide-react';
-import { pushToSupabase } from '@/lib/cloud-sync';
+import { resolveSupabaseEndpoints, syncTwoWayWithSupabase } from '@/lib/cloud-sync';
 import { CURATED_LESSONS_META } from '@/lib/curated-lessons-meta';
 import { extractYoutubeId } from '@/lib/dictation-engine';
 import { isSrsDue } from '@/lib/srs';
@@ -155,6 +155,7 @@ export function AppShell() {
   const cloudSync = useWordNestStore((s) => s.cloudSync);
   const updateCloudSync = useWordNestStore((s) => s.updateCloudSync);
   const exportBackup = useWordNestStore((s) => s.exportBackup);
+  const importBackup = useWordNestStore((s) => s.importBackup);
   const addCustomLesson = useWordNestStore((s) => s.addCustomLesson);
   const openDictationLesson = useWordNestStore((s) => s.openDictationLesson);
   const showToast = useWordNestStore((s) => s.showToast);
@@ -166,6 +167,7 @@ export function AppShell() {
 
   const historyInitRef = useRef(false);
   const isPoppingHistoryRef = useRef(false);
+  const skipNextAutoSyncRef = useRef(false);
 
   // Global Command Palette shortcut: Ctrl+K / Cmd+K
   useEffect(() => {
@@ -370,25 +372,31 @@ export function AppShell() {
     return () => window.removeEventListener('wordnest:storage-quota-error', onQuotaError);
   }, [hydrated, showToast]);
 
-  // Background debounced Auto Cloud Sync when Supabase + autoSync are enabled
+  // Background debounced Conflict-Free Two-Way Auto Cloud Sync
   useEffect(() => {
-    if (
-      !hydrated ||
-      !cloudSync.enabled ||
-      !cloudSync.autoSync ||
-      !cloudSync.supabaseUrl ||
-      !cloudSync.supabaseAnonKey ||
-      !cloudSync.syncCode
-    ) {
+    const { url, anonKey } = resolveSupabaseEndpoints(cloudSync);
+    const hasAuth = Boolean(cloudSync.accessToken && cloudSync.userId && cloudSync.authMode !== 'code');
+    if (!hydrated || !cloudSync.enabled || !cloudSync.autoSync || !url || !anonKey || (!hasAuth && !cloudSync.syncCode)) {
+      return;
+    }
+    if (skipNextAutoSyncRef.current) {
+      skipNextAutoSyncRef.current = false;
       return;
     }
     const timer = setTimeout(() => {
-      pushToSupabase(cloudSync, exportBackup()).then((res) => {
-        if (res.ok && res.syncedAt) {
-          updateCloudSync({ lastSyncedAt: res.syncedAt });
+      syncTwoWayWithSupabase(cloudSync, exportBackup()).then((res) => {
+        if (res.ok) {
+          if (res.mergedPayload) {
+            skipNextAutoSyncRef.current = true;
+            importBackup(res.mergedPayload, 'replace');
+          }
+          updateCloudSync({
+            ...(res.refreshedAuth || {}),
+            ...(res.syncedAt ? { lastSyncedAt: res.syncedAt } : {}),
+          });
         }
       });
-    }, 4500);
+    }, 5000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, words, folders, dictationProgress, streak, cloudSync.enabled, cloudSync.autoSync]);

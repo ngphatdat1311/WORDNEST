@@ -244,6 +244,7 @@ export const useWordNestStore = create<WordNestState>()(
           seen: 0,
           folderIds: input.folderIds || [],
           addedAt: localDateKey(),
+          updatedAt: new Date().toISOString(),
           sourceVideoId: input.sourceVideoId,
         };
         set((s) => ({ words: [newWord, ...s.words] }));
@@ -332,8 +333,9 @@ export const useWordNestStore = create<WordNestState>()(
       },
 
       updateWord: (id, patch) => {
+        const nowIso = new Date().toISOString();
         set((s) => ({
-          words: s.words.map((w) => (w.id === id ? { ...w, ...patch } : w)),
+          words: s.words.map((w) => (w.id === id ? { ...w, ...patch, updatedAt: nowIso } : w)),
         }));
       },
 
@@ -362,8 +364,11 @@ export const useWordNestStore = create<WordNestState>()(
       },
 
       toggleSuspendWord: (id) => {
+        const nowIso = new Date().toISOString();
         set((s) => ({
-          words: s.words.map((w) => (w.id === id ? { ...w, suspended: !w.suspended } : w)),
+          words: s.words.map((w) =>
+            w.id === id ? { ...w, suspended: !w.suspended, updatedAt: nowIso } : w
+          ),
         }));
       },
 
@@ -385,6 +390,7 @@ export const useWordNestStore = create<WordNestState>()(
               srsEase: next.srsEase,
               srsReps: next.srsReps,
               srsLapses: rating === 'again' ? (w.srsLapses || 0) + 1 : w.srsLapses || 0,
+              updatedAt: new Date().toISOString(),
               mastery: Math.max(0, Math.min(3, (w.mastery || 0) + next.masteryDelta)),
               known: rating !== 'again' ? (w.known || 0) + 1 : w.known || 0,
             };

@@ -10,6 +10,13 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [2.1.0] - 2026-11-26
+
+- **Bảo vệ dữ liệu & Desktop Electron**: Chuyển lưu trữ Desktop sang file JSON nguyên tử trong `userData/storage/` kèm tự động sao lưu xoay vòng 5 ngày (miễn nhiễm lỗi đổi port localhost & giới hạn 5 MB), tái sử dụng embedded server khi `activate` trên macOS, sửa đúng chiều vuốt 2 ngón macOS và khôi phục cầu nối Chrome Extension (`127.0.0.1:51789` + Web `postMessage`).
+- **Hiệu năng & Lưu trữ Web/PWA**: Tách 597 KB dữ liệu 18 bài nghe sang file JSON tải lười (`public/lessons/*.json`), áp dụng Code Splitting (`next/dynamic`) cho 8 tab phụ, nâng cấp lưu trữ Web sang **IndexedDB**, xóa 700 KB font cũ thừa, bổ sung Error Boundary và tìm kiếm nhanh toàn cục `Ctrl+K` / `⌘K`.
+- **Sư phạm EdTech**: Sửa lỗi bỏ qua 50% thẻ SRS ở chế độ "Đến hạn SRS" + thêm vòng lặp ôn lại ngay trong phiên cho nút Quên, bổ sung Flashcard 3 chiều (*Anh → Việt*, *Việt → Anh*, *Chỉ nghe âm thanh*), cảnh báo Từ hay quên (Leech), Khiên Đóng Băng Streak, bộ phân loại trình độ **CEFR (`A1–C2`)**, 4 Bộ từ vựng mẫu (Starter Packs — 75 từ IELTS/TOEIC/Giao tiếp/Phrasal Verbs), **Shadowing 2.0** (ghi âm & so sánh giọng mẫu chạy mượt trên cả Desktop Electron) và chế độ Học Tập Trung (Focus Mode).
+- **Backend, Bảo mật & AI Coach**: Thêm LRU TTL Cache + Rate Limiter + Lemmatizer cho `/api/lookup`, `/api/translate`, `/api/youtube/transcript` (sửa lỗi chọn nhầm phụ đề ngoại ngữ khác), nâng cấp **Đồng bộ Cloud 2 chiều hợp nhất không ghi đè** + đăng nhập tài khoản **Supabase Auth (RLS chặt theo `auth.uid()`)**, và thêm **AI Coach** đặt câu thực hành & giải thích ngữ cảnh trong khung tra từ.
+
 ## [1.0.26] - 2026-09-22
 
 - Thêm bản build Linux (AppImage + `.deb`) — `package.json`/CI giờ build cho

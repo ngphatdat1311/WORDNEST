@@ -12,12 +12,12 @@
 
 | Hệ điều hành | Định dạng | Tải về trực tiếp | Ghi chú |
 | :--- | :---: | :--- | :--- |
-| **Windows 10 / 11** | `.exe` | [⬇️ **Tải WordNest cho Windows (.exe)**](https://github.com/ngphatdat1311/WORDNEST/releases/download/v2.0.0/WordNest-Setup-2.0.0.exe) | Trình cài đặt tự động (NSIS), tạo shortcut Desktop |
-| **macOS** | `.dmg` | [⬇️ **Tải WordNest cho macOS (.dmg)**](https://github.com/ngphatdat1311/WORDNEST/releases/download/v2.0.0/WordNest-2.0.0-universal.dmg) | Bản Universal (Chạy mượt cả Apple Silicon M1/M2/M3/M4 & chip Intel) |
-| **Linux (Ubuntu / Debian)** | `.deb` | [⬇️ **Tải WordNest cho Linux (.deb)**](https://github.com/ngphatdat1311/WORDNEST/releases/download/v2.0.0/wordnest_2.0.0_amd64.deb) | Cài đặt qua `sudo dpkg -i` hoặc double click |
-| **Linux (Mọi bản phân phối)** | `.AppImage` | [⬇️ **Tải WordNest .AppImage**](https://github.com/ngphatdat1311/WORDNEST/releases/download/v2.0.0/WordNest-2.0.0.AppImage) | `chmod +x` và chạy ngay không cần cài đặt |
+| **Windows 10 / 11** | `.exe` | [⬇️ **Tải WordNest cho Windows (.exe)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-Setup-2.1.0.exe) | Trình cài đặt tự động (NSIS), tạo shortcut Desktop |
+| **macOS** | `.dmg` | [⬇️ **Tải WordNest cho macOS (.dmg)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-2.1.0-universal.dmg) | Bản Universal (Chạy mượt cả Apple Silicon M1/M2/M3/M4 & chip Intel) |
+| **Linux (Ubuntu / Debian)** | `.deb` | [⬇️ **Tải WordNest cho Linux (.deb)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/wordnest_2.1.0_amd64.deb) | Cài đặt qua `sudo dpkg -i` hoặc double click |
+| **Linux (Mọi bản phân phối)** | `.AppImage` | [⬇️ **Tải WordNest .AppImage**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-2.1.0.AppImage) | `chmod +x` và chạy ngay không cần cài đặt |
 
-👉 **Xem toàn bộ danh sách phiên bản và file đính kèm:** [**Trang GitHub Releases**](https://github.com/ngphatdat1311/WORDNEST/releases/tag/v2.0.0)
+👉 **Xem toàn bộ danh sách phiên bản và file đính kèm:** [**Trang GitHub Releases**](https://github.com/ngphatdat1311/WORDNEST/releases)
 
 > [!IMPORTANT]
 > **Lưu ý khi tải từ kho lưu trữ Private**:

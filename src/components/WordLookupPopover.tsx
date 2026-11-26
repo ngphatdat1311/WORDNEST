@@ -1,10 +1,20 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { BookmarkCheck, BookmarkPlus, Loader2, Volume2, X } from 'lucide-react';
+import { BookmarkCheck, BookmarkPlus, Loader2, Send, Sparkles, Volume2, X } from 'lucide-react';
 import { LookupResult } from '@/types/wordnest';
 import { playAudioUrlOrSpeak } from '@/lib/speech';
 import { useWordNestStore } from '@/store/useWordNestStore';
+
+interface CoachFeedback {
+  provider: 'gemini' | 'local';
+  isCorrect?: boolean;
+  score?: number;
+  feedbackVi: string;
+  naturalRewrite?: string;
+  collocations?: string[];
+  memoryTipVi?: string;
+}
 
 interface WordLookupPopoverProps {
   word: string | null;
@@ -23,8 +33,13 @@ export function WordLookupPopover({
   const [data, setData] = useState<LookupResult | null>(null);
   const [customMeaning, setCustomMeaning] = useState('');
   const [error, setError] = useState('');
+  const [showCoach, setShowCoach] = useState(false);
+  const [practiceSentence, setPracticeSentence] = useState('');
+  const [coachLoading, setCoachLoading] = useState(false);
+  const [coachResult, setCoachResult] = useState<CoachFeedback | null>(null);
 
   const words = useWordNestStore((s) => s.words);
+  const geminiApiKey = useWordNestStore((s) => s.cloudSync.geminiApiKey);
   const addWord = useWordNestStore((s) => s.addWord);
   const showToast = useWordNestStore((s) => s.showToast);
 
@@ -79,7 +94,11 @@ export function WordLookupPopover({
       word: cleanWord,
       phonetic: data?.phonetic || '',
       meaning,
-      example: contextSentence || data?.examples?.[0] || '',
+      example:
+        (coachResult?.naturalRewrite || practiceSentence.trim()) ||
+        contextSentence ||
+        data?.examples?.[0] ||
+        '',
       type: data?.type || 'other',
       category: sourceVideoId ? 'YouTube' : 'Tra nhanh',
       level: data?.level || 'medium',
@@ -90,6 +109,41 @@ export function WordLookupPopover({
       onClose();
     } else if (res.error) {
       showToast(res.error, 'error');
+    }
+  };
+
+  const handleRunCoach = async (mode: 'explain' | 'check-sentence') => {
+    if (mode === 'check-sentence' && !practiceSentence.trim()) {
+      showToast('Hãy viết 1 câu tiếng Anh chứa từ này để kiểm tra!', 'default');
+      return;
+    }
+    setCoachLoading(true);
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (geminiApiKey?.trim()) {
+        headers['x-gemini-key'] = geminiApiKey.trim();
+      }
+      const res = await fetch('/api/ai-coach', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          mode,
+          word: cleanWord,
+          meaning: customMeaning || data?.meaning || '',
+          contextSentence,
+          userSentence: practiceSentence.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json.error || 'Không gọi được AI Coach lúc này', 'error');
+      } else {
+        setCoachResult(json);
+      }
+    } catch {
+      showToast('Lỗi kết nối AI Coach', 'error');
+    } finally {
+      setCoachLoading(false);
     }
   };
 
@@ -225,6 +279,125 @@ export function WordLookupPopover({
                 <span className="italic">&ldquo;{contextSentence || data?.examples?.[0]}&rdquo;</span>
               </div>
             )}
+
+            {/* Collapsible AI Coach & Active Sentence Practice */}
+            <div
+              className="rounded-xl border overflow-hidden"
+              style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg)' }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !showCoach;
+                  setShowCoach(next);
+                  if (next && !coachResult) {
+                    void handleRunCoach('explain');
+                  }
+                }}
+                className="w-full px-3 py-2 text-xs font-semibold flex items-center justify-between cursor-pointer"
+                style={{ color: 'var(--accent)' }}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Đặt câu thực hành & Giải thích ngữ cảnh (AI Coach)
+                </span>
+                <span>{showCoach ? '▲' : '▼'}</span>
+              </button>
+
+              {showCoach && (
+                <div className="px-3 pb-3 space-y-2.5 border-t pt-2.5" style={{ borderColor: 'var(--border)' }}>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={practiceSentence}
+                      onChange={(e) => setPracticeSentence(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void handleRunCoach('check-sentence');
+                        }
+                      }}
+                      placeholder={`Thử đặt 1 câu tiếng Anh với "${cleanWord}"...`}
+                      className="flex-1 rounded-lg px-2.5 py-1.5 text-xs border outline-none"
+                      style={{
+                        backgroundColor: 'var(--card)',
+                        borderColor: 'var(--border)',
+                        color: 'var(--text)',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={coachLoading}
+                      onClick={() => void handleRunCoach('check-sentence')}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                      style={{ backgroundColor: 'var(--accent)' }}
+                    >
+                      {coachLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                      Chấm
+                    </button>
+                  </div>
+
+                  {coachResult && (
+                    <div
+                      className="rounded-lg p-2.5 text-xs space-y-1.5 border"
+                      style={{
+                        backgroundColor: 'var(--card)',
+                        borderColor:
+                          coachResult.isCorrect === true
+                            ? 'var(--green-border)'
+                            : coachResult.isCorrect === false
+                              ? 'var(--red-border)'
+                              : 'var(--border)',
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold" style={{ color: 'var(--text)' }}>
+                          {coachResult.provider === 'gemini' ? '✨ Gemini AI Coach' : '💡 Trợ lý kiểm tra nhanh'}
+                        </span>
+                        {typeof coachResult.score === 'number' && (
+                          <span
+                            className="font-bold tabular-nums px-1.5 py-0.5 rounded"
+                            style={{
+                              backgroundColor:
+                                coachResult.score >= 80 ? 'var(--green-soft)' : 'var(--gold-soft)',
+                              color: coachResult.score >= 80 ? 'var(--green)' : 'var(--gold)',
+                            }}
+                          >
+                            {coachResult.score}/100
+                          </span>
+                        )}
+                      </div>
+                      <p className="leading-relaxed" style={{ color: 'var(--text2)' }}>
+                        {coachResult.feedbackVi}
+                      </p>
+                      {coachResult.naturalRewrite && (
+                        <p className="italic" style={{ color: 'var(--green)' }}>
+                          Gợi ý tự nhiên hơn: &ldquo;{coachResult.naturalRewrite}&rdquo;
+                        </p>
+                      )}
+                      {coachResult.collocations && coachResult.collocations.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-0.5">
+                          {coachResult.collocations.map((col) => (
+                            <span
+                              key={col}
+                              className="text-[11px] px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: 'var(--bg2)', color: 'var(--text2)' }}
+                            >
+                              {col}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {coachResult.memoryTipVi && (
+                        <p className="text-[11px]" style={{ color: 'var(--text3)' }}>
+                          {coachResult.memoryTipVi}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="pt-1 flex gap-2">
               {alreadySaved ? (
