@@ -1,4 +1,4 @@
-import type { SrsRating, WordItem } from '../types/wordnest';
+import type { SrsRating, StreakData, WordItem } from '../types/wordnest';
 
 export function localDateKey(date = new Date()): string {
   const y = date.getFullYear();
@@ -141,4 +141,77 @@ export function requeueForgottenCard(
   const insertAt = Math.min(next.length, currentIndex + Math.max(1, gap) + 1);
   next.splice(insertAt, 0, cardId);
   return next;
+}
+
+/**
+ * Identifies "leech" words (words the learner repeatedly forgets) so the UI
+ * can suggest adding a memorable personal example or mnemonic.
+ */
+export function isLeechWord(word: WordItem): boolean {
+  if (word.suspended) return false;
+  if ((word.srsLapses ?? 0) >= 4) return true;
+  return (word.seen || 0) >= 6 && (word.mastery || 0) === 0;
+}
+
+/**
+ * Computes updated daily learning streak with automatic 1-day Streak Freeze protection.
+ * - Starts with 1 free Streak Freeze shield; earns +1 shield every 7-day streak milestone (max 3).
+ * - If user misses exactly 1 day (lastDate === twoDaysAgo) and has >= 1 shield, preserves streak!
+ */
+export function computeUpdatedStreak(
+  prev: StreakData,
+  todayKey = localDateKey()
+): { next: StreakData; usedFreeze: boolean; earnedFreeze: boolean } {
+  const history = {
+    ...(prev.history || {}),
+    [todayKey]: ((prev.history || {})[todayKey] || 0) + 1,
+  };
+  let freezes = typeof prev.freezes === 'number' ? prev.freezes : 1;
+  const frozenDates = Array.isArray(prev.frozenDates) ? [...prev.frozenDates] : [];
+  let count = prev.count || 0;
+  let usedFreeze = false;
+  let earnedFreeze = false;
+
+  if (prev.lastDate === todayKey) {
+    return {
+      next: { count: Math.max(1, count), lastDate: todayKey, history, freezes, frozenDates },
+      usedFreeze: false,
+      earnedFreeze: false,
+    };
+  }
+
+  const yesterdayKey = addDaysToDateKey(todayKey, -1);
+  const twoDaysAgoKey = addDaysToDateKey(todayKey, -2);
+
+  if (prev.lastDate === yesterdayKey) {
+    count = count + 1;
+  } else if (prev.lastDate === twoDaysAgoKey && count > 0 && freezes > 0) {
+    // Missed exactly 1 day -> consume 1 Streak Freeze shield to save streak!
+    freezes -= 1;
+    usedFreeze = true;
+    if (!frozenDates.includes(yesterdayKey)) {
+      frozenDates.push(yesterdayKey);
+    }
+    count = count + 1;
+  } else {
+    count = 1;
+  }
+
+  // Reward +1 Streak Freeze shield every 7-day milestone (capped at 3)
+  if (count > 0 && count % 7 === 0 && freezes < 3) {
+    freezes += 1;
+    earnedFreeze = true;
+  }
+
+  return {
+    next: {
+      count,
+      lastDate: todayKey,
+      history,
+      freezes,
+      frozenDates: frozenDates.slice(-30),
+    },
+    usedFreeze,
+    earnedFreeze,
+  };
 }

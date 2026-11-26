@@ -4,19 +4,24 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, PanInfo } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import {
+  AlertTriangle,
+  ArrowLeftRight,
   Calendar,
   ChevronLeft,
   ChevronRight,
+  Headphones,
   RotateCcw,
   Shuffle,
   Volume2,
 } from 'lucide-react';
+import { maskWordInExample } from '@/lib/dictation-engine';
 import {
   buildFlashcardSessionIds,
   computeSrsNext,
   daysUntilDue,
   FlashcardModeFilter,
   formatIntervalPreview,
+  isLeechWord,
   requeueForgottenCard,
 } from '@/lib/srs';
 import { playChime, speakEnglish, vibrateLight } from '@/lib/speech';
@@ -40,6 +45,7 @@ export function FlashcardView() {
   const showToast = useWordNestStore((s) => s.showToast);
 
   const [modeFilter, setModeFilter] = useState<FlashcardModeFilter>('all');
+  const [studyDir, setStudyDir] = useState<'en-vi' | 'vi-en' | 'audio'>('en-vi');
   const [folderFilter, setFolderFilter] = useState('all');
   const [shuffleSeed, setShuffleSeed] = useState(0);
   const [sessionIds, setSessionIds] = useState<string[]>(() =>
@@ -86,9 +92,13 @@ export function FlashcardView() {
   useEffect(() => {
     if (current) {
       markWordSeen(current.id);
+      if (studyDir === 'audio') {
+        const timer = setTimeout(() => speakEnglish(current.word), 180);
+        return () => clearTimeout(timer);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current?.id, safeIndex]);
+  }, [current?.id, safeIndex, studyDir]);
 
   const handleRate = useCallback(
     (rating: SrsRating) => {
@@ -272,6 +282,39 @@ export function FlashcardView() {
         </div>
       </div>
 
+      {/* Study Direction Mode Switcher (Anh->Việt, Việt->Anh, Chỉ nghe âm thanh) */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {(
+          [
+            { id: 'en-vi', label: 'Anh → Việt', icon: ArrowLeftRight },
+            { id: 'vi-en', label: 'Việt → Anh (Chủ động)', icon: ArrowLeftRight },
+            { id: 'audio', label: 'Chỉ nghe (Luyện tai)', icon: Headphones },
+          ] as const
+        ).map((dir) => {
+          const Icon = dir.icon;
+          const active = studyDir === dir.id;
+          return (
+            <button
+              key={dir.id}
+              type="button"
+              onClick={() => {
+                setStudyDir(dir.id);
+                setFlipped(false);
+              }}
+              className="px-3 py-1.5 rounded-xl text-xs font-medium border inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+              style={{
+                backgroundColor: active ? 'var(--accent-soft)' : 'var(--card)',
+                borderColor: active ? 'var(--accent)' : 'var(--border)',
+                color: active ? 'var(--accent)' : 'var(--text2)',
+              }}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {dir.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Progress bar */}
       <div className="flex items-center gap-3">
         <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg3)' }}>
@@ -358,51 +401,118 @@ export function FlashcardView() {
                 boxShadow: 'var(--shadow-lg)',
               }}
             >
+              {isLeechWord(current) && (
+                <span
+                  className="mb-3 inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full border"
+                  style={{
+                    backgroundColor: 'var(--gold-soft)',
+                    borderColor: 'var(--border2)',
+                    color: 'var(--gold)',
+                  }}
+                >
+                  <AlertTriangle className="w-3 h-3" />
+                  Từ hay quên · Hãy đặt câu gần gũi với bạn
+                </span>
+              )}
+
               <span
                 className="text-[11px] uppercase tracking-widest font-semibold mb-4"
                 style={{ color: 'var(--text3)' }}
               >
-                Chạm để xem nghĩa
+                {studyDir === 'vi-en'
+                  ? 'Nhớ từ tiếng Anh · Chạm để kiểm tra'
+                  : studyDir === 'audio'
+                    ? 'Nghe phát âm & đoán từ · Chạm để lật'
+                    : 'Chạm để xem nghĩa'}
               </span>
 
-              <h2 className="font-serif-display text-3xl sm:text-5xl font-semibold break-words max-w-full">
-                {current.word}
-              </h2>
+              {studyDir === 'vi-en' ? (
+                <>
+                  <h2 className="font-serif-display text-2xl sm:text-4xl font-semibold leading-snug max-w-md break-words">
+                    {current.meaning}
+                  </h2>
+                  {current.example && (
+                    <p className="text-sm italic mt-3 max-w-md" style={{ color: 'var(--text2)' }}>
+                      &ldquo;{maskWordInExample(current.example, current.word)}&rdquo;
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2 mt-4">
+                    <span
+                      className="text-xs font-medium px-3 py-1 rounded-full border"
+                      style={{
+                        backgroundColor: 'var(--bg2)',
+                        borderColor: 'var(--border)',
+                        color: 'var(--accent)',
+                      }}
+                    >
+                      {TYPE_VI[current.type] || 'Khác'}
+                    </span>
+                  </div>
+                </>
+              ) : studyDir === 'audio' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      speakEnglish(current.word);
+                    }}
+                    className="w-20 h-20 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+                    style={{
+                      backgroundColor: 'var(--accent-soft)',
+                      borderColor: 'var(--accent)',
+                      color: 'var(--accent)',
+                    }}
+                    aria-label="Nghe phát âm từ"
+                  >
+                    <Volume2 className="w-9 h-9" />
+                  </button>
+                  <p className="text-xs mt-4" style={{ color: 'var(--text3)' }}>
+                    Bấm loa (hoặc phím S) để nghe lại · Loại từ: {TYPE_VI[current.type] || 'Khác'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="font-serif-display text-3xl sm:text-5xl font-semibold break-words max-w-full">
+                    {current.word}
+                  </h2>
 
-              {current.phonetic && (
-                <p className="text-base italic mt-2" style={{ color: 'var(--text3)' }}>
-                  {current.phonetic}
-                </p>
+                  {current.phonetic && (
+                    <p className="text-base italic mt-2" style={{ color: 'var(--text3)' }}>
+                      {current.phonetic}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2 mt-4">
+                    <span
+                      className="text-xs font-medium px-3 py-1 rounded-full border"
+                      style={{
+                        backgroundColor: 'var(--bg2)',
+                        borderColor: 'var(--border)',
+                        color: 'var(--accent)',
+                      }}
+                    >
+                      {TYPE_VI[current.type] || 'Khác'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        speakEnglish(current.word);
+                      }}
+                      className="w-9 h-9 rounded-full border flex items-center justify-center transition-colors hover:opacity-80 cursor-pointer"
+                      style={{
+                        backgroundColor: 'var(--accent-soft)',
+                        borderColor: 'var(--border)',
+                        color: 'var(--accent)',
+                      }}
+                      aria-label="Phát âm từ"
+                    >
+                      <Volume2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </>
               )}
-
-              <div className="flex items-center gap-2 mt-4">
-                <span
-                  className="text-xs font-medium px-3 py-1 rounded-full border"
-                  style={{
-                    backgroundColor: 'var(--bg2)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--accent)',
-                  }}
-                >
-                  {TYPE_VI[current.type] || 'Khác'}
-                </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    speakEnglish(current.word);
-                  }}
-                  className="w-9 h-9 rounded-full border flex items-center justify-center transition-colors hover:opacity-80 cursor-pointer"
-                  style={{
-                    backgroundColor: 'var(--accent-soft)',
-                    borderColor: 'var(--border)',
-                    color: 'var(--accent)',
-                  }}
-                  aria-label="Phát âm từ"
-                >
-                  <Volume2 className="w-4 h-4" />
-                </button>
-              </div>
             </div>
 
             {/* BACK FACE */}
@@ -425,7 +535,42 @@ export function FlashcardView() {
                 {TYPE_VI[current.type] || 'Khác'}
               </span>
 
-              <p className="text-xl sm:text-2xl font-semibold leading-snug max-w-md">
+              {studyDir !== 'en-vi' && (
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <h3 className="font-serif-display text-2xl sm:text-4xl font-semibold">
+                    {current.word}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      speakEnglish(current.word);
+                    }}
+                    className="w-8 h-8 rounded-full border flex items-center justify-center cursor-pointer"
+                    style={{
+                      backgroundColor: 'var(--accent-soft)',
+                      borderColor: 'var(--border)',
+                      color: 'var(--accent)',
+                    }}
+                    aria-label="Phát âm từ"
+                  >
+                    <Volume2 className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {studyDir !== 'en-vi' && current.phonetic && (
+                <p className="text-sm italic mb-2" style={{ color: 'var(--text3)' }}>
+                  {current.phonetic}
+                </p>
+              )}
+
+              <p
+                className={`${
+                  studyDir === 'en-vi' ? 'text-xl sm:text-2xl font-semibold' : 'text-base font-medium'
+                } leading-snug max-w-md`}
+                style={{ color: studyDir === 'en-vi' ? 'var(--text)' : 'var(--text2)' }}
+              >
                 {current.meaning}
               </p>
 

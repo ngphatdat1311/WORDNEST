@@ -33,6 +33,7 @@ export interface WordItem {
   srsInterval?: number; // days
   srsEase?: number; // default 2.5
   srsReps?: number;
+  srsLapses?: number; // times rated 'again' (used for leech detection)
   sourceVideoId?: string;
 }
 
@@ -53,6 +54,8 @@ export interface StreakData {
   count: number;
   lastDate: string | null; // YYYY-MM-DD
   history: Record<string, number>; // YYYY-MM-DD -> activity count
+  freezes?: number; // available Streak Freeze shields (starts at 1, +1 per 7-day milestone, max 3)
+  frozenDates?: string[]; // dates automatically protected by Streak Freeze
 }
 
 export interface QuizStats {
@@ -127,6 +130,7 @@ export interface LookupResult {
   examples: string[];
   exampleVi?: string;
   level: WordLevel;
+  cefr?: string;
 }
 
 export interface WordNestBackupV1 {

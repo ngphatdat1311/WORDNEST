@@ -4,7 +4,9 @@ import {
   addDaysToDateKey,
   buildFlashcardSessionIds,
   computeSrsNext,
+  computeUpdatedStreak,
   formatIntervalPreview,
+  isLeechWord,
   isSrsDue,
   localDateKey,
   requeueForgottenCard,
@@ -88,5 +90,43 @@ describe('Flashcard SRS Session Queue (No-Skip & Intra-Session Relearning)', () 
     assert.deepEqual(requeueForgottenCard(queue, 0, 3), ['a', 'b', 'c', 'd', 'a', 'e']);
     // Forget last card -> inserted immediately at end so user must reinforce it before finishing
     assert.deepEqual(requeueForgottenCard(['a', 'b'], 1, 3), ['a', 'b', 'b']);
+  });
+});
+
+describe('Streak Freeze & Leech Detection', () => {
+  it('preserves streak using a Streak Freeze shield when exactly 1 day is missed', () => {
+    const res = computeUpdatedStreak(
+      { count: 5, lastDate: '2026-11-24', history: { '2026-11-24': 4 }, freezes: 1, frozenDates: [] },
+      '2026-11-26'
+    );
+    assert.equal(res.usedFreeze, true);
+    assert.equal(res.next.count, 6);
+    assert.equal(res.next.freezes, 0);
+    assert.deepEqual(res.next.frozenDates, ['2026-11-25']);
+  });
+
+  it('resets streak when >1 day is missed or no freezes remain, and earns +1 freeze on 7-day milestone', () => {
+    const resetRes = computeUpdatedStreak(
+      { count: 5, lastDate: '2026-11-22', history: {}, freezes: 2, frozenDates: [] },
+      '2026-11-26'
+    );
+    assert.equal(resetRes.usedFreeze, false);
+    assert.equal(resetRes.next.count, 1);
+    assert.equal(resetRes.next.freezes, 2);
+
+    const milestoneRes = computeUpdatedStreak(
+      { count: 6, lastDate: '2026-11-25', history: {}, freezes: 1, frozenDates: [] },
+      '2026-11-26'
+    );
+    assert.equal(milestoneRes.next.count, 7);
+    assert.equal(milestoneRes.earnedFreeze, true);
+    assert.equal(milestoneRes.next.freezes, 2);
+  });
+
+  it('detects leech words accurately and ignores suspended words', () => {
+    assert.equal(isLeechWord(makeWord({ srsLapses: 4 })), true);
+    assert.equal(isLeechWord(makeWord({ srsLapses: 4, suspended: true })), false);
+    assert.equal(isLeechWord(makeWord({ seen: 6, mastery: 0, srsLapses: 1 })), true);
+    assert.equal(isLeechWord(makeWord({ seen: 6, mastery: 2, srsLapses: 1 })), false);
   });
 });

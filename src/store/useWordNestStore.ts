@@ -18,7 +18,8 @@ import {
   WordNestBackupV1,
   WordType,
 } from '@/types/wordnest';
-import { addDaysToDateKey, computeSrsNext, localDateKey } from '@/lib/srs';
+import { computeSrsNext, computeUpdatedStreak, localDateKey } from '@/lib/srs';
+import { VOCAB_STARTER_PACKS } from '@/lib/starter-packs';
 import { wordNestStateStorage } from '@/lib/storage-adapter';
 
 function genId(prefix = 'w'): string {
@@ -96,6 +97,7 @@ interface WordNestState {
     }>,
     folderId?: string
   ) => { added: number; skipped: number };
+  importStarterPack: (packId: string) => { added: number; skipped: number; folderName: string };
   updateWord: (id: string, patch: Partial<WordItem>) => void;
   deleteWordSoft: (id: string) => void;
   toggleSuspendWord: (id: string) => void;
@@ -180,7 +182,7 @@ export const useWordNestStore = create<WordNestState>()(
       words: DEFAULT_WORDS,
       folders: [],
       trash: [],
-      streak: { count: 0, lastDate: null, history: {} },
+      streak: { count: 0, lastDate: null, history: {}, freezes: 1, frozenDates: [] },
       quizStats: { totalGames: 0, totalQuestions: 0, totalCorrect: 0, bestScore: 0 },
       airCombatStats: { gamesPlayed: 0, bestScore: 0, bestWave: 0, bestWpm: 0, totalDestroyed: 0 },
       dailyGoal: 15,
@@ -283,6 +285,52 @@ export const useWordNestStore = create<WordNestState>()(
         return { added: toAdd.length, skipped };
       },
 
+      importStarterPack: (packId) => {
+        const pack = VOCAB_STARTER_PACKS.find((p) => p.id === packId);
+        if (!pack) return { added: 0, skipped: 0, folderName: '' };
+
+        let folder = get().folders.find(
+          (f) => f.name.toLowerCase() === pack.folderName.toLowerCase()
+        );
+        if (!folder) {
+          folder = get().createFolder(pack.folderName) || undefined;
+        }
+        const folderId = folder?.id;
+
+        const existingSet = new Set(get().words.map((w) => w.word.toLowerCase()));
+        const toAdd: WordItem[] = [];
+        let skipped = 0;
+
+        for (const item of pack.words) {
+          const key = item.word.trim().toLowerCase();
+          if (!key || existingSet.has(key)) {
+            skipped++;
+            continue;
+          }
+          existingSet.add(key);
+          toAdd.push({
+            id: genId('w'),
+            word: item.word.trim(),
+            phonetic: item.phonetic.trim(),
+            meaning: item.meaning.trim(),
+            example: item.example.trim(),
+            type: item.type,
+            category: pack.category,
+            level: item.level,
+            mastery: 0,
+            known: 0,
+            seen: 0,
+            folderIds: folderId ? [folderId] : [],
+            addedAt: localDateKey(),
+          });
+        }
+
+        if (toAdd.length) {
+          set((s) => ({ words: [...toAdd, ...s.words] }));
+        }
+        return { added: toAdd.length, skipped, folderName: pack.folderName };
+      },
+
       updateWord: (id, patch) => {
         set((s) => ({
           words: s.words.map((w) => (w.id === id ? { ...w, ...patch } : w)),
@@ -336,6 +384,7 @@ export const useWordNestStore = create<WordNestState>()(
               srsInterval: next.srsInterval,
               srsEase: next.srsEase,
               srsReps: next.srsReps,
+              srsLapses: rating === 'again' ? (w.srsLapses || 0) + 1 : w.srsLapses || 0,
               mastery: Math.max(0, Math.min(3, (w.mastery || 0) + next.masteryDelta)),
               known: rating !== 'again' ? (w.known || 0) + 1 : w.known || 0,
             };
@@ -466,19 +515,19 @@ export const useWordNestStore = create<WordNestState>()(
 
       recordActivity: () => {
         const today = localDateKey();
-        const yesterday = addDaysToDateKey(today, -1);
-        set((s) => {
-          const history = { ...s.streak.history, [today]: (s.streak.history[today] || 0) + 1 };
-          let count = s.streak.count;
-          if (s.streak.lastDate === today) {
-            count = Math.max(1, count);
-          } else if (s.streak.lastDate === yesterday) {
-            count = count + 1;
-          } else {
-            count = 1;
-          }
-          return { streak: { count, lastDate: today, history } };
-        });
+        const result = computeUpdatedStreak(get().streak, today);
+        set({ streak: result.next });
+        if (result.usedFreeze) {
+          get().showToast(
+            `Khiên đóng băng đã bảo vệ chuỗi ${result.next.count} ngày học của bạn!`,
+            'success'
+          );
+        } else if (result.earnedFreeze) {
+          get().showToast(
+            `Mốc ${result.next.count} ngày liên tiếp! Bạn nhận thêm 1 Khiên Đóng Băng Streak!`,
+            'success'
+          );
+        }
       },
 
       recordQuizSession: (correct, total) => {
@@ -521,7 +570,7 @@ export const useWordNestStore = create<WordNestState>()(
             srsEase: undefined,
             srsReps: undefined,
           })),
-          streak: { count: 0, lastDate: null, history: {} },
+          streak: { count: 0, lastDate: null, history: {}, freezes: 1, frozenDates: [] },
           quizStats: { totalGames: 0, totalQuestions: 0, totalCorrect: 0, bestScore: 0 },
           dictationProgress: {},
         }));

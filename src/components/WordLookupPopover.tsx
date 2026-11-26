@@ -126,11 +126,27 @@ export function WordLookupPopover({
                 <Volume2 className="w-4 h-4" />
               </button>
             </div>
-            {data?.phonetic && !loading && (
-              <p className="text-sm italic mt-0.5" style={{ color: 'var(--text3)' }}>
-                {data.phonetic}
-                {data.type && data.type !== 'other' ? ` · ${data.type}` : ''}
-              </p>
+            {!loading && (data?.phonetic || data?.cefr) && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                {data?.phonetic && (
+                  <p className="text-sm italic" style={{ color: 'var(--text3)' }}>
+                    {data.phonetic}
+                    {data.type && data.type !== 'other' ? ` · ${data.type}` : ''}
+                  </p>
+                )}
+                {data?.cefr && (
+                  <span
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                    style={{
+                      backgroundColor: 'var(--accent-soft)',
+                      borderColor: 'var(--border2)',
+                      color: 'var(--accent)',
+                    }}
+                  >
+                    CEFR {data.cefr}
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <button

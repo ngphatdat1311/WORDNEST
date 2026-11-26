@@ -903,6 +903,7 @@ function DictationPlayerStudio({
     typeof window !== 'undefined' && window.innerWidth >= 768 ? 'full' : 'tap'
   );
   const [compactVideo, setCompactVideo] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const [autoLoop, setAutoLoop] = useState(true);
   const [autoAdvance, setAutoAdvance] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
@@ -1511,6 +1512,21 @@ function DictationPlayerStudio({
 
               <button
                 type="button"
+                onClick={() => setFocusMode((v) => !v)}
+                className="hidden lg:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-xl border cursor-pointer"
+                style={{
+                  backgroundColor: focusMode ? 'var(--accent)' : 'var(--card)',
+                  borderColor: focusMode ? 'var(--accent)' : 'var(--border)',
+                  color: focusMode ? '#fff' : 'var(--text2)',
+                }}
+                title="Ẩn danh sách câu & thanh phụ để tập trung nghe chép 100%"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{focusMode ? 'Thoát tập trung' : 'Tập trung'}</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setCompactVideo((v) => !v)}
                 className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-xl border cursor-pointer"
                 style={{
@@ -1562,7 +1578,7 @@ function DictationPlayerStudio({
       </div>
 
       {/* Part Navigator (If video is long with > 25 sentences) */}
-      {totalParts > 1 && (
+      {totalParts > 1 && !focusMode && (
         <div
           className="flex items-center gap-1.5 overflow-x-auto no-scrollbar px-3 py-2 rounded-xl border text-xs"
           style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
@@ -1609,7 +1625,7 @@ function DictationPlayerStudio({
 
       {/* Main Split Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        <div className="lg:col-span-8 space-y-3.5">
+        <div className={`${focusMode ? 'lg:col-span-10 lg:col-start-2' : 'lg:col-span-8'} space-y-3.5`}>
           {/* Media Player Card (YouTube IFrame OR HTML5 Audio) */}
           <div className="bg-warm-card rounded-2xl overflow-hidden">
             {isAudioLesson ? (
@@ -2257,6 +2273,7 @@ function DictationPlayerStudio({
         </div>
 
         {/* Right Column (Desktop) / Modal Drawer (Mobile): Transcript Outline */}
+        {!focusMode && (
         <div
           className={`${
             showTranscriptDrawer
@@ -2376,6 +2393,7 @@ function DictationPlayerStudio({
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* MOBILE FLOATING QUICK-REPLAY PILL (Always 1 thumb-tap away above bottom nav!) */}

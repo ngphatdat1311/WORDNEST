@@ -138,9 +138,17 @@ export function HomeView() {
               borderColor: 'var(--border)',
               color: 'var(--gold)',
             }}
+            title={`Chuỗi ${streak.count} ngày · Khiên đóng băng bảo vệ: ${streak.freezes ?? 1}`}
           >
             <Flame className="w-3.5 h-3.5 fill-current" />
             {streak.count} ngày
+            <span
+              className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+              style={{ backgroundColor: 'var(--blue-soft)', color: 'var(--blue)' }}
+              title="Khiên Đóng Băng: tự động bảo vệ chuỗi nếu bạn lỡ bận 1 ngày (nhận thêm mỗi 7 ngày liên tiếp)"
+            >
+              🛡 {streak.freezes ?? 1}
+            </span>
           </div>
         </div>
       </div>

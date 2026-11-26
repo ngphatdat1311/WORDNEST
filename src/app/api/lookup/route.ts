@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { classifyWordCefr } from '@/lib/cefr';
 import {
   getClientIp,
   getLemmaCandidates,
   SlidingWindowRateLimiter,
   TtlLruCache,
 } from '@/lib/server-cache';
-import { LookupResult, WordLevel, WordType } from '@/types/wordnest';
+import { LookupResult, WordType } from '@/types/wordnest';
 
 const lookupCache = new TtlLruCache<LookupResult>(1000, 24 * 60 * 60 * 1000);
 const lookupLimiter = new SlidingWindowRateLimiter(120, 60_000);
@@ -19,13 +20,6 @@ function mapPosToWordType(pos?: string, word = ''): WordType {
   if (p.includes('adjective')) return 'adj';
   if (p.includes('adverb')) return 'adv';
   return 'other';
-}
-
-function guessLevel(word: string): WordLevel {
-  const len = word.trim().length;
-  if (len <= 5) return 'easy';
-  if (len <= 9) return 'medium';
-  return 'hard';
 }
 
 async function fetchTranslateVi(text: string): Promise<{ main: string; alts: string[] }> {
@@ -213,6 +207,7 @@ export async function GET(request: NextRequest) {
     if (exTrans.main) exampleVi = exTrans.main;
   }
 
+  const cefrInfo = classifyWordCefr(cleanWord);
   const result: LookupResult = {
     word: cleanWord,
     phonetic: dict.phonetic,
@@ -222,7 +217,8 @@ export async function GET(request: NextRequest) {
     type: dict.type,
     examples: dict.examples,
     exampleVi,
-    level: guessLevel(cleanWord),
+    level: cefrInfo.level,
+    cefr: cefrInfo.cefr,
   };
 
   // Only cache meaningful results so transient upstream outages aren't pinned for 24h

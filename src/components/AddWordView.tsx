@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
+  BookMarked,
   Check,
   Loader2,
   Plus,
@@ -12,13 +13,16 @@ import {
 } from 'lucide-react';
 import { parseBulkLine } from '@/lib/dictation-engine';
 import { playAudioUrlOrSpeak } from '@/lib/speech';
+import { VOCAB_STARTER_PACKS } from '@/lib/starter-packs';
 import { useWordNestStore } from '@/store/useWordNestStore';
 import { LookupResult, WordLevel, WordType } from '@/types/wordnest';
 
 export function AddWordView() {
+  const words = useWordNestStore((s) => s.words);
   const folders = useWordNestStore((s) => s.folders);
   const addWord = useWordNestStore((s) => s.addWord);
   const bulkAddWords = useWordNestStore((s) => s.bulkAddWords);
+  const importStarterPack = useWordNestStore((s) => s.importStarterPack);
   const showToast = useWordNestStore((s) => s.showToast);
 
   const [word, setWord] = useState('');
@@ -380,6 +384,78 @@ export function AddWordView() {
           Thêm từ vào WordNest
         </button>
       </form>
+
+      {/* Curated Vocabulary Starter Packs (1-Click Import with IPA & Folder) */}
+      <div className="bg-warm-card rounded-3xl p-5 sm:p-6 space-y-3.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <BookMarked className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+            <h2 className="font-serif-display font-semibold text-base">
+              Bộ từ vựng mẫu chuẩn lộ trình (Nạp 1 chạm)
+            </h2>
+          </div>
+          <span className="text-[11px] font-medium" style={{ color: 'var(--text3)' }}>
+            Đủ IPA · Ví dụ · Tự tạo thư mục
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {VOCAB_STARTER_PACKS.map((pack) => {
+            const ownedCount = pack.words.filter((pw) =>
+              words.some((w) => w.word.toLowerCase() === pw.word.toLowerCase())
+            ).length;
+            const fullyOwned = ownedCount === pack.words.length;
+
+            return (
+              <div
+                key={pack.id}
+                className="rounded-2xl p-4 border flex flex-col justify-between gap-3"
+                style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-sm">{pack.title}</span>
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                      style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent)' }}
+                    >
+                      {pack.badge}
+                    </span>
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text3)' }}>
+                    {pack.subtitle}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <span className="text-[11px] tabular-nums" style={{ color: 'var(--text3)' }}>
+                    Đã có {ownedCount}/{pack.words.length} từ
+                  </span>
+                  <button
+                    type="button"
+                    disabled={fullyOwned}
+                    onClick={() => {
+                      const res = importStarterPack(pack.id);
+                      if (res.added > 0) {
+                        showToast(
+                          `Đã nạp ${res.added} từ vào thư mục "${res.folderName}"!`,
+                          'success'
+                        );
+                      } else {
+                        showToast('Bạn đã có đủ toàn bộ từ trong bộ này rồi!', 'default');
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white cursor-pointer disabled:opacity-45 transition-opacity hover:opacity-90"
+                    style={{ backgroundColor: fullyOwned ? 'var(--green)' : 'var(--accent)' }}
+                  >
+                    {fullyOwned ? 'Đã nạp đủ ✓' : `Nạp +${pack.words.length - ownedCount} từ`}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Bulk Add Card (Compatible with WordNest v1 syntax) */}
       <div className="bg-warm-card rounded-3xl p-5 sm:p-6 space-y-3.5">
