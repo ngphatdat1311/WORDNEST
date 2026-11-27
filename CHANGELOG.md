@@ -10,6 +10,13 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [2.2.4] - 2026-11-27
+
+- **Sửa lỗi chí mạng mở app Desktop (`.exe` / `.dmg` / `.deb` / `.AppImage`) không hiện cửa sổ trên cả 3 hệ điều hành**:
+  - `electron-builder` mặc định tự loại bỏ thư mục `node_modules` bên trong `extraResources`, khiến server nội bộ Next.js trong bộ cài đóng gói bị thiếu `next` và thoát âm thầm khi mở app.
+  - Thêm hook [`scripts/after-pack.cjs`](scripts/after-pack.cjs) tự động sao chép & kiểm chứng `.next/standalone/node_modules` vào đúng thư mục `resources/standalone/node_modules` cho cả Windows, macOS Universal và Linux (đồng thời lọc sạch file `.env*` cục bộ để không bao giờ rò rỉ khóa bí mật vào bộ cài).
+  - Bổ sung `windowsHide: true`, phát hiện lỗi server sớm và hộp thoại báo lỗi rõ ràng trong `electron/main.js` thay vì thoát âm thầm.
+
 ## [2.2.3] - 2026-11-27
 
 - **Căn chỉnh pixel tuyệt đối (`0.0px` lệch dòng) cho mọi chế độ điền từ & giao diện**:

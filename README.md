@@ -12,10 +12,10 @@
 
 | Hệ điều hành | Định dạng | Tải về trực tiếp | Ghi chú |
 | :--- | :---: | :--- | :--- |
-| **Windows 10 / 11** | `.exe` | [⬇️ **Tải WordNest cho Windows (.exe)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-Setup-2.2.3.exe) | Tự động cập nhật ngầm khi có bản mới, tạo shortcut Desktop |
-| **macOS** | `.dmg` | [⬇️ **Tải WordNest cho macOS (.dmg)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-2.2.3-universal.dmg) | Bản Universal (Apple Silicon M1–M4 & Intel), tự báo khi có bản mới |
-| **Linux (Ubuntu / Debian)** | `.deb` | [⬇️ **Tải WordNest cho Linux (.deb)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/wordnest_2.2.3_amd64.deb) | Cài đặt qua `sudo apt install`, tự báo bản mới & giữ nguyên dữ liệu |
-| **Linux (Mọi bản phân phối)** | `.AppImage` | [⬇️ **Tải WordNest .AppImage**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-2.2.3.AppImage) | `chmod +x` chạy ngay, hỗ trợ tự động cập nhật ngầm |
+| **Windows 10 / 11** | `.exe` | [⬇️ **Tải WordNest cho Windows (.exe)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-Setup-2.2.4.exe) | Tự động cập nhật ngầm khi có bản mới, tạo shortcut Desktop |
+| **macOS** | `.dmg` | [⬇️ **Tải WordNest cho macOS (.dmg)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-2.2.4-universal.dmg) | Bản Universal (Apple Silicon M1–M4 & Intel), tự báo khi có bản mới |
+| **Linux (Ubuntu / Debian)** | `.deb` | [⬇️ **Tải WordNest cho Linux (.deb)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/wordnest_2.2.4_amd64.deb) | Cài đặt qua `sudo apt install`, tự báo bản mới & giữ nguyên dữ liệu |
+| **Linux (Mọi bản phân phối)** | `.AppImage` | [⬇️ **Tải WordNest .AppImage**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-2.2.4.AppImage) | `chmod +x` chạy ngay, hỗ trợ tự động cập nhật ngầm |
 
 👉 **Xem toàn bộ danh sách phiên bản và file đính kèm:** [**Trang GitHub Releases**](https://github.com/ngphatdat1311/WORDNEST/releases)
 

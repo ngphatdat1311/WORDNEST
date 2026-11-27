@@ -1,6 +1,6 @@
 {
   "name": "wordnest",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "description": "WordNest 2.0 – Ứng dụng học từ vựng SRS & Nghe chép chính tả YouTube chuẩn DOL (Desktop App & Web/PWA).",
   "main": "electron/main.js",
   "author": "ngphatdat1311",
@@ -57,10 +57,15 @@
       "!.next/**",
       "!node_modules/{next,@next,@img,sharp,react,react-dom,framer-motion,lucide-react,zustand,canvas-confetti}/**"
     ],
+    "afterPack": "scripts/after-pack.cjs",
     "extraResources": [
       {
         "from": ".next/standalone",
-        "to": "standalone"
+        "to": "standalone",
+        "filter": [
+          "**/*",
+          "!.env*"
+        ]
       }
     ],
     "publish": [

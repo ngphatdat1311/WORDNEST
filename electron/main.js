@@ -236,6 +236,7 @@ async function startEmbeddedServer() {
 
   serverProcess = spawn(process.execPath, [serverEntry], {
     cwd: standaloneDir,
+    windowsHide: true,
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: '1',
@@ -246,16 +247,37 @@ async function startEmbeddedServer() {
     stdio: 'pipe',
   });
 
-  serverProcess.on('exit', () => {
+  let stderrBuf = '';
+  let exitedEarly = null;
+
+  serverProcess.on('exit', (code, signal) => {
+    exitedEarly = { code, signal };
     activeServerUrl = null;
     serverProcess = null;
   });
 
   serverProcess.stderr?.on('data', (chunk) => {
-    console.error('[WordNest Server]', chunk.toString());
+    const text = chunk.toString();
+    stderrBuf = (stderrBuf + text).slice(-2000);
+    console.error('[WordNest Server]', text);
   });
 
-  await waitForServer(url);
+  await Promise.race([
+    waitForServer(url),
+    new Promise((_resolve, reject) => {
+      const checkExit = setInterval(() => {
+        if (exitedEarly) {
+          clearInterval(checkExit);
+          reject(
+            new Error(
+              `Embedded server exited early (code=${exitedEarly.code}, signal=${exitedEarly.signal}):\n${stderrBuf}`
+            )
+          );
+        }
+      }, 100);
+      setTimeout(() => clearInterval(checkExit), 21000);
+    }),
+  ]);
   activeServerUrl = url;
   return url;
 }
@@ -586,6 +608,10 @@ if (!gotLock) {
       setupAutoUpdater();
     } catch (err) {
       console.error('Failed to launch WordNest:', err);
+      dialog.showErrorBox(
+        'WordNest không thể khởi động',
+        err instanceof Error ? err.message : String(err)
+      );
       app.quit();
     }
 
