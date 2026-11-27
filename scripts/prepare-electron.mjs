@@ -21,4 +21,13 @@ if (fs.existsSync(publicSrc)) {
   fs.cpSync(publicSrc, publicDst, { recursive: true, force: true });
 }
 
+// WordNest uses `images: { unoptimized: true }`, so native sharp/@img binaries
+// are never needed at runtime and break macOS Universal (`@electron/universal`) merges.
+for (const unusedPkg of ['@img', 'sharp']) {
+  const pkgPath = path.join(standaloneDir, 'node_modules', unusedPkg);
+  if (fs.existsSync(pkgPath)) {
+    fs.rmSync(pkgPath, { recursive: true, force: true });
+  }
+}
+
 console.log('Prepared .next/standalone with static assets and public/ for Electron.');

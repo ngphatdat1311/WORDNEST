@@ -10,6 +10,10 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [2.2.2] - 2026-11-27
+
+- **Sửa lỗi đóng gói macOS Universal (`.dmg` + `.zip`) & giảm dung lượng bộ cài**: Loại bỏ các gói native thừa (`@img/sharp`) và các thư viện Web trùng lặp khỏi `app.asar` (vốn đã nằm sẵn trong `.next/standalone` và dùng `images.unoptimized = true`), giúp build macOS Universal xanh 100% và giảm mạnh dung lượng file cài cho cả 3 hệ điều hành.
+
 ## [2.2.1] - 2026-11-27
 
 - **Tự động cập nhật Desktop App trên cả 3 hệ điều hành (Windows / macOS / Linux)**:
