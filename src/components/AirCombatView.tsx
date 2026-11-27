@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { playChime, speakEnglish, vibrateLight } from '@/lib/speech';
 import { isSrsDue } from '@/lib/srs';
+import { recoverEnglishFromVietnameseIme } from '@/lib/vietnamese-ime-guard';
 import { useWordNestStore } from '@/store/useWordNestStore';
 import { WordItem } from '@/types/wordnest';
 import {
@@ -411,9 +412,10 @@ export function AirCombatView() {
     return () => cancelAnimationFrame(rafId);
   }, [phase, playableWords, controlMode, speedPreset, syncLockedTarget, endGame]);
 
-  // Typing handler (Desktop)
-  const handleTypingChange = (val: string) => {
+  // Typing handler (Desktop — with automatic Unikey/Telex English recovery!)
+  const handleTypingChange = (rawVal: string) => {
     if (phase !== 'playing') return;
+    const val = recoverEnglishFromVietnameseIme(typed, rawVal).value;
     setTyped(val);
     const clean = val.trim().toLowerCase();
     if (!clean) return;

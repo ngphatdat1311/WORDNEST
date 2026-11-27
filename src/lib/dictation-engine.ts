@@ -557,6 +557,193 @@ export function parseSrtOrLrc(
   }));
 }
 
+const SPELLING_EQUIVALENTS: Record<string, string> = {
+  // US <-> UK common spelling equivalents (Applied Linguistics tolerance)
+  colour: 'color',
+  colours: 'colors',
+  coloured: 'colored',
+  colourful: 'colorful',
+  favourite: 'favorite',
+  favourites: 'favorites',
+  behaviour: 'behavior',
+  behaviours: 'behaviors',
+  honour: 'honor',
+  humour: 'humor',
+  labour: 'labor',
+  neighbour: 'neighbor',
+  neighbours: 'neighbors',
+  flavour: 'flavor',
+  realise: 'realize',
+  realised: 'realized',
+  realising: 'realizing',
+  organise: 'organize',
+  organised: 'organized',
+  organising: 'organizing',
+  recognise: 'recognize',
+  recognised: 'recognized',
+  analyse: 'analyze',
+  analysed: 'analyzed',
+  apologise: 'apologize',
+  summarise: 'summarize',
+  centre: 'center',
+  centres: 'centers',
+  theatre: 'theater',
+  metre: 'meter',
+  defence: 'defense',
+  licence: 'license',
+  practise: 'practice',
+  programme: 'program',
+  programmes: 'programs',
+  travelling: 'traveling',
+  travelled: 'traveled',
+  cancelled: 'canceled',
+  grey: 'gray',
+  okay: 'ok',
+  // Spoken number equivalents
+  '0': 'zero',
+  '1': 'one',
+  '2': 'two',
+  '3': 'three',
+  '4': 'four',
+  '5': 'five',
+  '6': 'six',
+  '7': 'seven',
+  '8': 'eight',
+  '9': 'nine',
+  '10': 'ten',
+  '11': 'eleven',
+  '12': 'twelve',
+  '13': 'thirteen',
+  '14': 'fourteen',
+  '15': 'fifteen',
+  '16': 'sixteen',
+  '17': 'seventeen',
+  '18': 'eighteen',
+  '19': 'nineteen',
+  '20': 'twenty',
+  '30': 'thirty',
+  '40': 'forty',
+  '50': 'fifty',
+  '60': 'sixty',
+  '70': 'seventy',
+  '80': 'eighty',
+  '90': 'ninety',
+  '100': 'hundred',
+  '1000': 'thousand',
+  '1st': 'first',
+  '2nd': 'second',
+  '3rd': 'third',
+};
+
+export function canonicalizeDictationToken(normalized: string): string {
+  return SPELLING_EQUIVALENTS[normalized] || normalized;
+}
+
+/**
+ * Checks whether a user-typed word matches a target token, forgiving case,
+ * punctuation, missing apostrophes/hyphens, US/UK spelling variants, and spoken numbers.
+ */
+export function isDictationWordMatch(typedRaw: string, targetNormalized: string): boolean {
+  const typedNorm = normalizeToken(typedRaw);
+  if (!typedNorm || !targetNormalized) return false;
+  if (typedNorm === targetNormalized) return true;
+  return canonicalizeDictationToken(typedNorm) === canonicalizeDictationToken(targetNormalized);
+}
+
+/**
+ * Checks whether `typedRaw` is a valid non-empty prefix of the target token (including US/UK canonical form).
+ */
+export function isDictationWordPrefix(typedRaw: string, targetNormalized: string): boolean {
+  const typedNorm = normalizeToken(typedRaw);
+  if (!typedNorm || !targetNormalized) return false;
+  if (targetNormalized.startsWith(typedNorm)) return true;
+  const canonTarget = canonicalizeDictationToken(targetNormalized);
+  return canonTarget.startsWith(typedNorm);
+}
+
+/**
+ * Progressive scaffolding hint (Vygotsky ZPD / Bjork Desirable Difficulty):
+ * Reveals a word in 3 graduated steps (prefix -> half -> full) instead of giving away
+ * the whole answer immediately, maximizing active retrieval & memory retention.
+ */
+export function getProgressiveWordHint(targetClean: string, currentTyped: string): string {
+  const cleanTarget = targetClean.trim();
+  if (!cleanTarget) return '';
+  const targetNorm = normalizeToken(cleanTarget);
+  const typedNorm = normalizeToken(currentTyped);
+
+  // If user already has the full word right, keep it
+  if (isDictationWordMatch(currentTyped, targetNorm)) {
+    return cleanTarget;
+  }
+
+  // Find longest matching prefix length in cleanTarget
+  let matchedChars = 0;
+  if (typedNorm && targetNorm.startsWith(typedNorm)) {
+    // Map normalized length to visible chars in cleanTarget (preserving apostrophes/hyphens)
+    let normSeen = 0;
+    for (let i = 0; i < cleanTarget.length && normSeen < typedNorm.length; i++) {
+      if (/[a-zA-Z0-9]/.test(cleanTarget[i])) normSeen++;
+      matchedChars = i + 1;
+    }
+  }
+
+  const len = cleanTarget.length;
+  if (len <= 2) return cleanTarget;
+
+  const step1 = Math.max(1, Math.min(2, Math.ceil(len * 0.3)));
+  const step2 = Math.max(step1 + 1, Math.ceil(len * 0.6));
+
+  if (matchedChars < step1) return cleanTarget.slice(0, step1);
+  if (matchedChars < step2) return cleanTarget.slice(0, step2);
+  return cleanTarget;
+}
+
+export interface PerWordSlotEvaluation {
+  token: WordToken;
+  typed: string;
+  status: 'correct' | 'partial' | 'wrong' | 'pending';
+}
+
+/**
+ * Evaluates independent per-word inline dictation slots so users can click and edit
+ * ANY single mistyped word (e.g., fixing "one" -> "on" in "one bag") without ever
+ * deleting subsequent words or suffering extra-word index desync.
+ */
+export function evaluatePerWordDictation(
+  tokens: WordToken[],
+  wordInputs: string[],
+  activeIndex: number | null
+): {
+  slots: PerWordSlotEvaluation[];
+  correctCount: number;
+  totalCount: number;
+  isComplete: boolean;
+  accuracy: number;
+} {
+  let correctCount = 0;
+  const slots: PerWordSlotEvaluation[] = tokens.map((token, idx) => {
+    const typed = wordInputs[idx] ?? '';
+    const trimmed = typed.trim();
+    if (!trimmed) {
+      return { token, typed, status: 'pending' };
+    }
+    if (isDictationWordMatch(trimmed, token.normalized)) {
+      correctCount++;
+      return { token, typed, status: 'correct' };
+    }
+    if (idx === activeIndex && isDictationWordPrefix(trimmed, token.normalized)) {
+      return { token, typed, status: 'partial' };
+    }
+    return { token, typed, status: 'wrong' };
+  });
+
+  const totalCount = tokens.length;
+  const isComplete = totalCount > 0 && correctCount === totalCount;
+  const accuracy = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+  return { slots, correctCount, totalCount, isComplete, accuracy };
+}
+
 export interface ShadowingWordResult {
   token: WordToken;
   matched: boolean;

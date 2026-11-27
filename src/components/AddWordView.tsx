@@ -14,6 +14,7 @@ import {
 import { parseBulkLine } from '@/lib/dictation-engine';
 import { playAudioUrlOrSpeak } from '@/lib/speech';
 import { VOCAB_STARTER_PACKS } from '@/lib/starter-packs';
+import { recoverEnglishFromVietnameseIme } from '@/lib/vietnamese-ime-guard';
 import { useWordNestStore } from '@/store/useWordNestStore';
 import { LookupResult, WordLevel, WordType } from '@/types/wordnest';
 
@@ -166,9 +167,14 @@ export function AddWordView() {
             <input
               required
               type="text"
+              lang="en"
               value={word}
               onChange={(e) => {
-                const next = e.target.value;
+                const next = recoverEnglishFromVietnameseIme(
+                  word,
+                  e.target.value,
+                  e.target.selectionStart
+                ).value;
                 setWord(next);
                 if (next.trim().length < 2) {
                   setLookupStatus('idle');

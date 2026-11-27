@@ -143,7 +143,7 @@ async function run() {
     await page.keyboard.press('Escape');
     console.log('PASS [4/6] Command Palette (Ctrl+K) opens, searches & closes');
 
-    // 5. Dictation Library -> Lazy-load curated lesson JSON -> Studio + Inline Underline Typing
+    // 5. Dictation Library -> Lazy-load curated lesson JSON -> Studio + Per-Word Editable Inline Typing + Unikey Guard
     await page.getByRole('button', { name: /Nghe YouTube/i }).first().click();
     const firstLessonCard = page.locator('[data-testid="lesson-card"]').first();
     await firstLessonCard.waitFor({ timeout: 10000 });
@@ -152,11 +152,17 @@ async function run() {
     const fullModeBtn = page.getByRole('button', { name: /Gõ full/i }).first();
     await fullModeBtn.waitFor({ timeout: 5000 });
     await fullModeBtn.click();
-    const inlineInput = page.getByLabel('Nghe và gõ trực tiếp câu tiếng Anh');
-    await inlineInput.waitFor({ timeout: 5000 });
-    await inlineInput.fill('hello');
-    await page.getByText('hello', { exact: true }).first().waitFor({ timeout: 3000 });
-    console.log('PASS [5/6] Dictation library, lazy-loaded studio & inline underline typing');
+    const word0 = page.locator('input[data-full-word-idx="0"]');
+    const word1 = page.locator('input[data-full-word-idx="1"]');
+    await word0.waitFor({ timeout: 5000 });
+    // Test Unikey Telex Auto-English Guard + independent per-word editing (edit word 0 without losing word 1)
+    await word0.fill('hỉ');
+    assert.equal(await word0.inputValue(), 'hir', 'Unikey Auto-English Guard should recover hỉ -> hir');
+    await word1.fill('bag');
+    await word0.click();
+    await word0.fill('on');
+    assert.equal(await word1.inputValue(), 'bag', 'Editing word 0 must preserve word 1 untouched');
+    console.log('PASS [5/6] Dictation per-word inline editing & Unikey Auto-English Guard');
 
     // 6. Mobile responsive check (390x844) + Dark mode toggle + zero horizontal overflow
     await page.setViewportSize({ width: 390, height: 844 });

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { maskWordInExample } from '@/lib/dictation-engine';
 import { playChime, speakEnglish, vibrateLight } from '@/lib/speech';
+import { recoverEnglishFromVietnameseIme } from '@/lib/vietnamese-ime-guard';
 import { useWordNestStore } from '@/store/useWordNestStore';
 
 export function SpellingView() {
@@ -274,10 +275,19 @@ export function SpellingView() {
               <input
                 ref={inputRef}
                 type="text"
+                lang="en"
                 value={typed}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                onChange={(e) => status === 'idle' && setTyped(e.target.value)}
+                onChange={(e) => {
+                  if (status !== 'idle') return;
+                  const recovered = recoverEnglishFromVietnameseIme(
+                    typed,
+                    e.target.value,
+                    e.target.selectionStart
+                  ).value;
+                  setTyped(recovered);
+                }}
                 aria-label="Gõ từ tiếng Anh trực tiếp lên gạch"
                 autoComplete="off"
                 autoCorrect="off"
@@ -329,8 +339,8 @@ export function SpellingView() {
                 {status !== 'idle'
                   ? 'Nhấn Enter để sang từ tiếp theo'
                   : inputFocused
-                    ? 'Đang gõ trực tiếp · Nhấn Enter để kiểm tra'
-                    : 'Bấm vào dòng gạch để gõ từ tiếng Anh...'}
+                    ? 'Đang gõ trực tiếp (EN Auto · bỏ qua Unikey) · Nhấn Enter để kiểm tra'
+                    : 'Bấm vào dòng gạch để gõ từ tiếng Anh (không cần tắt Unikey)...'}
               </p>
             </div>
 

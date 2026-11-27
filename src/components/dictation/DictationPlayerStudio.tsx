@@ -36,13 +36,16 @@ import {
 } from 'lucide-react';
 import {
   createScrambledChips,
-  diffDictation,
+  evaluatePerWordDictation,
   formatTime,
+  getProgressiveWordHint,
+  isDictationWordMatch,
   normalizeToken,
   parseSrtOrLrc,
   selectBlankIndices,
   tokenizeSentence,
 } from '@/lib/dictation-engine';
+import { recoverEnglishFromVietnameseIme } from '@/lib/vietnamese-ime-guard';
 import { playChime, vibrateLight } from '@/lib/speech';
 import { useWordNestStore } from '@/store/useWordNestStore';
 import { DictationLesson, DictationMode, TranscriptSegment } from '@/types/wordnest';
@@ -155,9 +158,11 @@ export function DictationPlayerStudio({
   const [isPlaying, setIsPlaying] = useState(false);
   const [playerReady, setPlayerReady] = useState(isAudioLesson);
 
-  // Per-sentence interactive states
-  const [fullInput, setFullInput] = useState('');
-  const [fullFocused, setFullFocused] = useState(false);
+  // Per-sentence interactive states (independent per-word slots for Full Dictation!)
+  const [fullWords, setFullWords] = useState<string[]>([]);
+  const [activeFullIdx, setActiveFullIdx] = useState<number | null>(null);
+  const [imeGuardEnabled, setImeGuardEnabled] = useState(true);
+  const [struggledWords, setStruggledWords] = useState<string[]>([]);
   const [blankInputs, setBlankInputs] = useState<Record<number, string>>({});
   const [tappedChipIds, setTappedChipIds] = useState<string[]>([]);
   const [wrongChipId, setWrongChipId] = useState<string | null>(null);
@@ -204,7 +209,6 @@ export function DictationPlayerStudio({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const reactId = useId().replace(/:/g, '');
   const playerContainerId = `yt-player-${lesson.youtubeId || 'audio'}-${reactId}`;
-  const fullInputRef = useRef<HTMLTextAreaElement | null>(null);
   const loopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -213,7 +217,9 @@ export function DictationPlayerStudio({
       if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
       if (loopTimeoutRef.current) clearTimeout(loopTimeoutRef.current);
       setSegIndex(nextIdx);
-      setFullInput('');
+      setFullWords([]);
+      setActiveFullIdx(null);
+      setStruggledWords([]);
       setBlankInputs({});
       setTappedChipIds([]);
       setWrongChipId(null);
@@ -458,57 +464,126 @@ export function DictationPlayerStudio({
     ]
   );
 
-  // Full Dictation diffing + active inline underline slot
-  const fullDiff = useMemo(
-    () => (currentSeg ? diffDictation(currentSeg.text, fullInput) : null),
-    [currentSeg, fullInput]
+  // Per-word inline dictation evaluation (independent editable slots — zero extra-word bugs!)
+  const fullEval = useMemo(
+    () => evaluatePerWordDictation(tokens, fullWords, activeFullIdx),
+    [tokens, fullWords, activeFullIdx]
   );
 
-  const fullInlineMeta = useMemo(() => {
-    const wordsList = fullDiff?.words ?? [];
-    const hasTrailingSpace = /\s$/.test(fullInput);
-    let lastTypedIdx = -1;
-    for (let i = wordsList.length - 1; i >= 0; i--) {
-      if (wordsList[i].status !== 'pending') {
-        lastTypedIdx = i;
-        break;
+  const focusFullSlot = useCallback((targetIdx: number, caret: 'start' | 'end' = 'start') => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        `input[data-full-word-idx="${targetIdx}"]`
+      );
+      if (!el) return;
+      el.focus();
+      const pos = caret === 'end' ? el.value.length : 0;
+      try {
+        el.setSelectionRange(pos, pos);
+      } catch {
+        // Ignore on unsupported input types
       }
-    }
-    const activeSlotIdx =
-      lastTypedIdx === -1 ? 0 : hasTrailingSpace ? lastTypedIdx + 1 : lastTypedIdx;
+    });
+  }, []);
 
-    const rawWords = fullInput.trim()
-      ? fullInput
-          .trim()
-          .replace(/\s*(--+|—|–)\s*/g, ' ')
-          .split(/\s+/)
-          .filter(Boolean)
-      : [];
-    const extraWords =
-      wordsList.length > 0 && rawWords.length > wordsList.length
-        ? rawWords.slice(wordsList.length)
-        : [];
-    return { wordsList, activeSlotIdx, extraWords };
-  }, [fullDiff, fullInput]);
+  const findNextEditableFullSlot = useCallback(
+    (fromIdx: number, wordsSnapshot: string[]): number | null => {
+      for (let i = fromIdx + 1; i < tokens.length; i++) {
+        if (!isDictationWordMatch(wordsSnapshot[i] || '', tokens[i].normalized)) {
+          return i;
+        }
+      }
+      return null;
+    },
+    [tokens]
+  );
 
-  const handleFullInputChange = (nextVal: string) => {
-    setFullInput(nextVal);
+  const findPrevEditableFullSlot = useCallback(
+    (fromIdx: number, wordsSnapshot: string[]): number | null => {
+      for (let i = fromIdx - 1; i >= 0; i--) {
+        if (!isDictationWordMatch(wordsSnapshot[i] || '', tokens[i].normalized)) {
+          return i;
+        }
+      }
+      return null;
+    },
+    [tokens]
+  );
+
+  const handleFullWordChange = (
+    idx: number,
+    rawVal: string,
+    selectionStart?: number | null
+  ) => {
     if (!currentSeg || completedNow) return;
-    const nextDiff = diffDictation(currentSeg.text, nextVal);
-    if (nextDiff.isComplete) {
+    const prevVal = fullWords[idx] || '';
+    const cleaned = imeGuardEnabled
+      ? recoverEnglishFromVietnameseIme(prevVal, rawVal, selectionStart).value
+      : rawVal;
+
+    const nextWords = Array.from({ length: tokens.length }, (_, i) => fullWords[i] || '');
+
+    // Handle multi-word paste OR trailing Space advancing to next word slot
+    if (/\s/.test(cleaned)) {
+      const hasTrailingSpace = /\s$/.test(cleaned);
+      const parts = cleaned
+        .replace(/\s*(--+|—|–)\s*/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+
+      if (parts.length === 0) {
+        nextWords[idx] = '';
+      } else {
+        let cursor = idx;
+        for (const p of parts) {
+          if (cursor >= tokens.length) break;
+          nextWords[cursor] = p;
+          cursor++;
+        }
+        if (hasTrailingSpace || parts.length > 1) {
+          const nextIdx = findNextEditableFullSlot(Math.min(cursor - 1, tokens.length - 1), nextWords);
+          if (nextIdx !== null) {
+            focusFullSlot(nextIdx, 'start');
+          }
+        }
+      }
+    } else {
+      nextWords[idx] = cleaned;
+    }
+
+    setFullWords(nextWords);
+    const evaluated = evaluatePerWordDictation(tokens, nextWords, idx);
+    if (evaluated.isComplete) {
       handleSentenceSuccess(100);
     }
   };
 
-  const handleBlankInputChange = (idx: number, nextVal: string) => {
+  const handleBlankInputChange = (
+    idx: number,
+    rawVal: string,
+    selectionStart?: number | null
+  ) => {
+    const prevVal = blankInputs[idx] || '';
+    const recovered = imeGuardEnabled
+      ? recoverEnglishFromVietnameseIme(prevVal, rawVal, selectionStart).value
+      : rawVal;
+    const nextVal = recovered.replace(/\s+/g, '');
     const nextMap = { ...blankInputs, [idx]: nextVal };
     setBlankInputs(nextMap);
     if (!currentSeg || blankIndices.length === 0 || completedNow) return;
-    const allCorrect = blankIndices.every((bIdx) => {
-      const typed = normalizeToken(nextMap[bIdx] || '');
-      const target = tokens[bIdx]?.normalized || '';
-      return typed === target && target.length > 0;
-    });
+
+    if (isDictationWordMatch(nextVal, tokens[idx]?.normalized || '')) {
+      const pos = blankIndices.indexOf(idx);
+      const nextIdx = blankIndices[pos + 1];
+      if (nextIdx !== undefined) {
+        document.querySelector<HTMLInputElement>(`input[data-blank-idx="${nextIdx}"]`)?.focus();
+      }
+    }
+
+    const allCorrect = blankIndices.every((bIdx) =>
+      isDictationWordMatch(nextMap[bIdx] || '', tokens[bIdx]?.normalized || '')
+    );
     if (allCorrect) {
       handleSentenceSuccess(100);
     }
@@ -553,23 +628,47 @@ export function DictationPlayerStudio({
 
     if (mode === 'blanks') {
       const firstUnsolved = blankIndices.find(
-        (idx) => normalizeToken(blankInputs[idx] || '') !== tokens[idx]?.normalized
+        (idx) => !isDictationWordMatch(blankInputs[idx] || '', tokens[idx]?.normalized || '')
       );
       if (firstUnsolved !== undefined) {
         const targetWord = tokens[firstUnsolved].clean;
         const cur = blankInputs[firstUnsolved] || '';
-        const nextVal = targetWord.slice(0, Math.min(targetWord.length, cur.length + 2));
+        const nextVal = getProgressiveWordHint(targetWord, cur);
+        setStruggledWords((prev) =>
+          prev.includes(targetWord) ? prev : [...prev, targetWord]
+        );
         handleBlankInputChange(firstUnsolved, nextVal);
       }
       return;
     }
 
-    if (fullDiff) {
-      const firstNotCorrect = fullDiff.words.findIndex((w) => w.status !== 'correct');
-      if (firstNotCorrect !== -1) {
-        const prefixWords = fullDiff.words.slice(0, firstNotCorrect + 1).map((w) => w.target.clean);
-        handleFullInputChange(prefixWords.join(' ') + ' ');
-        fullInputRef.current?.focus();
+    // Progressive scaffolding hint (prefix -> half -> full) for currently active or first unsolved word
+    const preferredIdx =
+      activeFullIdx !== null &&
+      fullEval.slots[activeFullIdx] &&
+      fullEval.slots[activeFullIdx].status !== 'correct'
+        ? activeFullIdx
+        : fullEval.slots.findIndex((s) => s.status !== 'correct');
+
+    if (preferredIdx !== -1) {
+      const targetWord = tokens[preferredIdx].clean;
+      const curVal = fullWords[preferredIdx] || '';
+      const hinted = getProgressiveWordHint(targetWord, curVal);
+      setStruggledWords((prev) =>
+        prev.includes(targetWord) ? prev : [...prev, targetWord]
+      );
+      const nextWords = Array.from({ length: tokens.length }, (_, i) => fullWords[i] || '');
+      nextWords[preferredIdx] = hinted;
+      setFullWords(nextWords);
+
+      const evaluated = evaluatePerWordDictation(tokens, nextWords, preferredIdx);
+      if (evaluated.isComplete) {
+        handleSentenceSuccess(100);
+      } else if (evaluated.slots[preferredIdx]?.status === 'correct') {
+        const nextEditable = findNextEditableFullSlot(preferredIdx, nextWords);
+        if (nextEditable !== null) focusFullSlot(nextEditable, 'start');
+      } else {
+        focusFullSlot(preferredIdx, 'end');
       }
     }
   };
@@ -1242,8 +1341,8 @@ export function DictationPlayerStudio({
                     }
 
                     const val = blankInputs[idx] || '';
-                    const isRight = normalizeToken(val) === tok.normalized && tok.normalized.length > 0;
-                    const widthCh = Math.max(5, tok.clean.length + 2);
+                    const isRight = isDictationWordMatch(val, tok.normalized);
+                    const widthCh = Math.max(5, tok.clean.length + 2, val.length + 2);
 
                     return (
                       <span
@@ -1253,24 +1352,20 @@ export function DictationPlayerStudio({
                         {tok.leadingPunct}
                         <input
                           type="text"
+                          lang="en"
+                          inputMode="text"
                           data-blank-idx={idx}
                           value={val}
-                          onChange={(e) => {
-                            const nextVal = e.target.value.replace(/\s+/g, '');
-                            handleBlankInputChange(idx, nextVal);
-                            if (normalizeToken(nextVal) === tok.normalized && tok.normalized.length > 0) {
-                              const pos = blankIndices.indexOf(idx);
-                              const nextIdx = blankIndices[pos + 1];
-                              if (nextIdx !== undefined) {
-                                const el = document.querySelector<HTMLInputElement>(
-                                  `input[data-blank-idx="${nextIdx}"]`
-                                );
-                                el?.focus();
-                              }
-                            }
-                          }}
+                          onChange={(e) =>
+                            handleBlankInputChange(idx, e.target.value, e.target.selectionStart)
+                          }
                           onKeyDown={(e) => {
                             const pos = blankIndices.indexOf(idx);
+                            if (e.key === 'Tab') {
+                              e.preventDefault();
+                              playSegment();
+                              return;
+                            }
                             if (e.key === ' ' || e.key === 'Enter') {
                               e.preventDefault();
                               const nextIdx = blankIndices[pos + 1];
@@ -1308,84 +1403,78 @@ export function DictationPlayerStudio({
                 </div>
               )}
 
-              {/* ── MODE 3: FULL DICTATION (INLINE UNDERLINE TYPING) ── */}
+              {/* ── MODE 3: FULL DICTATION (PER-WORD EDITABLE INLINE SLOTS + UNIKEY GUARD) ── */}
               {mode === 'full' && !revealed && (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs px-0.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs px-0.5">
                     <span style={{ color: 'var(--text3)' }}>
-                      {fullFocused
-                        ? 'Đang gõ trực tiếp lên gạch · Enter để nghe lại'
-                        : 'Bấm vào dòng gạch bên dưới để nghe và gõ trực tiếp'}
+                      Gõ trực tiếp lên từng gạch · Bấm vào bất kỳ từ sai nào để sửa · <kbd className="px-1 py-0.5 rounded border text-[10px]" style={{ borderColor: 'var(--border)' }}>Tab</kbd> nghe lại
                     </span>
-                    {fullDiff && fullDiff.totalCount > 0 && (
-                      <span
-                        className="font-semibold tabular-nums px-2 py-0.5 rounded-md"
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setImeGuardEnabled((v) => !v)}
+                        className="px-2 py-0.5 rounded-md border text-[11px] font-medium cursor-pointer transition-colors"
                         style={{
-                          backgroundColor: fullDiff.isComplete ? 'var(--green-soft)' : 'var(--bg2)',
-                          color: fullDiff.isComplete ? 'var(--green)' : 'var(--text2)',
+                          backgroundColor: imeGuardEnabled ? 'var(--accent-soft)' : 'var(--bg2)',
+                          borderColor: imeGuardEnabled ? 'var(--accent)' : 'var(--border)',
+                          color: imeGuardEnabled ? 'var(--accent)' : 'var(--text3)',
                         }}
+                        title="Tự động chuyển gõ tiếng Anh kể cả khi Unikey/Telex đang bật tiếng Việt"
                       >
-                        {fullDiff.correctCount}/{fullDiff.totalCount} từ đúng
-                      </span>
-                    )}
+                        {imeGuardEnabled ? 'EN Auto · Bỏ qua Unikey ✓' : 'EN Auto: Tắt'}
+                      </button>
+                      {fullEval.totalCount > 0 && (
+                        <span
+                          className="font-semibold tabular-nums px-2 py-0.5 rounded-md"
+                          style={{
+                            backgroundColor: fullEval.isComplete ? 'var(--green-soft)' : 'var(--bg2)',
+                            color: fullEval.isComplete ? 'var(--green)' : 'var(--text2)',
+                          }}
+                        >
+                          {fullEval.correctCount}/{fullEval.totalCount} từ đúng
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div
-                    onClick={() => fullInputRef.current?.focus()}
-                    className="relative rounded-2xl p-4 sm:p-5 border-2 min-h-[88px] flex flex-wrap gap-x-2.5 gap-y-2.5 items-center content-start cursor-text transition-colors"
+                    onClick={(e) => {
+                      // Clicking blank space inside container focuses the first unsolved word slot
+                      if (e.target === e.currentTarget) {
+                        const firstUnsolved = fullEval.slots.findIndex((s) => s.status !== 'correct');
+                        if (firstUnsolved !== -1) focusFullSlot(firstUnsolved, 'end');
+                      }
+                    }}
+                    className="rounded-2xl p-4 sm:p-5 border-2 min-h-[88px] flex flex-wrap gap-x-2 gap-y-2.5 items-center content-start cursor-text transition-colors"
                     style={{
                       backgroundColor: completedNow
                         ? 'var(--green-soft)'
-                        : fullFocused
+                        : activeFullIdx !== null
                           ? 'var(--card)'
                           : 'var(--bg)',
                       borderColor: completedNow
                         ? 'var(--green-border)'
-                        : fullFocused
+                        : activeFullIdx !== null
                           ? 'var(--accent)'
                           : 'var(--border)',
                     }}
                   >
-                    {/* Native invisible input overlay so Desktop & Mobile keyboards, paste, Space & Backspace work 100% smoothly */}
-                    <textarea
-                      ref={fullInputRef}
-                      value={fullInput}
-                      onFocus={() => setFullFocused(true)}
-                      onBlur={() => setFullFocused(false)}
-                      onChange={(e) => handleFullInputChange(e.target.value.replace(/\r?\n/g, ' '))}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          if (completedNow || revealed) {
-                            handleNextSegment();
-                          } else {
-                            playSegment();
-                          }
-                        }
-                      }}
-                      aria-label="Nghe và gõ trực tiếp câu tiếng Anh"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      className="absolute inset-0 w-full h-full opacity-0 resize-none cursor-text z-0"
-                    />
+                    {fullEval.slots.map((slot, idx) => {
+                      const val = slot.typed;
+                      const widthCh = Math.max(
+                        slot.token.clean.length + 1.4,
+                        val.length + 1.4,
+                        3.4
+                      );
 
-                    {fullInlineMeta.wordsList.map((w, idx) => {
-                      const isActive =
-                        fullFocused &&
-                        !completedNow &&
-                        idx === fullInlineMeta.activeSlotIdx &&
-                        fullInlineMeta.extraWords.length === 0;
-                      const minSlotPx = Math.max(30, w.target.clean.length * 10);
-
-                      if (w.status === 'correct') {
+                      if (slot.status === 'correct') {
                         return (
                           <span
                             key={idx}
                             className="inline-flex items-center h-9 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg leading-none box-border transition-colors"
                             style={{
-                              minWidth: `${minSlotPx}px`,
+                              minWidth: `${widthCh}ch`,
                               borderColor: 'var(--green-border)',
                             }}
                           >
@@ -1393,86 +1482,117 @@ export function DictationPlayerStudio({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setLookupWord(w.target.clean);
+                                setLookupWord(slot.token.clean);
                               }}
-                              className="relative z-10 font-serif-display text-base sm:text-lg font-medium leading-none hover:underline cursor-pointer"
+                              className="font-serif-display text-base sm:text-lg font-medium leading-none hover:underline cursor-pointer"
                               style={{ color: 'var(--green)' }}
-                              title="Chạm để tra từ"
+                              title="Từ đã đúng — chạm để tra từ điển / AI Coach"
                             >
-                              {w.target.raw}
+                              {slot.token.raw}
                             </button>
-                            {isActive && <span className="wn-caret ml-0.5" aria-hidden="true" />}
                           </span>
                         );
                       }
 
-                      if (w.status === 'partial') {
-                        return (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center h-9 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg leading-none box-border transition-colors"
-                            style={{
-                              minWidth: `${minSlotPx}px`,
-                              backgroundColor: 'var(--accent-soft)',
-                              borderColor: 'var(--accent)',
-                              color: 'var(--accent)',
-                            }}
-                          >
-                            <span>{w.typed}</span>
-                            {isActive && <span className="wn-caret ml-0.5" aria-hidden="true" />}
-                          </span>
-                        );
-                      }
-
-                      if (w.status === 'wrong') {
-                        return (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center h-9 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg leading-none box-border transition-colors"
-                            style={{
-                              minWidth: `${minSlotPx}px`,
-                              backgroundColor: 'var(--red-soft)',
-                              borderColor: 'var(--red)',
-                              color: 'var(--red)',
-                            }}
-                          >
-                            <span>{w.typed}</span>
-                            {isActive && <span className="wn-caret ml-0.5" aria-hidden="true" />}
-                          </span>
-                        );
-                      }
+                      const isFocusedSlot = activeFullIdx === idx;
+                      const isWrong = slot.status === 'wrong';
+                      const isPartial = slot.status === 'partial';
 
                       return (
-                        <span
+                        <input
                           key={idx}
-                          className="inline-flex items-center h-9 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg leading-none box-border transition-colors"
-                          style={{
-                            minWidth: `${minSlotPx}px`,
-                            borderColor: isActive ? 'var(--accent)' : 'var(--border2)',
-                            backgroundColor: isActive ? 'var(--accent-soft)' : 'transparent',
+                          type="text"
+                          lang="en"
+                          inputMode="text"
+                          data-full-word-idx={idx}
+                          aria-label={`Từ thứ ${idx + 1} trong câu`}
+                          value={val}
+                          onFocus={() => setActiveFullIdx(idx)}
+                          onBlur={() =>
+                            setActiveFullIdx((cur) => (cur === idx ? null : cur))
+                          }
+                          onChange={(e) =>
+                            handleFullWordChange(idx, e.target.value, e.target.selectionStart)
+                          }
+                          onKeyDown={(e) => {
+                            const inputEl = e.currentTarget;
+                            const selStart = inputEl.selectionStart ?? 0;
+                            const selEnd = inputEl.selectionEnd ?? 0;
+
+                            if (e.key === 'Tab') {
+                              e.preventDefault();
+                              playSegment();
+                              return;
+                            }
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (completedNow || revealed) {
+                                handleNextSegment();
+                              } else {
+                                playSegment();
+                              }
+                              return;
+                            }
+                            if (e.key === ' ' && val.trim().length > 0 && selStart === val.length) {
+                              e.preventDefault();
+                              const nextIdx = findNextEditableFullSlot(idx, fullWords);
+                              if (nextIdx !== null) focusFullSlot(nextIdx, 'start');
+                              return;
+                            }
+                            if (e.key === 'Backspace' && selStart === 0 && selEnd === 0) {
+                              const prevIdx = findPrevEditableFullSlot(idx, fullWords);
+                              if (prevIdx !== null) {
+                                e.preventDefault();
+                                focusFullSlot(prevIdx, 'end');
+                              }
+                              return;
+                            }
+                            if (e.key === 'ArrowLeft' && selStart === 0 && selEnd === 0) {
+                              const prevIdx = findPrevEditableFullSlot(idx, fullWords);
+                              if (prevIdx !== null) {
+                                e.preventDefault();
+                                focusFullSlot(prevIdx, 'end');
+                              }
+                              return;
+                            }
+                            if (
+                              e.key === 'ArrowRight' &&
+                              selStart === val.length &&
+                              selEnd === val.length
+                            ) {
+                              const nextIdx = findNextEditableFullSlot(idx, fullWords);
+                              if (nextIdx !== null) {
+                                e.preventDefault();
+                                focusFullSlot(nextIdx, 'start');
+                              }
+                            }
                           }}
-                        >
-                          {isActive && <span className="wn-caret" aria-hidden="true" />}
-                        </span>
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="off"
+                          spellCheck={false}
+                          style={{
+                            width: `${widthCh}ch`,
+                            backgroundColor: isWrong
+                              ? 'var(--red-soft)'
+                              : isPartial || isFocusedSlot
+                                ? 'var(--accent-soft)'
+                                : 'transparent',
+                            borderColor: isWrong
+                              ? 'var(--red)'
+                              : isPartial || isFocusedSlot
+                                ? 'var(--accent)'
+                                : 'var(--border2)',
+                            color: isWrong
+                              ? 'var(--red)'
+                              : isPartial
+                                ? 'var(--accent)'
+                                : 'var(--text)',
+                          }}
+                          className="h-9 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg leading-none outline-none box-border transition-colors"
+                        />
                       );
                     })}
-
-                    {fullInlineMeta.extraWords.map((ew, eIdx) => (
-                      <span
-                        key={`extra-${eIdx}`}
-                        className="inline-flex items-center h-9 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg leading-none box-border"
-                        style={{
-                          backgroundColor: 'var(--red-soft)',
-                          borderColor: 'var(--red)',
-                          color: 'var(--red)',
-                        }}
-                      >
-                        <span>{ew}</span>
-                        {fullFocused && eIdx === fullInlineMeta.extraWords.length - 1 && (
-                          <span className="wn-caret ml-0.5" aria-hidden="true" />
-                        )}
-                      </span>
-                    ))}
                   </div>
                 </div>
               )}
@@ -1532,6 +1652,32 @@ export function DictationPlayerStudio({
                       );
                     })}
                   </div>
+
+                  {struggledWords.length > 0 && (
+                    <div
+                      className="pt-2 border-t flex flex-wrap items-center gap-1.5 text-xs"
+                      style={{ borderColor: 'var(--border)' }}
+                    >
+                      <span className="font-medium" style={{ color: 'var(--text2)' }}>
+                        Từ vừa cần gợi ý (chạm để lưu vào Flashcard FSRS):
+                      </span>
+                      {struggledWords.map((sw) => (
+                        <button
+                          key={sw}
+                          type="button"
+                          onClick={() => setLookupWord(sw)}
+                          className="px-2 py-0.5 rounded-full border font-medium cursor-pointer transition-colors hover:opacity-85"
+                          style={{
+                            backgroundColor: 'var(--card)',
+                            borderColor: 'var(--accent)',
+                            color: 'var(--accent)',
+                          }}
+                        >
+                          + {sw}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

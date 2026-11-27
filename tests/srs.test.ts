@@ -129,6 +129,18 @@ describe('Flashcard SRS Session Queue (No-Skip & Intra-Session Relearning)', () 
 
     assert.deepEqual(buildFlashcardSessionIds(words, 'srs', 'all', 0), ['a', 'b', 'e']);
     assert.deepEqual(buildFlashcardSessionIds(words, 'srs', 'f1', 0), ['a', 'b']);
+
+    // FSRS urgency ordering: overdue low-retrievability card comes BEFORE fresher due card and new card
+    const urgentPool = [
+      makeWord({ id: 'new_card', srsDue: undefined }),
+      makeWord({ id: 'due_today', srsDue: today, srsInterval: 10, srsStability: 10, srsDifficulty: 5, srsLastReview: addDaysToDateKey(today, -10) }),
+      makeWord({ id: 'very_overdue', srsDue: addDaysToDateKey(today, -15), srsInterval: 5, srsStability: 5, srsDifficulty: 6, srsLastReview: addDaysToDateKey(today, -20) }),
+    ];
+    assert.deepEqual(buildFlashcardSessionIds(urgentPool, 'srs', 'all', 0), [
+      'very_overdue',
+      'due_today',
+      'new_card',
+    ]);
   });
 
   it('requeues a forgotten card ahead in the current session without skipping neighbors', () => {

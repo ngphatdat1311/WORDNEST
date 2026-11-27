@@ -325,6 +325,20 @@ export function buildFlashcardSessionIds(
     pool = pool.filter((w) => w.folderIds.includes(folderFilter));
   }
 
+  // Scientific FSRS urgency ordering for due SRS sessions:
+  // Rescue cards with the lowest estimated retrievability R(t, S) first before they are forgotten.
+  if (modeFilter === 'srs' && shuffleSeed === 0) {
+    const today = localDateKey();
+    pool = [...pool].sort((a, b) => {
+      const ra = getWordRetrievability(a, today);
+      const rb = getWordRetrievability(b, today);
+      if (ra !== null && rb !== null) return ra - rb;
+      if (ra !== null && rb === null) return -1;
+      if (ra === null && rb !== null) return 1;
+      return 0;
+    });
+  }
+
   const ids = pool.map((w) => w.id);
   if (shuffleSeed > 0) {
     let s = shuffleSeed * 9301 + 49297;

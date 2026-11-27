@@ -10,6 +10,19 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [2.3.0] - 2026-11-27
+
+- **Tự động gõ tiếng Anh không cần tắt Unikey / EVKey / macOS Telex (`EN Auto`)**: Xây dựng engine phục hồi ký tự tiếng Anh theo thời gian thực ([`src/lib/vietnamese-ime-guard.ts`](src/lib/vietnamese-ime-guard.ts)) trên toàn bộ ô luyện tiếng Anh (*Nghe chép toàn bộ*, *Điền khuyết*, *Luyện Chính Tả*, *Không Chiến*, ô *Từ tiếng Anh*) — tự khôi phục chính xác `thí → this`, `hỉ → hir`, `wỏ → wor`, `frê → free`, `ă → aw`, `ađ → add` ngay cả khi bộ gõ tiếng Việt đang bật.
+- **Kiến trúc ô gạch độc lập từng từ (Per-Word Inline Editable Slots)**:
+  - Triệt tiêu hoàn toàn lỗi nhân đôi ký tự thừa cuối câu (`[h ] [h ]`).
+  - Cho phép **bấm thẳng vào bất kỳ từ sai nào để sửa trực tiếp tại chỗ** (vd: gõ `one bag` chỉ cần bấm vào `one` sửa thành `on` mà không bao giờ phải xóa `bag`!).
+  - Điều hướng mượt như gõ văn bản liền mạch: `Space` nhảy sang gạch tiếp theo, `Backspace`/`←`/`→` trượt mượt qua các từ, dán cả câu tự điền vào từng gạch, `Tab` nghe lại ngay mà không rời tay khỏi bàn phím.
+- **Nâng cấp sư phạm & khoa học trí nhớ (Tâm lý học nhận thức + Ngôn ngữ học ứng dụng)**:
+  - **Gợi ý phân tầng (Vygotsky Scaffolding / Desirable Difficulty)**: Nút *Gợi ý* hé mở theo 3 nấc (chữ cái đầu → nửa từ → cả từ) giúp não chủ động truy xuất ký ức thay vì lộ hết đáp án ngay.
+  - **Khép kín vòng lặp Nghe → SRS (Testing Effect)**: Tự gom các từ vừa cần gợi ý ở cuối câu để chạm 1 lần lưu thẳng vào kho Flashcard FSRS.
+  - **Sắp xếp ưu tiên khẩn cấp FSRS v5**: Phiên *Đến hạn SRS* tự ưu tiên cứu các thẻ có xác suất nhớ $R(t, S)$ thấp nhất trước khi bị quên.
+  - **Chấm nghe linh hoạt chuẩn Ngôn ngữ học**: Chấp nhận cả chính tả Anh–Mỹ (`color/colour`, `realize/realise`...) và chữ số nói (`20` ↔ `twenty`).
+
 ## [2.2.4] - 2026-11-27
 
 - **Sửa lỗi chí mạng mở app Desktop (`.exe` / `.dmg` / `.deb` / `.AppImage`) không hiện cửa sổ trên cả 3 hệ điều hành**:

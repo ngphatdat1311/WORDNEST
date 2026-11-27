@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 import {
   createScrambledChips,
   diffDictation,
+  evaluatePerWordDictation,
   evaluateShadowing,
   extractYoutubeId,
   formatTime,
+  getProgressiveWordHint,
+  isDictationWordMatch,
   maskWordInExample,
   normalizeToken,
   normalizeWordType,
@@ -234,5 +237,38 @@ describe('evaluateShadowing', () => {
     assert.equal(r.matchedCount, 6);
     assert.equal(r.words[3].matched, false); // "little" missed
     assert.equal(r.words[4].matched, true); // "confession" still aligned!
+  });
+});
+
+describe('Per-Word Inline Dictation, US/UK Tolerance & Progressive Scaffolding', () => {
+  it('accepts US/UK spelling equivalents and spoken number equivalents', () => {
+    assert.equal(isDictationWordMatch('color', 'colour'), true);
+    assert.equal(isDictationWordMatch('realise', 'realize'), true);
+    assert.equal(isDictationWordMatch('20', 'twenty'), true);
+    assert.equal(isDictationWordMatch('twenty', '20'), true);
+    assert.equal(isDictationWordMatch('dont', 'dont'), true);
+  });
+
+  it('reveals hints progressively in 3 steps (scaffolding) instead of giving full word immediately', () => {
+    const step1 = getProgressiveWordHint('qualities', '');
+    assert.equal(step1, 'qu');
+    const step2 = getProgressiveWordHint('qualities', step1);
+    assert.equal(step2, 'qualit');
+    const step3 = getProgressiveWordHint('qualities', step2);
+    assert.equal(step3, 'qualities');
+  });
+
+  it('evaluates independent word slots so editing "one" -> "on" keeps "bag" intact', () => {
+    const tokens = tokenizeSentence('on bag');
+    const before = evaluatePerWordDictation(tokens, ['one', 'bag'], 0);
+    assert.equal(before.slots[0].status, 'wrong');
+    assert.equal(before.slots[1].status, 'correct');
+    assert.equal(before.isComplete, false);
+
+    // Fix ONLY slot 0 ("one" -> "on") without touching slot 1 ("bag")
+    const after = evaluatePerWordDictation(tokens, ['on', 'bag'], 0);
+    assert.equal(after.slots[0].status, 'correct');
+    assert.equal(after.slots[1].status, 'correct');
+    assert.equal(after.isComplete, true);
   });
 });
