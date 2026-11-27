@@ -10,6 +10,13 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [2.4.0] - 2026-11-27
+
+- **Két Sao Lưu Tự Động Liên Tục Chống Xóa Bằng Mật Khẩu (Protected Auto-Backup Vault — `.wnbak`)**:
+  - Cho phép chọn bất kỳ thư mục nào trên máy (mặc định `Documents/WordNest-Backup`) để **tự động sao lưu liên tục** sau mỗi 1,5 giây khi học và khi thoát ứng dụng.
+  - Định dạng `.wnbak` nén **Gzip cấp độ 9** siêu nhẹ (giảm >75% dung lượng, chỉ vài chục KB, tự xoay vòng 7 ngày) kết hợp **mã hóa AES-256-GCM** kèm khóa bọc bằng mật khẩu (`scrypt`) — mang sang máy mới vẫn khôi phục được chỉ bằng mật khẩu.
+  - **Khóa chống xóa ở cấp hệ điều hành** trên cả 3 OS (`icacls /deny (D,DC)` + `attrib +R` trên Windows, `chflags uchg` trên macOS, khóa quyền thư mục `0555` + file `0444` trên Linux) — ngăn xóa nhầm file backup nếu không nhập đúng mật khẩu mở khóa trong tab **Tiến Độ & Đồng Bộ**.
+
 ## [2.3.0] - 2026-11-27
 
 - **Tự động gõ tiếng Anh không cần tắt Unikey / EVKey / macOS Telex (`EN Auto`)**: Xây dựng engine phục hồi ký tự tiếng Anh theo thời gian thực ([`src/lib/vietnamese-ime-guard.ts`](src/lib/vietnamese-ime-guard.ts)) trên toàn bộ ô luyện tiếng Anh (*Nghe chép toàn bộ*, *Điền khuyết*, *Luyện Chính Tả*, *Không Chiến*, ô *Từ tiếng Anh*) — tự khôi phục chính xác `thí → this`, `hỉ → hir`, `wỏ → wor`, `frê → free`, `ă → aw`, `ađ → add` ngay cả khi bộ gõ tiếng Việt đang bật.

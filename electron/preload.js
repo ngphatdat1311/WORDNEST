@@ -20,4 +20,14 @@ contextBridge.exposeInMainWorld('wordnestDesktop', {
     checkForUpdates: () => ipcRenderer.invoke('wordnest:check-updates'),
     getVersion: () => ipcRenderer.invoke('wordnest:get-version'),
   },
+  vault: {
+    getStatus: () => ipcRenderer.invoke('wordnest:vault-status'),
+    pickDir: () => ipcRenderer.invoke('wordnest:vault-pick-dir'),
+    setup: (opts) => ipcRenderer.invoke('wordnest:vault-setup', opts),
+    backupNow: (rawJson) => ipcRenderer.invoke('wordnest:vault-backup-now', rawJson),
+    unlock: (password, action) => ipcRenderer.invoke('wordnest:vault-unlock', password, action),
+    relock: () => ipcRenderer.invoke('wordnest:vault-relock'),
+    restore: (password, useLatest) => ipcRenderer.invoke('wordnest:vault-restore', password, useLatest),
+    openFolder: () => ipcRenderer.invoke('wordnest:vault-open-folder'),
+  },
 });

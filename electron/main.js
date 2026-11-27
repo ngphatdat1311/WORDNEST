@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -6,9 +6,14 @@ const http = require('http');
 const https = require('https');
 const net = require('net');
 const fs = require('fs');
+const { createBackupVaultManager } = require('./backup-vault');
 
 const GITHUB_OWNER = 'ngphatdat1311';
 const GITHUB_REPO = 'WORDNEST';
+
+let backupVault = null;
+let vaultDebounceTimer = null;
+let pendingVaultPayload = null;
 
 let mainWindow = null;
 let serverProcess = null;
@@ -76,6 +81,9 @@ function setupStorageIpc() {
       await fs.promises.writeFile(tmpPath, strVal, 'utf8');
       await fs.promises.rename(tmpPath, filePath);
       maybeWriteDailyBackup(key, strVal);
+      if (key === 'wordnest-v2-storage') {
+        scheduleContinuousVaultBackup(strVal);
+      }
       return true;
     } catch (err) {
       console.error('[WordNest Storage Write]', err);
@@ -99,6 +107,114 @@ function setupStorageIpc() {
   ipcMain.handle('wordnest:extension-drain', () => {
     const items = pendingExtensionWords.splice(0, pendingExtensionWords.length);
     return items;
+  });
+}
+
+function scheduleContinuousVaultBackup(rawJson) {
+  if (!backupVault) return;
+  pendingVaultPayload = rawJson;
+  if (vaultDebounceTimer) clearTimeout(vaultDebounceTimer);
+  vaultDebounceTimer = setTimeout(() => {
+    vaultDebounceTimer = null;
+    const payload = pendingVaultPayload;
+    pendingVaultPayload = null;
+    if (payload && backupVault) {
+      backupVault.writeContinuousBackup(payload);
+    }
+  }, 1500);
+}
+
+function flushPendingVaultBackup() {
+  if (vaultDebounceTimer) {
+    clearTimeout(vaultDebounceTimer);
+    vaultDebounceTimer = null;
+  }
+  if (pendingVaultPayload && backupVault) {
+    const payload = pendingVaultPayload;
+    pendingVaultPayload = null;
+    backupVault.writeContinuousBackup(payload);
+  }
+}
+
+function setupBackupVaultIpc() {
+  const defaultVaultDir = path.join(app.getPath('documents'), 'WordNest-Backup');
+  backupVault = createBackupVaultManager({
+    userDataDir: app.getPath('userData'),
+    defaultVaultDir,
+    safeStorage,
+  });
+
+  ipcMain.handle('wordnest:vault-status', () => backupVault.getStatus());
+
+  ipcMain.handle('wordnest:vault-pick-dir', async () => {
+    const result = await dialog.showOpenDialog(mainWindow || undefined, {
+      title: 'Chọn thư mục lưu két sao lưu WordNest',
+      defaultPath: backupVault.getStatus().vaultDir,
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || !result.filePaths[0]) return { canceled: true };
+    return { canceled: false, path: result.filePaths[0] };
+  });
+
+  ipcMain.handle('wordnest:vault-setup', (_event, opts) => {
+    const res = backupVault.setupVault(opts || {});
+    if (res.ok) {
+      // Immediately create the first encrypted compressed snapshot from current stored data
+      try {
+        const currentFile = getStorageFilePath('wordnest-v2-storage');
+        if (fs.existsSync(currentFile)) {
+          const raw = fs.readFileSync(currentFile, 'utf8');
+          backupVault.writeContinuousBackup(raw);
+        }
+      } catch {
+        // Ignore if brand new empty state
+      }
+      return { ok: true, status: backupVault.getStatus() };
+    }
+    return res;
+  });
+
+  ipcMain.handle('wordnest:vault-backup-now', (_event, rawJson) => {
+    const payload =
+      rawJson ||
+      (() => {
+        const currentFile = getStorageFilePath('wordnest-v2-storage');
+        return fs.existsSync(currentFile) ? fs.readFileSync(currentFile, 'utf8') : null;
+      })();
+    if (!payload) return { ok: false, error: 'Chưa có dữ liệu để sao lưu.' };
+    return backupVault.writeContinuousBackup(payload);
+  });
+
+  ipcMain.handle('wordnest:vault-unlock', (_event, password, action) =>
+    backupVault.unlockWithPassword(password, action)
+  );
+
+  ipcMain.handle('wordnest:vault-relock', () => backupVault.relockVault());
+
+  ipcMain.handle('wordnest:vault-restore', async (_event, password, useLatest) => {
+    let targetFile = null;
+    if (!useLatest) {
+      const pick = await dialog.showOpenDialog(mainWindow || undefined, {
+        title: 'Chọn file sao lưu WordNest (.wnbak)',
+        defaultPath: backupVault.getStatus().vaultDir,
+        filters: [{ name: 'WordNest Protected Backup', extensions: ['wnbak'] }],
+        properties: ['openFile'],
+      });
+      if (pick.canceled || !pick.filePaths[0]) {
+        return { ok: false, canceled: true };
+      }
+      targetFile = pick.filePaths[0];
+    }
+    return backupVault.restoreFromFile(targetFile, password);
+  });
+
+  ipcMain.handle('wordnest:vault-open-folder', async () => {
+    const status = backupVault.getStatus();
+    if (status.vaultDir && fs.existsSync(status.vaultDir)) {
+      await shell.openPath(status.vaultDir);
+      return { ok: true };
+    }
+    return { ok: false, error: 'Thư mục sao lưu chưa được tạo.' };
   });
 }
 
@@ -601,6 +717,7 @@ if (!gotLock) {
   app.whenReady().then(async () => {
     setupAppMenu();
     setupStorageIpc();
+    setupBackupVaultIpc();
     startExtensionCaptureServer();
     try {
       const appUrl = await startEmbeddedServer();
@@ -633,6 +750,7 @@ if (!gotLock) {
   });
 
   app.on('before-quit', () => {
+    flushPendingVaultBackup();
     stopExtensionCaptureServer();
     stopEmbeddedServer();
   });

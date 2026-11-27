@@ -33,6 +33,7 @@ import {
 import { addDaysToDateKey, localDateKey } from '@/lib/srs';
 import { speakEnglish } from '@/lib/speech';
 import { useWordNestStore } from '@/store/useWordNestStore';
+import { ProtectedVaultCard } from './ProtectedVaultCard';
 import { WordType } from '@/types/wordnest';
 
 const POS_LABELS: Record<WordType, string> = {
@@ -817,6 +818,9 @@ export function ProgressView() {
           </button>
         </div>
       </div>
+
+      {/* Protected Continuous Local Backup Vault (Password-locked, Gzip + AES-256-GCM) */}
+      <ProtectedVaultCard />
 
       {/* Desktop Auto-Update Checker (visible when running inside Electron Desktop App) */}
       {typeof window !== 'undefined' &&
