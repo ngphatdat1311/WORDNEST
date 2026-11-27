@@ -8,6 +8,7 @@ import {
   DictationLesson,
   DictationLessonProgress,
   FolderItem,
+  LearnerLevel,
   NavTab,
   QuizStats,
   SrsRating,
@@ -62,6 +63,8 @@ interface WordNestState {
   quizStats: QuizStats;
   airCombatStats: AirCombatStats;
   dailyGoal: number;
+  onboardingCompleted: boolean;
+  learnerLevel: LearnerLevel;
   customLessons: DictationLesson[];
   dictationProgress: Record<string, DictationLessonProgress>;
   cloudSync: CloudSyncConfig;
@@ -119,6 +122,12 @@ interface WordNestState {
   recordQuizSession: (correct: number, total: number) => void;
   recordAirCombatGame: (score: number, wave: number, wpm: number, destroyed: number) => void;
   setDailyGoal: (goal: number) => void;
+  completeOnboarding: (
+    level: LearnerLevel,
+    dailyGoal: number,
+    packIds: string[]
+  ) => { totalAdded: number };
+  setOnboardingCompleted: (completed: boolean) => void;
   resetLearningProgress: () => void;
 
   // YouTube Dictation
@@ -167,6 +176,10 @@ function normalizeImportedWord(raw: Partial<WordItem>): WordItem | null {
     srsInterval: raw.srsInterval,
     srsEase: raw.srsEase,
     srsReps: raw.srsReps,
+    srsLapses: raw.srsLapses,
+    srsStability: raw.srsStability,
+    srsDifficulty: raw.srsDifficulty,
+    srsLastReview: raw.srsLastReview,
     sourceVideoId: raw.sourceVideoId,
   };
 }
@@ -186,6 +199,8 @@ export const useWordNestStore = create<WordNestState>()(
       quizStats: { totalGames: 0, totalQuestions: 0, totalCorrect: 0, bestScore: 0 },
       airCombatStats: { gamesPlayed: 0, bestScore: 0, bestWave: 0, bestWpm: 0, totalDestroyed: 0 },
       dailyGoal: 15,
+      onboardingCompleted: false,
+      learnerLevel: 'intermediate',
       customLessons: [],
       dictationProgress: {},
       cloudSync: {
@@ -389,6 +404,9 @@ export const useWordNestStore = create<WordNestState>()(
               srsInterval: next.srsInterval,
               srsEase: next.srsEase,
               srsReps: next.srsReps,
+              srsStability: next.srsStability,
+              srsDifficulty: next.srsDifficulty,
+              srsLastReview: next.srsLastReview,
               srsLapses: rating === 'again' ? (w.srsLapses || 0) + 1 : w.srsLapses || 0,
               updatedAt: new Date().toISOString(),
               mastery: Math.max(0, Math.min(3, (w.mastery || 0) + next.masteryDelta)),
@@ -564,6 +582,22 @@ export const useWordNestStore = create<WordNestState>()(
 
       setDailyGoal: (goal) => set({ dailyGoal: Math.max(5, Math.min(100, Math.round(goal))) }),
 
+      completeOnboarding: (level, dailyGoal, packIds) => {
+        let totalAdded = 0;
+        for (const packId of packIds) {
+          const res = get().importStarterPack(packId);
+          totalAdded += res.added;
+        }
+        set({
+          learnerLevel: level,
+          dailyGoal: Math.max(5, Math.min(100, Math.round(dailyGoal))),
+          onboardingCompleted: true,
+        });
+        return { totalAdded };
+      },
+
+      setOnboardingCompleted: (completed) => set({ onboardingCompleted: completed }),
+
       resetLearningProgress: () => {
         set((s) => ({
           words: s.words.map((w) => ({
@@ -575,6 +609,10 @@ export const useWordNestStore = create<WordNestState>()(
             srsInterval: undefined,
             srsEase: undefined,
             srsReps: undefined,
+            srsLapses: undefined,
+            srsStability: undefined,
+            srsDifficulty: undefined,
+            srsLastReview: undefined,
           })),
           streak: { count: 0, lastDate: null, history: {}, freezes: 1, frozenDates: [] },
           quizStats: { totalGames: 0, totalQuestions: 0, totalCorrect: 0, bestScore: 0 },
@@ -665,7 +703,7 @@ export const useWordNestStore = create<WordNestState>()(
       exportBackup: () => {
         const s = get();
         return {
-          version: '2.0.1',
+          version: '2.2.0',
           exportedAt: new Date().toISOString(),
           words: s.words,
           folders: s.folders,
@@ -793,6 +831,8 @@ export const useWordNestStore = create<WordNestState>()(
         quizStats: state.quizStats,
         airCombatStats: state.airCombatStats,
         dailyGoal: state.dailyGoal,
+        onboardingCompleted: state.onboardingCompleted,
+        learnerLevel: state.learnerLevel,
         customLessons: state.customLessons,
         dictationProgress: state.dictationProgress,
         cloudSync: state.cloudSync,

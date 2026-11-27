@@ -761,6 +761,24 @@ export function ProgressView() {
         />
       </div>
 
+      {/* Onboarding Wizard Re-launcher */}
+      <div className="bg-warm-card rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold text-sm">Lộ trình học & Bộ từ vựng khởi đầu</h3>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text3)' }}>
+            Mở lại hướng dẫn chọn trình độ CEFR, mục tiêu ngày và nạp nhanh bộ từ mẫu.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event('wordnest:open-onboarding'))}
+          className="self-start sm:self-auto px-3.5 py-2 rounded-xl border text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer"
+          style={{ borderColor: 'var(--accent)', color: 'var(--accent)', backgroundColor: 'var(--accent-soft)' }}
+        >
+          Thiết lập lại lộ trình
+        </button>
+      </div>
+
       {/* Danger Zone: Reset Progress */}
       <div className="bg-warm-card rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>

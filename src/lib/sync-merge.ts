@@ -181,7 +181,7 @@ export function mergeWordNestBackups(
   }
 
   return {
-    version: '2.1.0',
+    version: '2.2.0',
     exportedAt: new Date().toISOString(),
     words: Array.from(wordByKey.values()),
     folders: mergeFolders(local.folders, remote.folders),

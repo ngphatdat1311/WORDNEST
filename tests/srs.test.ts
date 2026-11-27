@@ -3,13 +3,16 @@ import assert from 'node:assert/strict';
 import {
   addDaysToDateKey,
   buildFlashcardSessionIds,
+  computeRetrievability,
   computeSrsNext,
   computeUpdatedStreak,
   formatIntervalPreview,
+  getWordRetrievability,
   isLeechWord,
   isSrsDue,
   localDateKey,
   requeueForgottenCard,
+  resolveFsrsState,
 } from '../src/lib/srs.ts';
 import type { WordItem } from '../src/types/wordnest.ts';
 
@@ -31,7 +34,7 @@ function makeWord(overrides: Partial<WordItem> = {}): WordItem {
   };
 }
 
-describe('SRS SM-2 Algorithm', () => {
+describe('SRS FSRS v5 Algorithm', () => {
   it('produces strictly increasing intervals across again < hard < good < easy', () => {
     const w = makeWord({ srsInterval: 4, srsEase: 2.5, srsReps: 2 });
     const a = computeSrsNext(w, 'again').srsInterval;
@@ -39,6 +42,50 @@ describe('SRS SM-2 Algorithm', () => {
     const g = computeSrsNext(w, 'good').srsInterval;
     const e = computeSrsNext(w, 'easy').srsInterval;
     assert.ok(a < h && h < g && g < e, `Expected ${a} < ${h} < ${g} < ${e}`);
+  });
+
+  it('computes FSRS power-law retrievability accurately (R=0.9 at t=S)', () => {
+    assert.equal(computeRetrievability(0, 10), 1);
+    const rAtStability = computeRetrievability(10, 10);
+    assert.ok(Math.abs(rAtStability - 0.9) < 0.001, `Expected ~0.9, got ${rAtStability}`);
+    assert.ok(computeRetrievability(20, 10) < rAtStability);
+  });
+
+  it('initializes FSRS stability/difficulty on new words and grows stability on recall', () => {
+    const fresh = makeWord({ srsReps: 0, srsInterval: undefined, srsStability: undefined });
+    const first = computeSrsNext(fresh, 'good', '2026-11-20');
+    assert.ok(first.srsStability > 2.5);
+    assert.ok(first.srsDifficulty >= 1 && first.srsDifficulty <= 10);
+    assert.equal(first.srsLastReview, '2026-11-20');
+
+    const reviewedWord = makeWord({
+      ...fresh,
+      srsReps: first.srsReps,
+      srsInterval: first.srsInterval,
+      srsDue: first.srsDue,
+      srsStability: first.srsStability,
+      srsDifficulty: first.srsDifficulty,
+      srsLastReview: first.srsLastReview,
+    });
+    const second = computeSrsNext(reviewedWord, 'good', '2026-11-23');
+    assert.ok(second.srsStability > first.srsStability);
+    assert.ok(second.srsInterval > first.srsInterval);
+
+    const lapse = computeSrsNext(reviewedWord, 'again', '2026-11-23');
+    assert.ok(lapse.srsStability <= first.srsStability);
+    assert.equal(lapse.srsInterval, 1);
+    assert.equal(lapse.srsReps, 0);
+  });
+
+  it('migrates legacy SM-2 words seamlessly into FSRS state and estimates retrievability', () => {
+    const legacy = makeWord({ srsInterval: 10, srsEase: 2.6, srsReps: 3, srsDue: '2026-11-26' });
+    const state = resolveFsrsState(legacy);
+    assert.equal(state.isNew, false);
+    assert.equal(state.stability, 10);
+    assert.ok(state.difficulty >= 1 && state.difficulty <= 10);
+
+    const ret = getWordRetrievability(legacy, '2026-11-26');
+    assert.ok(ret !== null && Math.abs(ret - 0.9) < 0.02, `Expected ~0.9, got ${ret}`);
   });
 
   it('enforces ease factor bounds [1.3, 3.0]', () => {

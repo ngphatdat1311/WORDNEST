@@ -1,6 +1,6 @@
 {
   "name": "wordnest",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "WordNest 2.0 – Ứng dụng học từ vựng SRS & Nghe chép chính tả YouTube chuẩn DOL (Desktop App & Web/PWA).",
   "main": "electron/main.js",
   "author": "ngphatdat1311",
@@ -16,6 +16,7 @@
     "start:web": "next start",
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:e2e": "node scripts/e2e-verify.mjs",
     "dist": "npm run build:electron && electron-builder",
     "dist:dir": "npm run build:electron && electron-builder --dir"
   },
@@ -39,6 +40,7 @@
     "electron-builder": "^26.15.3",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.6",
+    "playwright-core": "^1.65.1",
     "postcss": "^8.5.33",
     "tailwindcss": "^4.3.5",
     "typescript": "^6.0.3"

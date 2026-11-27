@@ -1,5 +1,6 @@
 export type WordType = 'noun' | 'verb' | 'adj' | 'adv' | 'phrase' | 'other';
 export type WordLevel = 'easy' | 'medium' | 'hard';
+export type LearnerLevel = 'beginner' | 'intermediate' | 'advanced';
 export type SrsRating = 'again' | 'hard' | 'good' | 'easy';
 export type DictationMode = 'tap' | 'blanks' | 'full';
 export type NavTab =
@@ -29,12 +30,15 @@ export interface WordItem {
   suspended?: boolean;
   addedAt?: string;
   updatedAt?: string; // ISO timestamp used for conflict-free 2-way sync merge
-  // SM-2 SRS fields (compatible with WordNest v1)
+  // SRS / FSRS fields (compatible with WordNest v1 SM-2 & FSRS v5)
   srsDue?: string; // YYYY-MM-DD
   srsInterval?: number; // days
-  srsEase?: number; // default 2.5
+  srsEase?: number; // legacy SM-2 ease (kept for compatibility, default 2.5)
   srsReps?: number;
   srsLapses?: number; // times rated 'again' (used for leech detection)
+  srsStability?: number; // FSRS memory stability S (days until R drops to 90%)
+  srsDifficulty?: number; // FSRS card difficulty D in [1..10]
+  srsLastReview?: string; // YYYY-MM-DD of last SRS review (for exact retrievability R)
   sourceVideoId?: string;
 }
 

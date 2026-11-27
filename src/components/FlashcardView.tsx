@@ -21,8 +21,10 @@ import {
   daysUntilDue,
   FlashcardModeFilter,
   formatIntervalPreview,
+  getWordRetrievability,
   isLeechWord,
   requeueForgottenCard,
+  resolveFsrsState,
 } from '@/lib/srs';
 import { playChime, speakEnglish, vibrateLight } from '@/lib/speech';
 import { useWordNestStore } from '@/store/useWordNestStore';
@@ -599,11 +601,36 @@ export function FlashcardView() {
               )}
 
               <div
-                className="mt-5 inline-flex items-center gap-1.5 text-xs"
+                className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs"
                 style={{ color: 'var(--text3)' }}
               >
-                <Calendar className="w-3.5 h-3.5" />
-                {srsLabel}
+                <span className="inline-flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  {srsLabel}
+                </span>
+                {(() => {
+                  const ret = getWordRetrievability(current);
+                  const fsrs = resolveFsrsState(current);
+                  if (ret === null || fsrs.isNew) {
+                    return (
+                      <span
+                        className="px-2 py-0.5 rounded-full text-[11px] font-medium"
+                        style={{ backgroundColor: 'var(--bg2)', color: 'var(--accent)' }}
+                      >
+                        FSRS v5 · Thẻ mới
+                      </span>
+                    );
+                  }
+                  return (
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[11px] font-medium tabular-nums"
+                      style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent)' }}
+                      title="Thuật toán FSRS v5: Xác suất nhớ hiện tại và Độ bền trí nhớ (Stability)"
+                    >
+                      FSRS · Nhớ {Math.round(ret * 100)}% · S={fsrs.stability.toFixed(1)}d
+                    </span>
+                  );
+                })()}
               </div>
             </div>
           </motion.div>

@@ -10,6 +10,13 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [2.2.0] - 2026-11-27
+
+- **Thuật toán ôn tập FSRS v5 (chuẩn Anki thế hệ mới)**: Thay thế SM-2 bằng mô hình đường cong quên lũy thừa **FSRS v5** (`srsStability`, `srsDifficulty`, `srsLastReview`), tự động di trú mượt dữ liệu SM-2 cũ mà không mất tiến độ và hiển thị trực tiếp xác suất nhớ & độ bền trí nhớ trên thẻ Flashcard.
+- **Hướng dẫn Onboarding Wizard lần đầu**: Trải nghiệm 3 bước cho người mới (chọn trình độ CEFR `A1–C2`, mục tiêu hàng ngày và nạp nhanh bộ từ vựng mẫu chuẩn CEFR chỉ bằng 1 chạm; có thể mở lại bất cứ lúc nào trong tab Tiến Độ).
+- **Tái cấu trúc kiến trúc mô-đun**: Tách gọn các màn hình lớn thành mô-đun chuyên biệt (`DictationPlayerStudio` tải lười qua `next/dynamic`, `WordlistModals`, `air-combat-renderer`), giảm 65% độ lớn file `DictationView.tsx` và nâng cao khả năng bảo trì.
+- **Kiểm thử E2E tự động bằng Playwright + Chrome thực**: Thêm bộ kiểm thử `npm run test:e2e` kiểm tra tự động toàn bộ luồng Onboarding, Flashcard FSRS, 9 tab điều hướng, Command Palette `Ctrl+K`, Dictation tải lười và bố cục Mobile 390px với 0 lỗi console.
+
 ## [2.1.0] - 2026-11-26
 
 - **Bảo vệ dữ liệu & Desktop Electron**: Chuyển lưu trữ Desktop sang file JSON nguyên tử trong `userData/storage/` kèm tự động sao lưu xoay vòng 5 ngày (miễn nhiễm lỗi đổi port localhost & giới hạn 5 MB), tái sử dụng embedded server khi `activate` trên macOS, sửa đúng chiều vuốt 2 ngón macOS và khôi phục cầu nối Chrome Extension (`127.0.0.1:51789` + Web `postMessage`).

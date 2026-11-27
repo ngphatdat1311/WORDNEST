@@ -73,6 +73,10 @@ const ProgressView = dynamic(
   () => import('./ProgressView').then((m) => ({ default: m.ProgressView })),
   { ssr: false, loading: () => <TabLoadingFallback /> }
 );
+const OnboardingWizard = dynamic(
+  () => import('./OnboardingWizard').then((m) => ({ default: m.OnboardingWizard })),
+  { ssr: false }
+);
 
 function WordNestLogo({ size = 34 }: { size?: number }) {
   return (
@@ -158,12 +162,34 @@ export function AppShell() {
   const importBackup = useWordNestStore((s) => s.importBackup);
   const addCustomLesson = useWordNestStore((s) => s.addCustomLesson);
   const openDictationLesson = useWordNestStore((s) => s.openDictationLesson);
+  const onboardingCompleted = useWordNestStore((s) => s.onboardingCompleted);
   const showToast = useWordNestStore((s) => s.showToast);
   const hydrated = useStoreHydrated();
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [quickLookupWord, setQuickLookupWord] = useState<string | null>(null);
   const [extensionInbox, setExtensionInbox] = useState<CapturedWordItem[]>([]);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
+  const [onboardingForcedOpen, setOnboardingForcedOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onOpenOnboarding = () => {
+      setOnboardingDismissed(false);
+      setOnboardingForcedOpen(true);
+    };
+    window.addEventListener('wordnest:open-onboarding', onOpenOnboarding);
+    return () => window.removeEventListener('wordnest:open-onboarding', onOpenOnboarding);
+  }, []);
+
+  const shouldShowOnboarding =
+    hydrated &&
+    (onboardingForcedOpen ||
+      (!onboardingCompleted &&
+        !onboardingDismissed &&
+        streak.count === 0 &&
+        Object.keys(dictationProgress).length === 0 &&
+        folders.length === 0));
 
   const historyInitRef = useRef(false);
   const isPoppingHistoryRef = useRef(false);
@@ -835,6 +861,16 @@ export function AppShell() {
         word={quickLookupWord}
         onClose={() => setQuickLookupWord(null)}
       />
+
+      {shouldShowOnboarding && (
+        <OnboardingWizard
+          open={shouldShowOnboarding}
+          onClose={() => {
+            setOnboardingDismissed(true);
+            setOnboardingForcedOpen(false);
+          }}
+        />
+      )}
 
       {/* ═══ MOBILE FIXED BOTTOM NAVIGATION BAR (< lg) ═══ */}
       <nav
