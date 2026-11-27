@@ -99,6 +99,12 @@ function buildLocalFallback(req: AiCoachRequest): AiCoachResponse {
   };
 }
 
+const GEMINI_COACH_MODELS = [
+  'gemini-flash-lite-latest',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+] as const;
+
 async function callGeminiCoach(
   apiKey: string,
   req: AiCoachRequest
@@ -120,46 +126,61 @@ Return STRICT JSON with keys:
 - naturalRewrite (string, the most natural native-sounding version of their sentence in English)
 - collocations (array of 2-3 useful collocations for "${req.word}")`;
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(
-        apiKey
-      )}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.3,
-            responseMimeType: 'application/json',
-          },
-        }),
-        signal: AbortSignal.timeout(10000),
+  for (const model of GEMINI_COACH_MODELS) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
+          apiKey
+        )}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.3,
+              responseMimeType: 'application/json',
+            },
+          }),
+          signal: AbortSignal.timeout(10000),
+        }
+      );
+      if (res.status === 401 || res.status === 403) {
+        // Invalid/unauthorized key — don't waste retries across models
+        return null;
       }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text || typeof text !== 'string') return null;
+      if (!res.ok) continue;
 
-    const parsed = JSON.parse(text) as Partial<AiCoachResponse>;
-    if (!parsed.feedbackVi) return null;
+      const data = await res.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText || typeof rawText !== 'string') continue;
 
-    return {
-      provider: 'gemini',
-      isCorrect: typeof parsed.isCorrect === 'boolean' ? parsed.isCorrect : undefined,
-      score: typeof parsed.score === 'number' ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
-      feedbackVi: String(parsed.feedbackVi),
-      naturalRewrite: parsed.naturalRewrite ? String(parsed.naturalRewrite) : undefined,
-      collocations: Array.isArray(parsed.collocations)
-        ? parsed.collocations.filter((x): x is string => typeof x === 'string').slice(0, 4)
-        : undefined,
-      memoryTipVi: parsed.memoryTipVi ? String(parsed.memoryTipVi) : undefined,
-    };
-  } catch {
-    return null;
+      const cleaned = rawText
+        .trim()
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/i, '');
+      const parsed = JSON.parse(cleaned) as Partial<AiCoachResponse>;
+      if (!parsed.feedbackVi) continue;
+
+      return {
+        provider: 'gemini',
+        isCorrect: typeof parsed.isCorrect === 'boolean' ? parsed.isCorrect : undefined,
+        score:
+          typeof parsed.score === 'number'
+            ? Math.max(0, Math.min(100, Math.round(parsed.score)))
+            : undefined,
+        feedbackVi: String(parsed.feedbackVi),
+        naturalRewrite: parsed.naturalRewrite ? String(parsed.naturalRewrite) : undefined,
+        collocations: Array.isArray(parsed.collocations)
+          ? parsed.collocations.filter((x): x is string => typeof x === 'string').slice(0, 4)
+          : undefined,
+        memoryTipVi: parsed.memoryTipVi ? String(parsed.memoryTipVi) : undefined,
+      };
+    } catch {
+      continue;
+    }
   }
+  return null;
 }
 
 export async function POST(request: NextRequest) {

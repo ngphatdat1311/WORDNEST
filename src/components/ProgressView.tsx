@@ -64,6 +64,8 @@ export function ProgressView() {
   const [authEmail, setAuthEmail] = useState(cloudSync.userEmail || '');
   const [authPassword, setAuthPassword] = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
+  const [testingGemini, setTestingGemini] = useState(false);
+  const [geminiStatus, setGeminiStatus] = useState<'idle' | 'ok' | 'fallback'>('idle');
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -751,14 +753,68 @@ export function ProgressView() {
         <p className="text-xs leading-relaxed" style={{ color: 'var(--text3)' }}>
           Dán Google Gemini API Key miễn phí (lưu cục bộ trên máy bạn) để AI chấm sâu ngữ pháp, gợi ý câu viết tự nhiên và collocation trong khung tra từ. Không nhập vẫn dùng được chế độ kiểm tra câu nhanh offline!
         </p>
-        <input
-          type="password"
-          value={cloudSync.geminiApiKey || ''}
-          onChange={(e) => updateCloudSync({ geminiApiKey: e.target.value })}
-          placeholder="AIzaSy... (tùy chọn)"
-          className="w-full sm:max-w-md rounded-xl px-3 py-2 text-xs border outline-none"
-          style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="password"
+            value={cloudSync.geminiApiKey || ''}
+            onChange={(e) => {
+              updateCloudSync({ geminiApiKey: e.target.value });
+              setGeminiStatus('idle');
+            }}
+            placeholder="AIzaSy... hoặc AQ.... (để trống nếu đã cấu hình .env.local)"
+            className="flex-1 min-w-[220px] sm:max-w-md rounded-xl px-3 py-2 text-xs border outline-none"
+            style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
+          />
+          <button
+            type="button"
+            disabled={testingGemini}
+            onClick={async () => {
+              setTestingGemini(true);
+              try {
+                const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                if (cloudSync.geminiApiKey?.trim()) {
+                  headers['x-gemini-key'] = cloudSync.geminiApiKey.trim();
+                }
+                const res = await fetch('/api/ai-coach', {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({
+                    mode: 'explain',
+                    word: 'resilient',
+                    meaning: 'kiên cường',
+                    contextSentence: 'She stayed resilient through tough challenges.',
+                  }),
+                });
+                const data = (await res.json()) as { provider?: string };
+                if (res.ok && data.provider === 'gemini') {
+                  setGeminiStatus('ok');
+                  showToast('Kết nối Gemini AI thành công! AI Coach đã sẵn sàng.', 'success');
+                } else {
+                  setGeminiStatus('fallback');
+                  showToast('Chưa nhận được Gemini AI — đang chạy chế độ Offline dự phòng.', 'error');
+                }
+              } catch {
+                setGeminiStatus('fallback');
+                showToast('Không thể kiểm tra kết nối Gemini lúc này.', 'error');
+              } finally {
+                setTestingGemini(false);
+              }
+            }}
+            className="px-3.5 py-2 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            style={{
+              backgroundColor: geminiStatus === 'ok' ? 'var(--green-soft)' : 'var(--accent-soft)',
+              borderColor: geminiStatus === 'ok' ? 'var(--green)' : 'var(--accent)',
+              color: geminiStatus === 'ok' ? 'var(--green)' : 'var(--accent)',
+            }}
+          >
+            {testingGemini && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {geminiStatus === 'ok'
+              ? 'Đã kết nối Gemini AI ✓'
+              : geminiStatus === 'fallback'
+                ? 'Thử lại kết nối'
+                : 'Kiểm tra kết nối AI'}
+          </button>
+        </div>
       </div>
 
       {/* Onboarding Wizard Re-launcher */}
