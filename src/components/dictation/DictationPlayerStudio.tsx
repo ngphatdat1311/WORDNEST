@@ -157,6 +157,7 @@ export function DictationPlayerStudio({
 
   // Per-sentence interactive states
   const [fullInput, setFullInput] = useState('');
+  const [fullFocused, setFullFocused] = useState(false);
   const [blankInputs, setBlankInputs] = useState<Record<number, string>>({});
   const [tappedChipIds, setTappedChipIds] = useState<string[]>([]);
   const [wrongChipId, setWrongChipId] = useState<string | null>(null);
@@ -457,11 +458,38 @@ export function DictationPlayerStudio({
     ]
   );
 
-  // Full Dictation diffing
+  // Full Dictation diffing + active inline underline slot
   const fullDiff = useMemo(
     () => (currentSeg ? diffDictation(currentSeg.text, fullInput) : null),
     [currentSeg, fullInput]
   );
+
+  const fullInlineMeta = useMemo(() => {
+    const wordsList = fullDiff?.words ?? [];
+    const hasTrailingSpace = /\s$/.test(fullInput);
+    let lastTypedIdx = -1;
+    for (let i = wordsList.length - 1; i >= 0; i--) {
+      if (wordsList[i].status !== 'pending') {
+        lastTypedIdx = i;
+        break;
+      }
+    }
+    const activeSlotIdx =
+      lastTypedIdx === -1 ? 0 : hasTrailingSpace ? lastTypedIdx + 1 : lastTypedIdx;
+
+    const rawWords = fullInput.trim()
+      ? fullInput
+          .trim()
+          .replace(/\s*(--+|—|–)\s*/g, ' ')
+          .split(/\s+/)
+          .filter(Boolean)
+      : [];
+    const extraWords =
+      wordsList.length > 0 && rawWords.length > wordsList.length
+        ? rawWords.slice(wordsList.length)
+        : [];
+    return { wordsList, activeSlotIdx, extraWords };
+  }, [fullDiff, fullInput]);
 
   const handleFullInputChange = (nextVal: string) => {
     setFullInput(nextVal);
@@ -1222,8 +1250,41 @@ export function DictationPlayerStudio({
                         {tok.leadingPunct}
                         <input
                           type="text"
+                          data-blank-idx={idx}
                           value={val}
-                          onChange={(e) => handleBlankInputChange(idx, e.target.value)}
+                          onChange={(e) => {
+                            const nextVal = e.target.value.replace(/\s+/g, '');
+                            handleBlankInputChange(idx, nextVal);
+                            if (normalizeToken(nextVal) === tok.normalized && tok.normalized.length > 0) {
+                              const pos = blankIndices.indexOf(idx);
+                              const nextIdx = blankIndices[pos + 1];
+                              if (nextIdx !== undefined) {
+                                const el = document.querySelector<HTMLInputElement>(
+                                  `input[data-blank-idx="${nextIdx}"]`
+                                );
+                                el?.focus();
+                              }
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            const pos = blankIndices.indexOf(idx);
+                            if (e.key === ' ' || e.key === 'Enter') {
+                              e.preventDefault();
+                              const nextIdx = blankIndices[pos + 1];
+                              if (nextIdx !== undefined) {
+                                document
+                                  .querySelector<HTMLInputElement>(`input[data-blank-idx="${nextIdx}"]`)
+                                  ?.focus();
+                              } else if (e.key === 'Enter') {
+                                playSegment();
+                              }
+                            } else if (e.key === 'Backspace' && !val && pos > 0) {
+                              const prevIdx = blankIndices[pos - 1];
+                              document
+                                .querySelector<HTMLInputElement>(`input[data-blank-idx="${prevIdx}"]`)
+                                ?.focus();
+                            }
+                          }}
                           autoComplete="off"
                           autoCorrect="off"
                           autoCapitalize="off"
@@ -1244,89 +1305,50 @@ export function DictationPlayerStudio({
                 </div>
               )}
 
-              {/* ── MODE 3: FULL DICTATION (DOL PRO STYLE) ── */}
+              {/* ── MODE 3: FULL DICTATION (INLINE UNDERLINE TYPING) ── */}
               {mode === 'full' && !revealed && (
-                <div className="space-y-3.5">
-                  <div
-                    className="rounded-2xl p-4 border min-h-[72px] flex flex-wrap gap-x-2 gap-y-2 items-center"
-                    style={{
-                      backgroundColor: completedNow ? 'var(--green-soft)' : 'var(--bg)',
-                      borderColor: completedNow ? 'var(--green-border)' : 'var(--border)',
-                    }}
-                  >
-                    {fullDiff?.words.map((w, idx) => {
-                      if (w.status === 'correct') {
-                        return (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setLookupWord(w.target.clean)}
-                            className="font-serif-display text-base sm:text-lg font-medium hover:underline cursor-pointer"
-                            style={{ color: 'var(--green)' }}
-                          >
-                            {w.target.raw}
-                          </button>
-                        );
-                      }
-                      if (w.status === 'partial') {
-                        return (
-                          <span
-                            key={idx}
-                            className="font-serif-display text-base sm:text-lg px-1.5 rounded-md"
-                            style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent)' }}
-                          >
-                            {w.typed}
-                            <span className="opacity-35">
-                              {'_'.repeat(Math.max(1, w.target.clean.length - w.typed.length))}
-                            </span>
-                          </span>
-                        );
-                      }
-                      if (w.status === 'wrong') {
-                        return (
-                          <span
-                            key={idx}
-                            className="font-serif-display text-base sm:text-lg px-1.5 rounded-md"
-                            style={{ backgroundColor: 'var(--red-soft)', color: 'var(--red)' }}
-                          >
-                            {w.typed}
-                          </span>
-                        );
-                      }
-                      return (
-                        <span
-                          key={idx}
-                          className="inline-block h-5 rounded-md border-b-2"
-                          style={{
-                            width: `${Math.max(24, w.target.clean.length * 8)}px`,
-                            borderColor: 'var(--border2)',
-                          }}
-                        />
-                      );
-                    })}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs px-0.5">
+                    <span style={{ color: 'var(--text3)' }}>
+                      {fullFocused
+                        ? 'Đang gõ trực tiếp lên gạch · Enter để nghe lại'
+                        : 'Bấm vào dòng gạch bên dưới để nghe và gõ trực tiếp'}
+                    </span>
+                    {fullDiff && fullDiff.totalCount > 0 && (
+                      <span
+                        className="font-semibold tabular-nums px-2 py-0.5 rounded-md"
+                        style={{
+                          backgroundColor: fullDiff.isComplete ? 'var(--green-soft)' : 'var(--bg2)',
+                          color: fullDiff.isComplete ? 'var(--green)' : 'var(--text2)',
+                        }}
+                      >
+                        {fullDiff.correctCount}/{fullDiff.totalCount} từ đúng
+                      </span>
+                    )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs px-0.5">
-                      <span style={{ color: 'var(--text3)' }}>
-                        Gõ toàn bộ câu (tự xuống dòng khi câu dài)
-                      </span>
-                      {fullDiff && fullDiff.totalCount > 0 && (
-                        <span
-                          className="font-semibold tabular-nums px-2 py-0.5 rounded-md"
-                          style={{
-                            backgroundColor: fullDiff.isComplete ? 'var(--green-soft)' : 'var(--bg2)',
-                            color: fullDiff.isComplete ? 'var(--green)' : 'var(--text2)',
-                          }}
-                        >
-                          {fullDiff.correctCount}/{fullDiff.totalCount} từ đúng
-                        </span>
-                      )}
-                    </div>
+                  <div
+                    onClick={() => fullInputRef.current?.focus()}
+                    className="relative rounded-2xl p-4 sm:p-5 border-2 min-h-[88px] flex flex-wrap gap-x-2.5 gap-y-3 items-end cursor-text transition-colors"
+                    style={{
+                      backgroundColor: completedNow
+                        ? 'var(--green-soft)'
+                        : fullFocused
+                          ? 'var(--card)'
+                          : 'var(--bg)',
+                      borderColor: completedNow
+                        ? 'var(--green-border)'
+                        : fullFocused
+                          ? 'var(--accent)'
+                          : 'var(--border)',
+                    }}
+                  >
+                    {/* Native invisible input overlay so Desktop & Mobile keyboards, paste, Space & Backspace work 100% smoothly */}
                     <textarea
                       ref={fullInputRef}
-                      rows={Math.min(5, Math.max(2, Math.ceil((fullInput.length + 1) / 48)))}
                       value={fullInput}
+                      onFocus={() => setFullFocused(true)}
+                      onBlur={() => setFullFocused(false)}
                       onChange={(e) => handleFullInputChange(e.target.value.replace(/\r?\n/g, ' '))}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -1338,18 +1360,116 @@ export function DictationPlayerStudio({
                           }
                         }
                       }}
+                      aria-label="Nghe và gõ trực tiếp câu tiếng Anh"
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="off"
                       spellCheck={false}
-                      placeholder="Nghe và gõ lại câu bạn nghe được..."
-                      className="w-full rounded-xl px-4 py-3 text-base leading-relaxed border-2 outline-none transition-colors resize-none"
-                      style={{
-                        backgroundColor: 'var(--card)',
-                        borderColor: completedNow ? 'var(--green)' : 'var(--border)',
-                        color: 'var(--text)',
-                      }}
+                      className="absolute inset-0 w-full h-full opacity-0 resize-none cursor-text z-0"
                     />
+
+                    {fullInlineMeta.wordsList.map((w, idx) => {
+                      const isActive =
+                        fullFocused &&
+                        !completedNow &&
+                        idx === fullInlineMeta.activeSlotIdx &&
+                        fullInlineMeta.extraWords.length === 0;
+                      const minSlotPx = Math.max(28, w.target.clean.length * 10);
+
+                      if (w.status === 'correct') {
+                        return (
+                          <span
+                            key={idx}
+                            className="inline-flex items-baseline pb-0.5 border-b-2 transition-colors"
+                            style={{
+                              minWidth: `${minSlotPx}px`,
+                              borderColor: 'var(--green-border)',
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLookupWord(w.target.clean);
+                              }}
+                              className="relative z-10 font-serif-display text-base sm:text-lg font-medium hover:underline cursor-pointer"
+                              style={{ color: 'var(--green)' }}
+                              title="Chạm để tra từ"
+                            >
+                              {w.target.raw}
+                            </button>
+                            {isActive && <span className="wn-caret ml-0.5" aria-hidden="true" />}
+                          </span>
+                        );
+                      }
+
+                      if (w.status === 'partial') {
+                        return (
+                          <span
+                            key={idx}
+                            className="inline-flex items-baseline pb-0.5 px-1 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg transition-colors"
+                            style={{
+                              minWidth: `${minSlotPx}px`,
+                              backgroundColor: 'var(--accent-soft)',
+                              borderColor: 'var(--accent)',
+                              color: 'var(--accent)',
+                            }}
+                          >
+                            <span>{w.typed}</span>
+                            {isActive && <span className="wn-caret ml-0.5" aria-hidden="true" />}
+                          </span>
+                        );
+                      }
+
+                      if (w.status === 'wrong') {
+                        return (
+                          <span
+                            key={idx}
+                            className="inline-flex items-baseline pb-0.5 px-1 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg transition-colors"
+                            style={{
+                              minWidth: `${minSlotPx}px`,
+                              backgroundColor: 'var(--red-soft)',
+                              borderColor: 'var(--red)',
+                              color: 'var(--red)',
+                            }}
+                          >
+                            <span>{w.typed}</span>
+                            {isActive && <span className="wn-caret ml-0.5" aria-hidden="true" />}
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <span
+                          key={idx}
+                          className="inline-flex items-end h-7 pb-0.5 px-0.5 rounded-t-md border-b-2 transition-colors"
+                          style={{
+                            minWidth: `${minSlotPx}px`,
+                            borderColor: isActive ? 'var(--accent)' : 'var(--border2)',
+                            backgroundColor: isActive ? 'var(--accent-soft)' : 'transparent',
+                          }}
+                        >
+                          {isActive && <span className="wn-caret" aria-hidden="true" />}
+                        </span>
+                      );
+                    })}
+
+                    {fullInlineMeta.extraWords.map((ew, eIdx) => (
+                      <span
+                        key={`extra-${eIdx}`}
+                        className="inline-flex items-baseline pb-0.5 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg"
+                        style={{
+                          backgroundColor: 'var(--red-soft)',
+                          borderColor: 'var(--red)',
+                          color: 'var(--red)',
+                        }}
+                      >
+                        <span>{ew}</span>
+                        {fullFocused && eIdx === fullInlineMeta.extraWords.length - 1 && (
+                          <span className="wn-caret ml-0.5" aria-hidden="true" />
+                        )}
+                      </span>
+                    ))}
                   </div>
                 </div>
               )}

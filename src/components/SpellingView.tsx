@@ -27,6 +27,7 @@ export function SpellingView() {
 
   const [index, setIndex] = useState(0);
   const [typed, setTyped] = useState('');
+  const [inputFocused, setInputFocused] = useState(false);
   const [status, setStatus] = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [hintLevel, setHintLevel] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
@@ -239,68 +240,99 @@ export function SpellingView() {
             )}
           </div>
 
-          {/* Letter-by-letter live boxes */}
-          <div className="flex flex-wrap justify-center gap-1.5">
-            {current.word.split('').map((targetChar, i) => {
-              if (targetChar === ' ') {
-                return <div key={i} className="w-4" />;
-              }
-              const userChar = typed[i] || '';
-              const matches = userChar.toLowerCase() === targetChar.toLowerCase();
-              let bdr = 'var(--border2)';
-              let color = 'var(--accent)';
-              if (userChar) {
-                bdr = matches ? 'var(--green)' : 'var(--red)';
-                color = matches ? 'var(--green)' : 'var(--red)';
-              }
-              return (
-                <div
-                  key={i}
-                  className="w-8 sm:w-9 h-11 border-b-2 flex items-end justify-center pb-1 font-serif-display text-xl font-semibold transition-colors"
-                  style={{ borderColor: bdr, color }}
-                >
-                  {userChar}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Mobile-safe input (no autocomplete / autocorrect / autocapitalize!) */}
+          {/* Unified Inline Letter-by-Letter Typing Surface (click directly on underlines to type!) */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               if (status === 'idle') handleCheck();
               else handleNext();
             }}
-            className="space-y-3"
+            className="space-y-4"
           >
-            <input
-              ref={inputRef}
-              type="text"
-              value={typed}
-              onChange={(e) => status === 'idle' && setTyped(e.target.value)}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              placeholder="Gõ từ tiếng Anh..."
-              className="w-full rounded-2xl px-4 py-3 text-center text-base sm:text-lg border-2 outline-none transition-colors"
+            <div
+              onClick={() => inputRef.current?.focus()}
+              className="relative rounded-2xl px-4 py-5 border-2 cursor-text transition-colors space-y-2.5"
               style={{
                 backgroundColor:
                   status === 'correct'
                     ? 'var(--green-soft)'
                     : status === 'wrong'
                       ? 'var(--red-soft)'
-                      : 'var(--bg)',
+                      : inputFocused
+                        ? 'var(--card)'
+                        : 'var(--bg)',
                 borderColor:
                   status === 'correct'
                     ? 'var(--green)'
                     : status === 'wrong'
                       ? 'var(--red)'
-                      : 'var(--border)',
-                color: 'var(--text)',
+                      : inputFocused
+                        ? 'var(--accent)'
+                        : 'var(--border)',
               }}
-            />
+            >
+              <input
+                ref={inputRef}
+                type="text"
+                value={typed}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                onChange={(e) => status === 'idle' && setTyped(e.target.value)}
+                aria-label="Gõ từ tiếng Anh trực tiếp lên gạch"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-text"
+              />
+
+              <div className="flex flex-wrap justify-center gap-1.5">
+                {current.word.split('').map((targetChar, i) => {
+                  if (targetChar === ' ') {
+                    return <div key={i} className="w-4" />;
+                  }
+                  const userChar = typed[i] || '';
+                  const matches = userChar.toLowerCase() === targetChar.toLowerCase();
+                  const isActiveChar =
+                    status === 'idle' && inputFocused && i === typed.length;
+                  let bdr = isActiveChar ? 'var(--accent)' : 'var(--border2)';
+                  let color = 'var(--accent)';
+                  if (userChar) {
+                    bdr = matches ? 'var(--green)' : 'var(--red)';
+                    color = matches ? 'var(--green)' : 'var(--red)';
+                  }
+                  return (
+                    <div
+                      key={i}
+                      className="w-8 sm:w-9 h-11 border-b-2 rounded-t-md flex items-end justify-center pb-1 font-serif-display text-xl font-semibold transition-colors"
+                      style={{
+                        borderColor: bdr,
+                        color,
+                        backgroundColor: isActiveChar ? 'var(--accent-soft)' : 'transparent',
+                      }}
+                    >
+                      {userChar || (isActiveChar ? <span className="wn-caret" aria-hidden="true" /> : null)}
+                    </div>
+                  );
+                })}
+                {typed.length > current.word.length && (
+                  <div
+                    className="h-11 px-1.5 border-b-2 flex items-end justify-center pb-1 font-serif-display text-xl font-semibold"
+                    style={{ borderColor: 'var(--red)', color: 'var(--red)' }}
+                  >
+                    {typed.slice(current.word.length)}
+                  </div>
+                )}
+              </div>
+
+              <p className="text-center text-[11px]" style={{ color: 'var(--text3)' }}>
+                {status !== 'idle'
+                  ? 'Nhấn Enter để sang từ tiếp theo'
+                  : inputFocused
+                    ? 'Đang gõ trực tiếp · Nhấn Enter để kiểm tra'
+                    : 'Bấm vào dòng gạch để gõ từ tiếng Anh...'}
+              </p>
+            </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button

@@ -132,3 +132,22 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+@keyframes wn-caret-blink {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+.wn-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.15em;
+  vertical-align: -0.15em;
+  border-radius: 1px;
+  background-color: var(--accent);
+  animation: wn-caret-blink 1s steps(1) infinite;
+}
