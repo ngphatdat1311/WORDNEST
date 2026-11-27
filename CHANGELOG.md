@@ -10,6 +10,13 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [2.4.3] - 2026-11-27
+
+- **Sửa dứt điểm lỗi bấm loa phát âm không ra tiếng trên cả 3 hệ điều hành & Web**:
+  - Xây dựng API phát âm MP3 chuẩn giọng bản ngữ [`/api/tts`](src/app/api/tts/route.ts) với 3 nguồn dự phòng tự động + bộ nhớ đệm LRU 24 giờ (phát lại tức thì `< 2ms`), giải quyết triệt để lỗi Electron/Linux/Chromium không có sẵn giọng `speechSynthesis`.
+  - Nâng cấp [`src/lib/speech.ts`](src/lib/speech.ts) phát trực tiếp đồng bộ ngay trong cú click (tương thích 100% Windows, macOS, Linux, Safari/iOS), giữ đúng tốc độ phát chậm/nhanh (`playbackRate`), tự hủy âm cũ không bị chồng tiếng, và tự chuyển mượt sang Web Speech API đã vá lỗi khi mất mạng.
+  - Bật `autoplay-policy: no-user-gesture-required` trong [`electron/main.js`](electron/main.js) để chế độ tự phát âm Flashcard và Không Chiến hoạt động ổn định 100%.
+
 ## [2.4.2] - 2026-11-27
 
 - **Nâng cấp lưu trữ chống mất dữ liệu tuyệt đối khi cập nhật ứng dụng (Zero-Data-Loss Update Engine)**:

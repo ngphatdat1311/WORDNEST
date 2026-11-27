@@ -9,6 +9,9 @@ const fs = require('fs');
 const { createBackupVaultManager } = require('./backup-vault');
 const { createDurableStorage } = require('./durable-storage');
 
+// Allow Flashcard auto-pronounce, speaker buttons & Air Combat audio without Chromium autoplay blocking
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 const GITHUB_OWNER = 'ngphatdat1311';
 const GITHUB_REPO = 'WORDNEST';
 
