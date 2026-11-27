@@ -1,10 +1,14 @@
-const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { spawn } = require('child_process');
 const path = require('path');
 const http = require('http');
+const https = require('https');
 const net = require('net');
 const fs = require('fs');
+
+const GITHUB_OWNER = 'ngphatdat1311';
+const GITHUB_REPO = 'WORDNEST';
 
 let mainWindow = null;
 let serverProcess = null;
@@ -278,6 +282,12 @@ function setupAppMenu() {
       label: app.name,
       submenu: [
         { role: 'about' },
+        {
+          label: 'Kiểm tra cập nhật...',
+          click: () => {
+            triggerUpdateCheck(true);
+          },
+        },
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
@@ -361,13 +371,197 @@ function createWindow(appUrl) {
   });
 }
 
-function setupAutoUpdater() {
-  if (!app.isPackaged) return;
+function compareSemver(a, b) {
+  const pa = String(a || '').replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = String(b || '').replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const len = Math.max(pa.length, pb.length, 3);
+  for (let i = 0; i < len; i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+function fetchLatestGithubRelease() {
+  return new Promise((resolve, reject) => {
+    const req = https.get(
+      {
+        hostname: 'api.github.com',
+        path: `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
+        headers: {
+          'User-Agent': `WordNest-Desktop/${app.getVersion()}`,
+          Accept: 'application/vnd.github+json',
+        },
+      },
+      (res) => {
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => {
+          body += chunk;
+        });
+        res.on('end', () => {
+          if (res.statusCode !== 200) {
+            reject(new Error(`GitHub API HTTP ${res.statusCode}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(body));
+          } catch (err) {
+            reject(err);
+          }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.setTimeout(10000, () => {
+      req.destroy(new Error('GitHub Release check timeout'));
+    });
+  });
+}
+
+function pickOsDownloadUrl(release) {
+  const assets = Array.isArray(release?.assets) ? release.assets : [];
+  const findAsset = (re) => assets.find((a) => re.test(a.name || ''))?.browser_download_url;
+  if (process.platform === 'win32') {
+    return findAsset(/\.exe$/i) || release.html_url;
+  }
+  if (process.platform === 'darwin') {
+    return findAsset(/\.dmg$/i) || release.html_url;
+  }
+  if (process.env.APPIMAGE) {
+    return findAsset(/\.AppImage$/i) || release.html_url;
+  }
+  return findAsset(/\.deb$/i) || findAsset(/\.AppImage$/i) || release.html_url;
+}
+
+async function checkGithubReleaseFallback(manual = false) {
   try {
-    autoUpdater.autoDownload = true;
-    autoUpdater.checkForUpdatesAndNotify().catch(() => {});
+    const release = await fetchLatestGithubRelease();
+    const latestTag = String(release?.tag_name || '').replace(/^v/i, '');
+    const currentVer = app.getVersion();
+    if (latestTag && compareSemver(latestTag, currentVer) > 0) {
+      const targetUrl = pickOsDownloadUrl(release);
+      const { response } = await dialog.showMessageBox(mainWindow || undefined, {
+        type: 'info',
+        title: 'Đã có bản cập nhật WordNest mới',
+        message: `WordNest v${latestTag} đã sẵn sàng! (Hiện tại: v${currentVer})`,
+        detail:
+          'Toàn bộ từ vựng, tiến độ nghe và lịch ôn FSRS v5 của bạn được lưu riêng và giữ nguyên 100% khi cài đè bản mới.',
+        buttons: ['Tải bản mới ngay', 'Để sau'],
+        defaultId: 0,
+        cancelId: 1,
+      });
+      if (response === 0 && targetUrl) {
+        shell.openExternal(targetUrl);
+      }
+      return { status: 'available', latestVersion: latestTag };
+    }
+
+    if (manual) {
+      await dialog.showMessageBox(mainWindow || undefined, {
+        type: 'info',
+        title: 'WordNest đã ở bản mới nhất',
+        message: `Bạn đang dùng WordNest v${currentVer} mới nhất!`,
+        buttons: ['Đóng'],
+      });
+    }
+    return { status: 'up-to-date', currentVersion: currentVer };
+  } catch (err) {
+    if (manual) {
+      await dialog.showMessageBox(mainWindow || undefined, {
+        type: 'warning',
+        title: 'Không thể kiểm tra cập nhật',
+        message: 'Không thể kết nối GitHub Releases lúc này. Vui lòng thử lại sau.',
+        detail: err instanceof Error ? err.message : '',
+        buttons: ['Đóng'],
+      });
+    }
+    return { status: 'error' };
+  }
+}
+
+function supportsSilentAutoUpdate() {
+  if (!app.isPackaged) return false;
+  if (process.platform === 'win32') return true;
+  if (process.platform === 'linux') return Boolean(process.env.APPIMAGE);
+  // macOS Squirrel.Mac only works when Apple Developer code-signed; otherwise fallback cleanly
+  return process.platform === 'darwin';
+}
+
+let updaterInitialized = false;
+let manualCheckPending = false;
+
+function setupAutoUpdater() {
+  ipcMain.handle('wordnest:get-version', () => app.getVersion());
+  ipcMain.handle('wordnest:check-updates', () => triggerUpdateCheck(true));
+
+  if (!app.isPackaged || updaterInitialized) return;
+  updaterInitialized = true;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-not-available', () => {
+    if (manualCheckPending) {
+      manualCheckPending = false;
+      dialog.showMessageBox(mainWindow || undefined, {
+        type: 'info',
+        title: 'WordNest đã ở bản mới nhất',
+        message: `Bạn đang dùng WordNest v${app.getVersion()} mới nhất!`,
+        buttons: ['Đóng'],
+      });
+    }
+  });
+
+  autoUpdater.on('update-downloaded', async (info) => {
+    manualCheckPending = false;
+    const version = info?.version || 'mới';
+    const { response } = await dialog.showMessageBox(mainWindow || undefined, {
+      type: 'info',
+      title: 'Đã tải xong bản cập nhật WordNest',
+      message: `Đã tải xong WordNest v${version}!`,
+      detail:
+        'Khởi động lại ngay để cài bản mới? Toàn bộ từ vựng, tiến độ nghe và lịch ôn FSRS v5 của bạn được giữ nguyên 100%.',
+      buttons: ['Cập nhật & Khởi động lại', 'Để sau (tự cài khi đóng app)'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response === 0) {
+      stopExtensionCaptureServer();
+      stopEmbeddedServer();
+      autoUpdater.quitAndInstall(false, true);
+    }
+  });
+
+  autoUpdater.on('error', () => {
+    // On unsigned macOS builds or restricted Linux installs, Squirrel/updater throws —
+    // transparently fall back to GitHub Release API check so the user still gets notified!
+    const wasManual = manualCheckPending;
+    manualCheckPending = false;
+    checkGithubReleaseFallback(wasManual);
+  });
+
+  // Check silently 4 seconds after launch so startup feels instant
+  setTimeout(() => {
+    triggerUpdateCheck(false);
+  }, 4000);
+}
+
+async function triggerUpdateCheck(manual = false) {
+  if (!app.isPackaged) {
+    return checkGithubReleaseFallback(manual);
+  }
+  if (!supportsSilentAutoUpdate()) {
+    // e.g. Linux .deb (requires sudo to overwrite system package) -> open direct .deb download
+    return checkGithubReleaseFallback(manual);
+  }
+  try {
+    manualCheckPending = manual;
+    await autoUpdater.checkForUpdates();
+    return { status: 'checking' };
   } catch {
-    // Ignore offline update check failures
+    manualCheckPending = false;
+    return checkGithubReleaseFallback(manual);
   }
 }
 

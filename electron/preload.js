@@ -16,4 +16,8 @@ contextBridge.exposeInMainWorld('wordnestDesktop', {
       return () => ipcRenderer.removeListener('wordnest:extension-capture', handler);
     },
   },
+  updater: {
+    checkForUpdates: () => ipcRenderer.invoke('wordnest:check-updates'),
+    getVersion: () => ipcRenderer.invoke('wordnest:get-version'),
+  },
 });

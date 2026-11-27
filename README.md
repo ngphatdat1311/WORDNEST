@@ -12,17 +12,17 @@
 
 | Hệ điều hành | Định dạng | Tải về trực tiếp | Ghi chú |
 | :--- | :---: | :--- | :--- |
-| **Windows 10 / 11** | `.exe` | [⬇️ **Tải WordNest cho Windows (.exe)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-Setup-2.2.0.exe) | Trình cài đặt tự động (NSIS), tạo shortcut Desktop |
-| **macOS** | `.dmg` | [⬇️ **Tải WordNest cho macOS (.dmg)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-2.2.0-universal.dmg) | Bản Universal (Chạy mượt cả Apple Silicon M1/M2/M3/M4 & chip Intel) |
-| **Linux (Ubuntu / Debian)** | `.deb` | [⬇️ **Tải WordNest cho Linux (.deb)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/wordnest_2.2.0_amd64.deb) | Cài đặt qua `sudo dpkg -i` hoặc double click |
-| **Linux (Mọi bản phân phối)** | `.AppImage` | [⬇️ **Tải WordNest .AppImage**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-2.2.0.AppImage) | `chmod +x` và chạy ngay không cần cài đặt |
+| **Windows 10 / 11** | `.exe` | [⬇️ **Tải WordNest cho Windows (.exe)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-Setup-2.2.1.exe) | Tự động cập nhật ngầm khi có bản mới, tạo shortcut Desktop |
+| **macOS** | `.dmg` | [⬇️ **Tải WordNest cho macOS (.dmg)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-2.2.1-universal.dmg) | Bản Universal (Apple Silicon M1–M4 & Intel), tự báo khi có bản mới |
+| **Linux (Ubuntu / Debian)** | `.deb` | [⬇️ **Tải WordNest cho Linux (.deb)**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/wordnest_2.2.1_amd64.deb) | Cài đặt qua `sudo apt install`, tự báo bản mới & giữ nguyên dữ liệu |
+| **Linux (Mọi bản phân phối)** | `.AppImage` | [⬇️ **Tải WordNest .AppImage**](https://github.com/ngphatdat1311/WORDNEST/releases/latest/download/WordNest-2.2.1.AppImage) | `chmod +x` chạy ngay, hỗ trợ tự động cập nhật ngầm |
 
 👉 **Xem toàn bộ danh sách phiên bản và file đính kèm:** [**Trang GitHub Releases**](https://github.com/ngphatdat1311/WORDNEST/releases)
 
-> [!IMPORTANT]
-> **Lưu ý khi tải từ kho lưu trữ Private**:
-> - Nếu repository `WORDNEST` đang ở chế độ **Private**, người tải cần phải đăng nhập tài khoản GitHub đã được thêm làm Collaborator mới có quyền tải file từ release.
-> - **Để bạn bè tải về tự do mà không cần đăng nhập GitHub**: Bạn chỉ cần vào **Settings** của repository -> Kéo xuống cuối trang mục **Danger Zone** -> Chọn **Change visibility** -> Đổi sang **Public**. Khi repo là Public, bất kỳ ai bấm link tải ở trên cũng sẽ tải được ngay lập tức!
+> [!TIP]
+> **Tự động cập nhật không mất dữ liệu trên cả 3 hệ điều hành:**
+> - **Windows (`.exe`) & Linux (`.AppImage`):** App tự động kiểm tra, tải ngầm bản mới và hỏi khởi động lại để cập nhật — không cần xóa đi tải lại.
+> - **macOS (`.dmg`) & Linux (`.deb`):** App tự phát hiện bản mới và hiện nút tải 1 chạm — toàn bộ từ vựng, tiến độ nghe & lịch FSRS v5 được lưu độc lập trong thư mục hệ thống nên giữ nguyên 100% khi cài đè.
 
 ---
 

@@ -10,6 +10,16 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [2.2.1] - 2026-11-27
+
+- **Tự động cập nhật Desktop App trên cả 3 hệ điều hành (Windows / macOS / Linux)**:
+  - Bổ sung target `.zip` cho macOS trong `package.json` và CI workflow để xuất đủ `latest-mac.yml` + `.zip` + `.dmg`.
+  - Nâng cấp `electron/main.js` với hộp thoại tiếng Việt thông báo tải xong & khởi động lại để cập nhật ngay (`Windows .exe` & `Linux .AppImage`), tự động dự phòng kiểm tra GitHub Release và mở link tải trực tiếp 1 chạm cho `macOS` chưa ký chứng chỉ & `Linux .deb` (giữ nguyên 100% dữ liệu học trong `userData/storage/`).
+  - Bổ sung nút **"Kiểm tra cập nhật"** trong thanh Menu Desktop & tab **Tiến độ**.
+- **Gõ trực tiếp lên gạch (Inline Underline Typing)**: Gộp gọn 2 khung thành 1 khung gạch duy nhất có con trỏ nhấp nháy ở cả *Nghe chép toàn bộ* lẫn *Luyện Chính Tả*; tự nhảy ô tiếp theo khi gõ ở chế độ *Điền khuyết*.
+- **AI Coach Gemini mới nhất**: Nâng cấp chuỗi model nhanh `gemini-flash-lite-latest` (~1,2s phản hồi) và thêm nút **"Kiểm tra kết nối AI"** ngay trong tab Tiến độ.
+- **Tinh chỉnh UX**: Tự động cuộn lên đầu trang khi chuyển tab/bài nghe và đồng bộ toàn bộ nhãn hiển thị `FSRS v5`.
+
 ## [2.2.0] - 2026-11-27
 
 - **Thuật toán ôn tập FSRS v5 (chuẩn Anki thế hệ mới)**: Thay thế SM-2 bằng mô hình đường cong quên lũy thừa **FSRS v5** (`srsStability`, `srsDifficulty`, `srsLastReview`), tự động di trú mượt dữ liệu SM-2 cũ mà không mất tiến độ và hiển thị trực tiếp xác suất nhớ & độ bền trí nhớ trên thẻ Flashcard.

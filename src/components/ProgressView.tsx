@@ -66,6 +66,7 @@ export function ProgressView() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [testingGemini, setTestingGemini] = useState(false);
   const [geminiStatus, setGeminiStatus] = useState<'idle' | 'ok' | 'fallback'>('idle');
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -816,6 +817,48 @@ export function ProgressView() {
           </button>
         </div>
       </div>
+
+      {/* Desktop Auto-Update Checker (visible when running inside Electron Desktop App) */}
+      {typeof window !== 'undefined' &&
+        Boolean(
+          (window as { wordnestDesktop?: { updater?: { checkForUpdates?: () => Promise<unknown> } } })
+            .wordnestDesktop?.updater?.checkForUpdates
+        ) && (
+          <div className="bg-warm-card rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-sm">Cập nhật ứng dụng Desktop tự động</h3>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text3)' }}>
+                Kiểm tra và tải bản WordNest mới nhất từ GitHub Releases — giữ nguyên 100% dữ liệu học.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={checkingUpdate}
+              onClick={async () => {
+                setCheckingUpdate(true);
+                try {
+                  const desktop = (
+                    window as {
+                      wordnestDesktop?: { updater?: { checkForUpdates?: () => Promise<unknown> } };
+                    }
+                  ).wordnestDesktop;
+                  await desktop?.updater?.checkForUpdates?.();
+                } finally {
+                  setCheckingUpdate(false);
+                }
+              }}
+              className="self-start sm:self-auto px-3.5 py-2 rounded-xl border text-xs font-medium inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+              style={{ borderColor: 'var(--green)', color: 'var(--green)', backgroundColor: 'var(--green-soft)' }}
+            >
+              {checkingUpdate ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" />
+              )}
+              Kiểm tra cập nhật
+            </button>
+          </div>
+        )}
 
       {/* Onboarding Wizard Re-launcher */}
       <div className="bg-warm-card rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
