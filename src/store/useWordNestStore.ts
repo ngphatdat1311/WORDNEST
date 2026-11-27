@@ -822,6 +822,50 @@ export const useWordNestStore = create<WordNestState>()(
     {
       name: 'wordnest-v2-storage',
       storage: createJSONStorage(() => wordNestStateStorage),
+      merge: (persistedState, currentState) => {
+        if (!persistedState || typeof persistedState !== 'object') {
+          return currentState;
+        }
+        const persisted = persistedState as Partial<WordNestState>;
+        const mergedWords = Array.isArray(persisted.words) ? persisted.words : currentState.words;
+        const mergedProgress =
+          persisted.dictationProgress && typeof persisted.dictationProgress === 'object'
+            ? { ...currentState.dictationProgress, ...persisted.dictationProgress }
+            : currentState.dictationProgress;
+        const hasExistingHistory =
+          mergedWords.some((w) => !w.id.startsWith('w_def_')) ||
+          Object.keys(mergedProgress).length > 0;
+
+        return {
+          ...currentState,
+          ...persisted,
+          words: mergedWords,
+          folders: Array.isArray(persisted.folders) ? persisted.folders : currentState.folders,
+          trash: Array.isArray(persisted.trash) ? persisted.trash : currentState.trash,
+          customLessons: Array.isArray(persisted.customLessons)
+            ? persisted.customLessons
+            : currentState.customLessons,
+          dictationProgress: mergedProgress,
+          streak: persisted.streak
+            ? { ...currentState.streak, ...persisted.streak }
+            : currentState.streak,
+          quizStats: persisted.quizStats
+            ? { ...currentState.quizStats, ...persisted.quizStats }
+            : currentState.quizStats,
+          airCombatStats: persisted.airCombatStats
+            ? { ...currentState.airCombatStats, ...persisted.airCombatStats }
+            : currentState.airCombatStats,
+          cloudSync: persisted.cloudSync
+            ? { ...currentState.cloudSync, ...persisted.cloudSync }
+            : currentState.cloudSync,
+          onboardingCompleted:
+            typeof persisted.onboardingCompleted === 'boolean'
+              ? persisted.onboardingCompleted
+              : hasExistingHistory
+                ? true
+                : currentState.onboardingCompleted,
+        };
+      },
       partialize: (state) => ({
         theme: state.theme,
         words: state.words,

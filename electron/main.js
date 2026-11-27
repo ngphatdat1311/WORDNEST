@@ -7,10 +7,12 @@ const https = require('https');
 const net = require('net');
 const fs = require('fs');
 const { createBackupVaultManager } = require('./backup-vault');
+const { createDurableStorage } = require('./durable-storage');
 
 const GITHUB_OWNER = 'ngphatdat1311';
 const GITHUB_REPO = 'WORDNEST';
 
+let durableStorage = null;
 let backupVault = null;
 let vaultDebounceTimer = null;
 let pendingVaultPayload = null;
@@ -22,86 +24,41 @@ let captureServer = null;
 const pendingExtensionWords = [];
 const EXTENSION_CAPTURE_PORT = 51789;
 
-function sanitizeStorageKey(key) {
-  const safe = String(key || '').replace(/[^a-zA-Z0-9_-]/g, '');
-  return safe || 'wordnest-store';
-}
-
-function getStorageFilePath(key) {
-  const dir = path.join(app.getPath('userData'), 'storage');
-  fs.mkdirSync(dir, { recursive: true });
-  return path.join(dir, `${sanitizeStorageKey(key)}.json`);
-}
-
-function maybeWriteDailyBackup(key, rawValue) {
-  try {
-    const backupDir = path.join(app.getPath('userData'), 'backups');
-    fs.mkdirSync(backupDir, { recursive: true });
-    const today = new Date().toISOString().slice(0, 10);
-    const prefix = `${sanitizeStorageKey(key)}-`;
-    const backupPath = path.join(backupDir, `${prefix}${today}.json`);
-    if (!fs.existsSync(backupPath)) {
-      fs.writeFileSync(backupPath, rawValue, 'utf8');
-      const existing = fs
-        .readdirSync(backupDir)
-        .filter((f) => f.startsWith(prefix) && f.endsWith('.json'))
-        .sort();
-      while (existing.length > 5) {
-        const oldest = existing.shift();
-        if (oldest) {
-          fs.unlinkSync(path.join(backupDir, oldest));
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[WordNest Backup]', err);
+function ensureDurableStorage() {
+  if (!durableStorage) {
+    durableStorage = createDurableStorage(app.getPath('userData'));
   }
+  return durableStorage;
 }
 
 function setupStorageIpc() {
+  const store = ensureDurableStorage();
+
   ipcMain.on('wordnest:storage-get-sync', (event, key) => {
-    try {
-      const filePath = getStorageFilePath(key);
-      if (!fs.existsSync(filePath)) {
-        event.returnValue = null;
-        return;
-      }
-      event.returnValue = fs.readFileSync(filePath, 'utf8');
-    } catch (err) {
-      console.error('[WordNest Storage Read]', err);
-      event.returnValue = null;
+    event.returnValue = store.readSafe(key);
+  });
+
+  ipcMain.on('wordnest:storage-set-sync', (event, key, value) => {
+    const strVal = String(value);
+    const ok = store.writeSyncSafe(key, strVal);
+    if (ok && key === 'wordnest-v2-storage') {
+      pendingVaultPayload = strVal;
+      flushPendingVaultBackup();
     }
+    event.returnValue = ok;
   });
 
   ipcMain.handle('wordnest:storage-set', async (_event, key, value) => {
-    try {
-      const filePath = getStorageFilePath(key);
-      const tmpPath = `${filePath}.tmp`;
-      const strVal = String(value);
-      await fs.promises.writeFile(tmpPath, strVal, 'utf8');
-      await fs.promises.rename(tmpPath, filePath);
-      maybeWriteDailyBackup(key, strVal);
-      if (key === 'wordnest-v2-storage') {
-        scheduleContinuousVaultBackup(strVal);
-      }
-      return true;
-    } catch (err) {
-      console.error('[WordNest Storage Write]', err);
-      return false;
+    const strVal = String(value);
+    const ok = await store.writeQueued(key, strVal);
+    if (ok && key === 'wordnest-v2-storage') {
+      scheduleContinuousVaultBackup(strVal);
     }
+    return ok;
   });
 
   ipcMain.handle('wordnest:storage-remove', async (_event, key) => {
-    try {
-      const filePath = getStorageFilePath(key);
-      if (fs.existsSync(filePath)) {
-        await fs.promises.unlink(filePath);
-      }
-      return true;
-    } catch (err) {
-      console.error('[WordNest Storage Remove]', err);
-      return false;
-    }
+    return store.removeSafe(key);
   });
 
   ipcMain.handle('wordnest:extension-drain', () => {
@@ -161,9 +118,8 @@ function setupBackupVaultIpc() {
     if (res.ok) {
       // Immediately create the first encrypted compressed snapshot from current stored data
       try {
-        const currentFile = getStorageFilePath('wordnest-v2-storage');
-        if (fs.existsSync(currentFile)) {
-          const raw = fs.readFileSync(currentFile, 'utf8');
+        const raw = ensureDurableStorage().readSafe('wordnest-v2-storage');
+        if (raw) {
           backupVault.writeContinuousBackup(raw);
         }
       } catch {
@@ -175,12 +131,7 @@ function setupBackupVaultIpc() {
   });
 
   ipcMain.handle('wordnest:vault-backup-now', (_event, rawJson) => {
-    const payload =
-      rawJson ||
-      (() => {
-        const currentFile = getStorageFilePath('wordnest-v2-storage');
-        return fs.existsSync(currentFile) ? fs.readFileSync(currentFile, 'utf8') : null;
-      })();
+    const payload = rawJson || ensureDurableStorage().readSafe('wordnest-v2-storage');
     if (!payload) return { ok: false, error: 'Chưa có dữ liệu để sao lưu.' };
     return backupVault.writeContinuousBackup(payload);
   });
@@ -590,6 +541,16 @@ async function checkGithubReleaseFallback(manual = false) {
         cancelId: 1,
       });
       if (response === 0 && targetUrl) {
+        try {
+          const store = ensureDurableStorage();
+          await store.flushAll();
+          store.createPreUpdateSnapshot('wordnest-v2-storage', currentVer);
+          const latestRaw = store.readSafe('wordnest-v2-storage');
+          if (latestRaw) pendingVaultPayload = latestRaw;
+          flushPendingVaultBackup();
+        } catch {
+          // Best-effort pre-update snapshot before opening installer link
+        }
         shell.openExternal(targetUrl);
       }
       return { status: 'available', latestVersion: latestTag };
@@ -665,6 +626,22 @@ function setupAutoUpdater() {
       cancelId: 1,
     });
     if (response === 0) {
+      // Zero-data-loss pre-update flush:
+      // 1) Wait for any in-flight storage writes to fsync & finish atomically
+      // 2) Create a dedicated pre-update JSON snapshot in userData/backups/
+      // 3) Flush latest data to the password-protected .wnbak Vault
+      try {
+        const store = ensureDurableStorage();
+        await store.flushAll();
+        store.createPreUpdateSnapshot('wordnest-v2-storage', app.getVersion());
+        const latestRaw = store.readSafe('wordnest-v2-storage');
+        if (latestRaw) {
+          pendingVaultPayload = latestRaw;
+        }
+        flushPendingVaultBackup();
+      } catch (err) {
+        console.error('[WordNest Pre-Update Flush]', err);
+      }
       stopExtensionCaptureServer();
       stopEmbeddedServer();
       autoUpdater.quitAndInstall(false, true);
@@ -743,13 +720,29 @@ if (!gotLock) {
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
+      flushPendingVaultBackup();
       stopExtensionCaptureServer();
       stopEmbeddedServer();
       app.quit();
     }
   });
 
-  app.on('before-quit', () => {
+  let isFlushingBeforeQuit = false;
+  app.on('before-quit', (event) => {
+    if (!isFlushingBeforeQuit && durableStorage) {
+      isFlushingBeforeQuit = true;
+      event.preventDefault();
+      durableStorage
+        .flushAll()
+        .catch(() => {})
+        .finally(() => {
+          flushPendingVaultBackup();
+          stopExtensionCaptureServer();
+          stopEmbeddedServer();
+          app.quit();
+        });
+      return;
+    }
     flushPendingVaultBackup();
     stopExtensionCaptureServer();
     stopEmbeddedServer();

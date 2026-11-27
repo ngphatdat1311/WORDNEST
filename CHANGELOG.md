@@ -10,6 +10,13 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [2.4.2] - 2026-11-27
+
+- **Nâng cấp lưu trữ chống mất dữ liệu tuyệt đối khi cập nhật ứng dụng (Zero-Data-Loss Update Engine)**:
+  - **Hàng đợi ghi tuần tự + `fsync` + bản sao bóng `.prev`** ([`electron/durable-storage.js`](electron/durable-storage.js)): Triệt tiêu hoàn toàn nguy cơ tranh chấp file `.tmp` khi thêm nhiều từ liên tiếp và tự động phục hồi (self-healing) nếu file chính bị gián đoạn do tắt máy đột ngột.
+  - **Xả đồng bộ trước khi thoát / cập nhật (`beforeunload` + `flushAll` + `pre-update` snapshot + xả két `.wnbak`)**: Đảm bảo kể cả từ vựng vừa thêm trước khi bấm *"Cập nhật & Khởi động lại"* 10 mili-giây cũng được ghi chắc xuống đĩa và tạo bản chụp dự phòng `pre-update-v*` trước khi cài bản mới.
+  - **Khóa bảo vệ thư mục dữ liệu Windows NSIS (`deleteAppDataOnUninstall: false`)** và **gộp sâu (deep-merge) Zustand** giúp mọi nâng cấp qua nhiều phiên bản giữ nguyên 100% từ vựng, tiến độ nghe, chuỗi Streak và lịch FSRS v5.
+
 ## [2.4.1] - 2026-11-27
 
 - **Hoàn thiện khóa chống xóa NTFS trên Windows (`icacls` dùng universal SID `*S-1-1-0:(DE,DC)` + `attrib +R`)**:

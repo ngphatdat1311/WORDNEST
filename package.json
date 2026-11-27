@@ -1,6 +1,6 @@
 {
   "name": "wordnest",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "WordNest 2.0 – Ứng dụng học từ vựng SRS & Nghe chép chính tả YouTube chuẩn DOL (Desktop App & Web/PWA).",
   "main": "electron/main.js",
   "author": "ngphatdat1311",
@@ -82,6 +82,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "artifactName": "${productName}-Setup-${version}.${ext}"

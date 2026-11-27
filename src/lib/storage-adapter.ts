@@ -5,9 +5,35 @@ interface WordNestDesktopBridge {
   platform?: string;
   storage?: {
     getItemSync: (key: string) => string | null;
+    setItemSync?: (key: string, value: string) => boolean;
     setItem: (key: string, value: string) => Promise<boolean>;
     removeItem: (key: string) => Promise<boolean>;
   };
+}
+
+const pendingDesktopWrites = new Map<string, string>();
+let unloadHookRegistered = false;
+
+function registerDesktopUnloadFlush(): void {
+  if (unloadHookRegistered || typeof window === 'undefined') return;
+  unloadHookRegistered = true;
+
+  const flushSync = () => {
+    if (pendingDesktopWrites.size === 0) return;
+    const desktopStorage = getDesktopStorage();
+    if (!desktopStorage?.setItemSync) return;
+    for (const [k, v] of pendingDesktopWrites.entries()) {
+      try {
+        desktopStorage.setItemSync(k, v);
+      } catch {
+        // Best-effort sync flush on window close/reload
+      }
+    }
+    pendingDesktopWrites.clear();
+  };
+
+  window.addEventListener('beforeunload', flushSync);
+  window.addEventListener('pagehide', flushSync);
 }
 
 const IDB_NAME = 'wordnest-idb';
@@ -167,7 +193,15 @@ export const wordNestStateStorage: StateStorage = {
     // 1. Electron durable disk storage
     const desktopStorage = getDesktopStorage();
     if (desktopStorage) {
-      await desktopStorage.setItem(name, value);
+      registerDesktopUnloadFlush();
+      pendingDesktopWrites.set(name, value);
+      try {
+        await desktopStorage.setItem(name, value);
+      } finally {
+        if (pendingDesktopWrites.get(name) === value) {
+          pendingDesktopWrites.delete(name);
+        }
+      }
       return;
     }
 

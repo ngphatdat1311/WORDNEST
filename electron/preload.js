@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('wordnestDesktop', {
   platform: process.platform,
   storage: {
     getItemSync: (key) => ipcRenderer.sendSync('wordnest:storage-get-sync', key),
+    setItemSync: (key, value) => ipcRenderer.sendSync('wordnest:storage-set-sync', key, value),
     setItem: (key, value) => ipcRenderer.invoke('wordnest:storage-set', key, value),
     removeItem: (key) => ipcRenderer.invoke('wordnest:storage-remove', key),
   },
