@@ -6,7 +6,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { createBackupVaultManager } = require('../electron/backup-vault.js');
+const { createBackupVaultManager, unlockDirAndFiles } = require('../electron/backup-vault.js');
 
 describe('Protected Auto-Backup Vault (Encrypted, Lightweight & Delete-Locked)', () => {
   it('compresses JSON heavily, encrypts with AES-256-GCM, blocks deletion without password, and restores cleanly', () => {
@@ -81,13 +81,17 @@ describe('Protected Auto-Backup Vault (Encrypted, Lightweight & Delete-Locked)',
       assert.equal(goodUnlock.ok, true);
       assert.equal(fs.existsSync(latestFile), false);
     } finally {
-      // Ensure cleanup succeeds
+      // Ensure OS locks (Windows icacls/attrib, macOS chflags, Linux chmod) are released before cleanup
       try {
-        fs.chmodSync(vaultDir, 0o755);
+        unlockDirAndFiles(vaultDir);
       } catch {
         // ignore
       }
-      fs.rmSync(tmpRoot, { recursive: true, force: true });
+      try {
+        fs.rmSync(tmpRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      } catch {
+        // ignore transient Windows Defender/indexer lock on OS temp folder cleanup
+      }
     }
   });
 });

@@ -10,6 +10,12 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [2.4.1] - 2026-11-27
+
+- **Hoàn thiện khóa chống xóa NTFS trên Windows (`icacls` dùng universal SID `*S-1-1-0:(DE,DC)` + `attrib +R`)**:
+  - Sửa cú pháp `icacls` chuẩn Microsoft trên mọi ngôn ngữ Windows & mọi loại tài khoản (Local, Microsoft Account, AzureAD, CI runner), hỗ trợ gỡ khóa đệ quy `/remove:d *S-1-1-0 /T /C /Q` tức thì khi nhập đúng mật khẩu.
+  - Bổ sung cơ chế ghi dự phòng khi Windows Defender quét đồng thời lúc sao lưu liên tục.
+
 ## [2.4.0] - 2026-11-27
 
 - **Két Sao Lưu Tự Động Liên Tục Chống Xóa Bằng Mật Khẩu (Protected Auto-Backup Vault — `.wnbak`)**:

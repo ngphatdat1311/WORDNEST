@@ -114,6 +114,9 @@ function decodeProtectedBackup(fileBuf, password) {
 
 /* ═══ Cross-OS File & Directory Delete Protection ═══ */
 
+// Universal language-independent Windows SID for "Everyone"
+const WIN_EVERYONE_SID = '*S-1-1-0';
+
 function lockFileAndDir(vaultDir, filePaths) {
   const platform = process.platform;
   for (const fp of filePaths) {
@@ -124,13 +127,11 @@ function lockFileAndDir(vaultDir, filePaths) {
         execFileSync('chflags', ['uchg', fp], { stdio: 'ignore' });
       } else if (platform === 'win32') {
         execFileSync('attrib', ['+R', fp], { stdio: 'ignore', windowsHide: true });
-        const user = process.env.USERNAME || '';
-        if (user) {
-          execFileSync('icacls', [fp, '/deny', `${user}:(D,DC)`], {
-            stdio: 'ignore',
-            windowsHide: true,
-          });
-        }
+        // Deny specific Delete (DE) right on the backup file itself
+        execFileSync('icacls', [fp, '/deny', `${WIN_EVERYONE_SID}:(DE)`], {
+          stdio: 'ignore',
+          windowsHide: true,
+        });
       } else {
         // Linux: file read-only (0444)
         fs.chmodSync(fp, 0o444);
@@ -144,13 +145,11 @@ function lockFileAndDir(vaultDir, filePaths) {
     if (platform === 'darwin') {
       execFileSync('chflags', ['uchg', vaultDir], { stdio: 'ignore' });
     } else if (platform === 'win32') {
-      const user = process.env.USERNAME || '';
-      if (user) {
-        execFileSync('icacls', [vaultDir, '/deny', `${user}:(D,DC)`], {
-          stdio: 'ignore',
-          windowsHide: true,
-        });
-      }
+      // Deny specific Delete (DE) and Delete Child (DC) rights on the vault folder
+      execFileSync('icacls', [vaultDir, '/deny', `${WIN_EVERYONE_SID}:(DE,DC)`], {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
     } else {
       // Linux: removing write permission on the vault directory (0555) makes normal
       // rm / unlink / Finder / Files delete fail with EACCES Permission Denied!
@@ -169,12 +168,26 @@ function unlockDirAndFiles(vaultDir) {
     if (platform === 'darwin') {
       execFileSync('chflags', ['nouchg', vaultDir], { stdio: 'ignore' });
     } else if (platform === 'win32') {
+      // Remove all explicit DENY ACEs recursively on folder + files
+      execFileSync('icacls', [vaultDir, '/remove:d', WIN_EVERYONE_SID, '/T', '/C', '/Q'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
       const user = process.env.USERNAME || '';
       if (user) {
-        execFileSync('icacls', [vaultDir, '/remove:d', user], {
-          stdio: 'ignore',
-          windowsHide: true,
-        });
+        try {
+          execFileSync('icacls', [vaultDir, '/remove:d', user, '/T', '/C', '/Q'], {
+            stdio: 'ignore',
+            windowsHide: true,
+          });
+        } catch {
+          // Ignore if no legacy per-user DENY ACE exists
+        }
+      }
+      try {
+        execFileSync('attrib', ['-R', vaultDir], { stdio: 'ignore', windowsHide: true });
+      } catch {
+        // Ignore
       }
     } else {
       fs.chmodSync(vaultDir, 0o755);
@@ -192,13 +205,6 @@ function unlockDirAndFiles(vaultDir) {
           execFileSync('chflags', ['nouchg', fp], { stdio: 'ignore' });
           fs.chmodSync(fp, 0o644);
         } else if (platform === 'win32') {
-          const user = process.env.USERNAME || '';
-          if (user) {
-            execFileSync('icacls', [fp, '/remove:d', user], {
-              stdio: 'ignore',
-              windowsHide: true,
-            });
-          }
           execFileSync('attrib', ['-R', fp], { stdio: 'ignore', windowsHide: true });
         } else {
           fs.chmodSync(fp, 0o644);
@@ -353,7 +359,17 @@ function createBackupVaultManager({ userDataDir, defaultVaultDir, safeStorage })
       const latestPath = path.join(cfg.vaultDir, 'wordnest-latest.wnbak');
       const tmpPath = path.join(cfg.vaultDir, '.wordnest-latest.tmp');
       fs.writeFileSync(tmpPath, encoded);
-      fs.renameSync(tmpPath, latestPath);
+      try {
+        fs.renameSync(tmpPath, latestPath);
+      } catch {
+        // Windows fallback if AV momentarily inspects latestPath during rename
+        fs.writeFileSync(latestPath, encoded);
+        try {
+          fs.unlinkSync(tmpPath);
+        } catch {
+          // Ignore temp cleanup error
+        }
+      }
 
       // Keep lightweight rotating daily snapshots (max 7 days)
       const todayKey = new Date().toISOString().slice(0, 10);
@@ -480,4 +496,5 @@ module.exports = {
   createWrappedKeyBlock,
   hashPassword,
   verifyPassword,
+  unlockDirAndFiles,
 };
