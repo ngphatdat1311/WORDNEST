@@ -382,6 +382,12 @@ export function AppShell() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme, hydrated]);
 
+  // Reset scroll position to top when switching tabs or opening/closing a lesson
+  useEffect(() => {
+    if (!hydrated || typeof window === 'undefined') return;
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+  }, [activeTab, activeDictationLessonId, hydrated]);
+
   // Register PWA Offline Service Worker & listen for storage quota warnings
   useEffect(() => {
     if (!hydrated || typeof window === 'undefined') return;

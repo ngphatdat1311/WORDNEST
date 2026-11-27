@@ -65,7 +65,7 @@ export function CommandPalette({ open, onClose, onLookupWord }: CommandPalettePr
     const navActions: Array<{ id: NavTab; title: string; subtitle: string; icon: React.ReactNode }> = [
       { id: 'home', title: 'Trang chủ', subtitle: 'Tổng quan mục tiêu & bài nghe hôm nay', icon: <Home className="w-4 h-4" /> },
       { id: 'dictation', title: 'Nghe YouTube (DOL Studio)', subtitle: 'Thư viện video & dán link bất kỳ', icon: <Headphones className="w-4 h-4" /> },
-      { id: 'flashcard', title: 'Flashcard SRS', subtitle: 'Ôn thẻ đến hạn theo thuật toán SM-2', icon: <Layers className="w-4 h-4" /> },
+      { id: 'flashcard', title: 'Flashcard SRS', subtitle: 'Ôn thẻ đến hạn theo thuật toán FSRS v5', icon: <Layers className="w-4 h-4" /> },
       { id: 'quiz', title: 'Quiz Trắc Nghiệm', subtitle: 'Kiểm tra nhanh 4 đáp án', icon: <Brain className="w-4 h-4" /> },
       { id: 'spelling', title: 'Luyện Chính Tả', subtitle: 'Nghe phát âm & gõ từ điền khuyết', icon: <PenLine className="w-4 h-4" /> },
       { id: 'game', title: 'Không Chiến Từ Vựng', subtitle: 'Game bắn máy bay luyện phản xạ gõ', icon: <Rocket className="w-4 h-4" /> },

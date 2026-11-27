@@ -211,7 +211,7 @@ export function HomeView() {
                 {srsDueCount}
               </div>
               <p className="text-xs mt-1" style={{ color: 'var(--text3)' }}>
-                từ đến hạn nhắc lại theo thuật toán SM-2
+                từ đến hạn nhắc lại theo thuật toán FSRS v5
               </p>
             </div>
             <div

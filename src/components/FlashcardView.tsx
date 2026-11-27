@@ -198,7 +198,7 @@ export function FlashcardView() {
       <div>
         <h1 className="font-serif-display text-2xl sm:text-3xl font-semibold">Flashcard SRS</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text3)' }}>
-          Chạm thẻ để lật · Vuốt phải (Nhớ) / Vuốt trái (Quên) hoặc chấm 4 mức SM-2 chuẩn Anki.
+          Chạm thẻ để lật · Vuốt phải (Nhớ) / Vuốt trái (Quên) hoặc chấm 4 mức FSRS v5 chuẩn Anki.
         </p>
       </div>
 

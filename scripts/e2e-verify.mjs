@@ -149,14 +149,13 @@ async function run() {
     await firstLessonCard.waitFor({ timeout: 10000 });
     await firstLessonCard.click();
     await page.getByRole('button', { name: /Tập trung|Thoát tập trung/i }).waitFor({ timeout: 10000 });
-    const fullModeBtn = page.getByRole('button', { name: /Gõ toàn bộ/i }).first();
-    if (await fullModeBtn.isVisible()) {
-      await fullModeBtn.click();
-      const inlineInput = page.getByLabel('Nghe và gõ trực tiếp câu tiếng Anh');
-      await inlineInput.waitFor({ timeout: 5000 });
-      await inlineInput.fill('hello');
-      await page.getByText('hello', { exact: true }).first().waitFor({ timeout: 3000 });
-    }
+    const fullModeBtn = page.getByRole('button', { name: /Gõ full/i }).first();
+    await fullModeBtn.waitFor({ timeout: 5000 });
+    await fullModeBtn.click();
+    const inlineInput = page.getByLabel('Nghe và gõ trực tiếp câu tiếng Anh');
+    await inlineInput.waitFor({ timeout: 5000 });
+    await inlineInput.fill('hello');
+    await page.getByText('hello', { exact: true }).first().waitFor({ timeout: 3000 });
     console.log('PASS [5/6] Dictation library, lazy-loaded studio & inline underline typing');
 
     // 6. Mobile responsive check (390x844) + Dark mode toggle + zero horizontal overflow
