@@ -145,8 +145,8 @@
 .wn-caret {
   display: inline-block;
   width: 2px;
-  height: 1.15em;
-  vertical-align: -0.15em;
+  height: 1.15rem;
+  flex-shrink: 0;
   border-radius: 1px;
   background-color: var(--accent);
   animation: wn-caret-blink 1s steps(1) infinite;

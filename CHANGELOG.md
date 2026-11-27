@@ -10,6 +10,14 @@ thời gian). Số phiên bản khớp tag Git (`vX.Y.Z`) và `package.json`.
 _(Chưa có gì — các thay đổi mới sẽ liệt kê ở đây trước khi bump version cho
 bản release tiếp theo.)_
 
+## [2.2.3] - 2026-11-27
+
+- **Căn chỉnh pixel tuyệt đối (`0.0px` lệch dòng) cho mọi chế độ điền từ & giao diện**:
+  - **Nghe chép toàn bộ (`Gõ full`)**: Cố định cùng chiều cao `36px` (`h-9`) cho mọi trạng thái gạch trống / đang gõ / sai / đúng / con trỏ nhấp nháy — loại bỏ hoàn toàn hiện tượng gạch bị nhảy trồi lên 4–5px khi bắt đầu gõ.
+  - **Điền khuyết (`Điền khuyết`)**: Đồng bộ font serif, cỡ chữ và chiều cao `36px` giữa chữ câu gốc và ô gạch điền — triệt tiêu hoàn toàn lỗi ô nhập bị trồi lên lệch 6px so với câu.
+  - **Luyện Chính Tả**: Căn giữa dọc chuẩn xác con trỏ nhấp nháy (`.wn-caret`) ngang tầm chữ cái trong từng ô gạch.
+  - **Từ Điển Cá Nhân & Thêm Từ Mới**: Chống xuống dòng xấu cho badge chủ đề (`Phrasal Verbs`) và căn chuẩn góc trên bên phải cho badge bộ từ vựng mẫu (Starter Packs).
+
 ## [2.2.2] - 2026-11-27
 
 - **Sửa lỗi đóng gói macOS Universal (`.dmg` + `.zip`) & giảm dung lượng bộ cài**: Loại bỏ các gói native thừa (`@img/sharp`) và các thư viện Web trùng lặp khỏi `app.asar` (vốn đã nằm sẵn trong `.next/standalone` và dùng `images.unoptimized = true`), giúp build macOS Universal xanh 100% và giảm mạnh dung lượng file cài cho cả 3 hệ điều hành.

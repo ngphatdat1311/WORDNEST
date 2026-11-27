@@ -304,7 +304,7 @@ export function SpellingView() {
                   return (
                     <div
                       key={i}
-                      className="w-8 sm:w-9 h-11 border-b-2 rounded-t-md flex items-end justify-center pb-1 font-serif-display text-xl font-semibold transition-colors"
+                      className="w-8 sm:w-9 h-11 border-b-2 rounded-t-md flex items-center justify-center font-serif-display text-xl font-semibold leading-none transition-colors"
                       style={{
                         borderColor: bdr,
                         color,
@@ -317,7 +317,7 @@ export function SpellingView() {
                 })}
                 {typed.length > current.word.length && (
                   <div
-                    className="h-11 px-1.5 border-b-2 flex items-end justify-center pb-1 font-serif-display text-xl font-semibold"
+                    className="h-11 px-1.5 border-b-2 flex items-center justify-center font-serif-display text-xl font-semibold leading-none"
                     style={{ borderColor: 'var(--red)', color: 'var(--red)' }}
                   >
                     {typed.slice(current.word.length)}

@@ -625,7 +625,7 @@ export function WordlistView() {
                         </td>
                         <td className="py-3.5 px-4 align-top">
                           <span
-                            className="inline-block text-xs px-2.5 py-0.5 rounded-full border"
+                            className="inline-block whitespace-nowrap text-xs px-2.5 py-0.5 rounded-full border"
                             style={{
                               backgroundColor: 'var(--bg2)',
                               borderColor: 'var(--border)',

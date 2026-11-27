@@ -413,10 +413,10 @@ export function AddWordView() {
                 style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
               >
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-sm">{pack.title}</span>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-semibold text-sm leading-snug">{pack.title}</span>
                     <span
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap mt-0.5"
                       style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent)' }}
                     >
                       {pack.badge}

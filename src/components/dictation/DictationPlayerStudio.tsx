@@ -1212,7 +1212,7 @@ export function DictationPlayerStudio({
               {/* ── MODE 2: FILL IN THE BLANKS ── */}
               {mode === 'blanks' && !revealed && (
                 <div
-                  className="rounded-2xl p-4 border leading-loose text-base sm:text-lg flex flex-wrap items-baseline gap-x-1.5 gap-y-2.5"
+                  className="rounded-2xl p-4 sm:p-5 border flex flex-wrap items-center content-start gap-x-1.5 gap-y-2.5"
                   style={{
                     backgroundColor: completedNow ? 'var(--green-soft)' : 'var(--bg)',
                     borderColor: completedNow ? 'var(--green-border)' : 'var(--border)',
@@ -1227,7 +1227,7 @@ export function DictationPlayerStudio({
                           key={idx}
                           type="button"
                           onClick={() => setLookupWord(tok.clean)}
-                          className={`hover:underline decoration-dotted underline-offset-4 cursor-pointer rounded px-0.5 ${
+                          className={`inline-flex items-center h-9 font-serif-display text-base sm:text-lg leading-none border-b-2 border-transparent hover:underline decoration-dotted underline-offset-4 cursor-pointer rounded px-0.5 ${
                             isSaved ? 'underline decoration-2' : ''
                           }`}
                           style={{
@@ -1246,7 +1246,10 @@ export function DictationPlayerStudio({
                     const widthCh = Math.max(5, tok.clean.length + 2);
 
                     return (
-                      <span key={idx} className="inline-flex items-baseline">
+                      <span
+                        key={idx}
+                        className="inline-flex items-center h-9 font-serif-display text-base sm:text-lg leading-none"
+                      >
                         {tok.leadingPunct}
                         <input
                           type="text"
@@ -1295,7 +1298,7 @@ export function DictationPlayerStudio({
                             borderColor: isRight ? 'var(--green)' : 'var(--accent)',
                             color: isRight ? 'var(--green)' : 'var(--text)',
                           }}
-                          className="border-b-2 rounded-t-md px-1.5 py-0.5 text-center font-medium outline-none text-sm sm:text-base transition-colors"
+                          className="h-9 border-b-2 rounded-t-md px-1.5 text-center font-serif-display font-medium leading-none outline-none text-base sm:text-lg transition-colors"
                           placeholder={'•'.repeat(Math.min(6, tok.clean.length))}
                         />
                         {tok.trailingPunct}
@@ -1329,7 +1332,7 @@ export function DictationPlayerStudio({
 
                   <div
                     onClick={() => fullInputRef.current?.focus()}
-                    className="relative rounded-2xl p-4 sm:p-5 border-2 min-h-[88px] flex flex-wrap gap-x-2.5 gap-y-3 items-end cursor-text transition-colors"
+                    className="relative rounded-2xl p-4 sm:p-5 border-2 min-h-[88px] flex flex-wrap gap-x-2.5 gap-y-2.5 items-center content-start cursor-text transition-colors"
                     style={{
                       backgroundColor: completedNow
                         ? 'var(--green-soft)'
@@ -1374,13 +1377,13 @@ export function DictationPlayerStudio({
                         !completedNow &&
                         idx === fullInlineMeta.activeSlotIdx &&
                         fullInlineMeta.extraWords.length === 0;
-                      const minSlotPx = Math.max(28, w.target.clean.length * 10);
+                      const minSlotPx = Math.max(30, w.target.clean.length * 10);
 
                       if (w.status === 'correct') {
                         return (
                           <span
                             key={idx}
-                            className="inline-flex items-baseline pb-0.5 border-b-2 transition-colors"
+                            className="inline-flex items-center h-9 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg leading-none box-border transition-colors"
                             style={{
                               minWidth: `${minSlotPx}px`,
                               borderColor: 'var(--green-border)',
@@ -1392,7 +1395,7 @@ export function DictationPlayerStudio({
                                 e.stopPropagation();
                                 setLookupWord(w.target.clean);
                               }}
-                              className="relative z-10 font-serif-display text-base sm:text-lg font-medium hover:underline cursor-pointer"
+                              className="relative z-10 font-serif-display text-base sm:text-lg font-medium leading-none hover:underline cursor-pointer"
                               style={{ color: 'var(--green)' }}
                               title="Chạm để tra từ"
                             >
@@ -1407,7 +1410,7 @@ export function DictationPlayerStudio({
                         return (
                           <span
                             key={idx}
-                            className="inline-flex items-baseline pb-0.5 px-1 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg transition-colors"
+                            className="inline-flex items-center h-9 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg leading-none box-border transition-colors"
                             style={{
                               minWidth: `${minSlotPx}px`,
                               backgroundColor: 'var(--accent-soft)',
@@ -1425,7 +1428,7 @@ export function DictationPlayerStudio({
                         return (
                           <span
                             key={idx}
-                            className="inline-flex items-baseline pb-0.5 px-1 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg transition-colors"
+                            className="inline-flex items-center h-9 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg leading-none box-border transition-colors"
                             style={{
                               minWidth: `${minSlotPx}px`,
                               backgroundColor: 'var(--red-soft)',
@@ -1442,7 +1445,7 @@ export function DictationPlayerStudio({
                       return (
                         <span
                           key={idx}
-                          className="inline-flex items-end h-7 pb-0.5 px-0.5 rounded-t-md border-b-2 transition-colors"
+                          className="inline-flex items-center h-9 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg leading-none box-border transition-colors"
                           style={{
                             minWidth: `${minSlotPx}px`,
                             borderColor: isActive ? 'var(--accent)' : 'var(--border2)',
@@ -1457,7 +1460,7 @@ export function DictationPlayerStudio({
                     {fullInlineMeta.extraWords.map((ew, eIdx) => (
                       <span
                         key={`extra-${eIdx}`}
-                        className="inline-flex items-baseline pb-0.5 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg"
+                        className="inline-flex items-center h-9 px-1.5 rounded-t-md border-b-2 font-serif-display text-base sm:text-lg leading-none box-border"
                         style={{
                           backgroundColor: 'var(--red-soft)',
                           borderColor: 'var(--red)',
